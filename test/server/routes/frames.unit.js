@@ -337,7 +337,7 @@ describe('FramesRouter', function () {
         'load'
       ).callsArgWith(1, new Error('Contract not found'));
       var contract = new storj.Contract({
-        data_hash: storj.utils.rmd160('data')
+        data_hash: storj.utils.ripemd160('data')
       });
       var audits = new storj.AuditStream(3);
       var res = { socket: { destroyed: false } };
@@ -355,7 +355,7 @@ describe('FramesRouter', function () {
         'getStorageOffer'
       ).callsArgWith(2, null, {}, {});
 
-      var hash = storj.utils.rmd160('data');
+      var hash = storj.utils.ripemd160('data');
       var contract = new storj.Contract({
         data_hash: hash
       });
@@ -374,7 +374,7 @@ describe('FramesRouter', function () {
 
     it('should callback with error if contract cannot save', function (done) {
       var contract = new storj.Contract({
-        data_hash: storj.utils.rmd160('data')
+        data_hash: storj.utils.ripemd160('data')
       });
       var audits = new storj.AuditStream(3);
       audits.getPublicRecord = sinon.stub().returns([]);
@@ -389,7 +389,7 @@ describe('FramesRouter', function () {
       ).callsArgWith(2, null, storj.Contact({
         address: '127.0.0.1',
         port: 1337,
-        nodeID: storj.utils.rmd160('farmer')
+        nodeID: storj.utils.ripemd160('farmer')
       }), contract);
       var _contractsSave = sinon.stub(
         framesRouter.contracts,
@@ -413,7 +413,7 @@ describe('FramesRouter', function () {
 
     it('should callback with farmer and contract', function (done) {
       var contract = new storj.Contract({
-        data_hash: storj.utils.rmd160('data')
+        data_hash: storj.utils.ripemd160('data')
       });
       var audits = new storj.AuditStream(3);
       audits.getPublicRecord = sinon.stub().returns([]);
@@ -428,7 +428,7 @@ describe('FramesRouter', function () {
       ).callsArgWith(2, null, storj.Contact({
         address: '127.0.0.1',
         port: 1337,
-        nodeID: storj.utils.rmd160('farmer')
+        nodeID: storj.utils.ripemd160('farmer')
       }), contract);
       var _contractsSave = sinon.stub(
         framesRouter.contracts,
@@ -444,7 +444,7 @@ describe('FramesRouter', function () {
           _contractsLoad.restore();
           _getStorageOffer.restore();
           _contractsSave.restore();
-          expect(farmer.nodeID).to.equal(storj.utils.rmd160('farmer'));
+          expect(farmer.nodeID).to.equal(storj.utils.ripemd160('farmer'));
           expect(contract2.get('data_hash')).to.equal(
             contract.get('data_hash')
           );
@@ -477,7 +477,7 @@ describe('FramesRouter', function () {
         body: {
           exclude: new Array(400),
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -505,7 +505,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -546,7 +546,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 4294967297,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -580,7 +580,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -610,7 +610,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -640,7 +640,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -703,7 +703,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -729,7 +729,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -780,7 +780,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -804,7 +804,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -860,7 +860,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -914,7 +914,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -954,7 +954,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -979,7 +979,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -1022,7 +1022,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1035,7 +1035,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1059,7 +1059,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -1096,7 +1096,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1109,7 +1109,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1140,7 +1140,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           parity: true,
           challenges: auditStream.getPrivateRecord().challenges,
@@ -1208,7 +1208,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1221,7 +1221,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1243,8 +1243,8 @@ describe('FramesRouter', function () {
         expect(_pointerCreate.args[0][0].size).to.equal(8388608);
         expect(_pointerCreate.args[0][0].tree.length).to.equal(4);
 
-        expect(result.farmer.nodeID).to.equal(storj.utils.rmd160('farmer'));
-        expect(result.hash).to.equal(storj.utils.rmd160('data'));
+        expect(result.farmer.nodeID).to.equal(storj.utils.ripemd160('farmer'));
+        expect(result.hash).to.equal(storj.utils.ripemd160('data'));
         expect(result.token).to.equal('token');
         expect(result.operation).to.equal('PUSH');
         expect(testUser.recordUploadBytes.callCount).to.equal(1);
@@ -1264,7 +1264,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           parity: true,
           challenges: auditStream.getPrivateRecord().challenges,
@@ -1297,12 +1297,12 @@ describe('FramesRouter', function () {
 
       const farmer = {
         reputation: 5000,
-        nodeID: storj.utils.rmd160('farmer'),
+        nodeID: storj.utils.ripemd160('farmer'),
         address: '127.0.0.1',
         port: 8080
       };
       const contract = {
-        data_hash: storj.utils.rmd160('data_hash')
+        data_hash: storj.utils.ripemd160('data_hash')
       };
       const saveMirror = sandbox.stub();
 
@@ -1373,7 +1373,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1386,7 +1386,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1396,7 +1396,7 @@ describe('FramesRouter', function () {
         'getConsignmentPointer'
       ).callsArgWith(3, null, { token: 'token' });
 
-      const item = new storj.StorageItem({ hash: storj.utils.rmd160('data') });
+      const item = new storj.StorageItem({ hash: storj.utils.ripemd160('data') });
       sandbox.stub(item, 'addContract');
       sandbox.stub(item, 'addAuditRecords');
 
@@ -1409,7 +1409,7 @@ describe('FramesRouter', function () {
         expect(_getConsignmentPointer.args[0][0].nodeID)
           .to.equal(farmer.nodeID);
         expect(_getConsignmentPointer.args[0][1].get('data_hash'))
-          .to.equal(storj.utils.rmd160('data_hash'));
+          .to.equal(storj.utils.ripemd160('data_hash'));
 
         expect(_pointerCreate.callCount).to.equal(1);
         expect(_pointerCreate.args[0][0].challenges.length).to.equal(3);
@@ -1420,8 +1420,8 @@ describe('FramesRouter', function () {
         expect(_pointerCreate.args[0][0].size).to.equal(8388608);
         expect(_pointerCreate.args[0][0].tree.length).to.equal(4);
 
-        expect(result.farmer.nodeID).to.equal(storj.utils.rmd160('farmer'));
-        expect(result.hash).to.equal(storj.utils.rmd160('data'));
+        expect(result.farmer.nodeID).to.equal(storj.utils.ripemd160('farmer'));
+        expect(result.hash).to.equal(storj.utils.ripemd160('data'));
         expect(result.token).to.equal('token');
         expect(result.operation).to.equal('PUSH');
         expect(testUser.recordUploadBytes.callCount).to.equal(1);
@@ -1442,7 +1442,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           parity: true,
           challenges: auditStream.getPrivateRecord().challenges,
@@ -1533,7 +1533,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1546,7 +1546,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1573,7 +1573,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           parity: true,
           challenges: auditStream.getPrivateRecord().challenges,
@@ -1606,12 +1606,12 @@ describe('FramesRouter', function () {
 
       const farmer = {
         responseTime: 100,
-        nodeID: storj.utils.rmd160('farmer'),
+        nodeID: storj.utils.ripemd160('farmer'),
         address: '127.0.0.1',
         port: 8080
       };
       const contract = {
-        data_hash: storj.utils.rmd160('data_hash')
+        data_hash: storj.utils.ripemd160('data_hash')
       };
       const saveMirror = sandbox.stub();
 
@@ -1661,7 +1661,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1674,7 +1674,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1698,14 +1698,14 @@ describe('FramesRouter', function () {
         expect(addContract.callCount).to.equal(1);
         expect(addAuditRecords.callCount).to.equal(1);
 
-        expect(result.farmer.nodeID).to.equal(storj.utils.rmd160('farmer'));
-        expect(result.hash).to.equal(storj.utils.rmd160('data'));
+        expect(result.farmer.nodeID).to.equal(storj.utils.ripemd160('farmer'));
+        expect(result.hash).to.equal(storj.utils.ripemd160('data'));
         expect(result.token).to.equal('token');
         expect(result.operation).to.equal('PUSH');
 
         expect(framesRouter.contracts.save.callCount).to.equal(1);
         expect(framesRouter.contracts.save.args[0][0].hash)
-          .to.equal(storj.utils.rmd160('data'));
+          .to.equal(storj.utils.ripemd160('data'));
         done();
       });
       framesRouter.addShardToFrame(request, response);
@@ -1721,7 +1721,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           parity: true,
           challenges: auditStream.getPrivateRecord().challenges,
@@ -1754,12 +1754,12 @@ describe('FramesRouter', function () {
 
       const farmer = {
         responseTime: 100,
-        nodeID: storj.utils.rmd160('farmer'),
+        nodeID: storj.utils.ripemd160('farmer'),
         address: '127.0.0.1',
         port: 8080
       };
       const contract = {
-        data_hash: storj.utils.rmd160('data_hash')
+        data_hash: storj.utils.ripemd160('data_hash')
       };
       const saveMirror = sandbox.stub();
 
@@ -1828,7 +1828,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -1895,7 +1895,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -1908,7 +1908,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );
@@ -1934,7 +1934,7 @@ describe('FramesRouter', function () {
         },
         body: {
           index: 0,
-          hash: storj.utils.rmd160('data'),
+          hash: storj.utils.ripemd160('data'),
           size: 1024 * 1024 * 8,
           challenges: auditStream.getPrivateRecord().challenges,
           tree: auditStream.getPublicRecord()
@@ -1995,7 +1995,7 @@ describe('FramesRouter', function () {
         'create'
       ).callsArgWith(1, null, new framesRouter.storage.models.Pointer({
         index: 0,
-        hash: storj.utils.rmd160('data'),
+        hash: storj.utils.ripemd160('data'),
         size: 1024 * 1024 * 8,
         challenges: auditStream.getPrivateRecord().challenges,
         tree: auditStream.getPublicRecord()
@@ -2008,7 +2008,7 @@ describe('FramesRouter', function () {
           callback(null, storj.Contact({
             address: '127.0.0.1',
             port: 1337,
-            nodeID: storj.utils.rmd160('farmer')
+            nodeID: storj.utils.ripemd160('farmer')
           }), contract);
         }
       );

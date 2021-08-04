@@ -52,14 +52,14 @@ describe('ContractRenewalJob', function () {
     // INSERT TEST CONTACTS
     // **
     documents.push(new storage.models.Contact({
-      _id: storj.utils.rmd160('contact1'),
+      _id: storj.utils.ripemd160('contact1'),
       address: 'contact.one',
       port: 80,
       lastSeen: NOW,
       protocol: '0.0.0'
     }));
     documents.push(new storage.models.Contact({
-      _id: storj.utils.rmd160('contact2'),
+      _id: storj.utils.ripemd160('contact2'),
       address: 'contact.two',
       port: 80,
       lastSeen: NOW,
@@ -70,27 +70,27 @@ describe('ContractRenewalJob', function () {
     // INSERT TEST SHARD/CONTRACTS
     // **
     documents.push(new storage.models.Shard({
-      hash: storj.utils.rmd160('shard1'),
+      hash: storj.utils.ripemd160('shard1'),
       contracts: [
         {
-          nodeID: storj.utils.rmd160('contact1'),
+          nodeID: storj.utils.ripemd160('contact1'),
           contract: {
             store_begin: NOW - ms('89d'),
             store_end: NOW + ms('23h')
           }
         },
         {
-          nodeID: storj.utils.rmd160('contact2'),
+          nodeID: storj.utils.ripemd160('contact2'),
           contract: {
-            data_hash: storj.utils.rmd160('shard1'),
+            data_hash: storj.utils.ripemd160('shard1'),
             store_begin: NOW - ms('30d'),
             store_end: NOW + ms('1h')
           }
         },
         {
-          nodeID: storj.utils.rmd160('contact3'),
+          nodeID: storj.utils.ripemd160('contact3'),
           contract: {
-            data_hash: storj.utils.rmd160('shard1'),
+            data_hash: storj.utils.ripemd160('shard1'),
             store_begin: NOW,
             store_end: NOW + ms('365d')
           }
@@ -98,20 +98,20 @@ describe('ContractRenewalJob', function () {
       ]
     }));
     documents.push(new storage.models.Shard({
-      hash: storj.utils.rmd160('shard2'),
+      hash: storj.utils.ripemd160('shard2'),
       contracts: [
         {
-          nodeID: storj.utils.rmd160('contact1'),
+          nodeID: storj.utils.ripemd160('contact1'),
           contract: {
-            data_hash: storj.utils.rmd160('shard2'),
+            data_hash: storj.utils.ripemd160('shard2'),
             store_begin: NOW - ms('3d'),
             store_end: NOW + ms('30s')
           }
         },
         {
-          nodeID: storj.utils.rmd160('contact2'),
+          nodeID: storj.utils.ripemd160('contact2'),
           contract: {
-            data_hash: storj.utils.rmd160('shard2'),
+            data_hash: storj.utils.ripemd160('shard2'),
             store_begin: NOW - ms('4d'),
             store_end: NOW + ms('12h')
           }
@@ -119,20 +119,20 @@ describe('ContractRenewalJob', function () {
       ]
     }));
     documents.push(new storage.models.Shard({
-      hash: storj.utils.rmd160('shard3'),
+      hash: storj.utils.ripemd160('shard3'),
       contracts: [
         {
-          nodeID: storj.utils.rmd160('contact1'),
+          nodeID: storj.utils.ripemd160('contact1'),
           contract: {
-            data_hash: storj.utils.rmd160('shard3'),
+            data_hash: storj.utils.ripemd160('shard3'),
             store_begin: NOW - ms('1d'),
             store_end: NOW + ms('5h')
           }
         },
         {
-          nodeID: storj.utils.rmd160('contact2'),
+          nodeID: storj.utils.ripemd160('contact2'),
           contract: {
-            data_hash: storj.utils.rmd160('shard3'),
+            data_hash: storj.utils.ripemd160('shard3'),
             store_begin: NOW - ms('1y'),
             store_end: NOW + ms('20m')
           }
@@ -140,20 +140,20 @@ describe('ContractRenewalJob', function () {
       ]
     }));
     documents.push(new storage.models.Shard({
-      hash: storj.utils.rmd160('shard4'),
+      hash: storj.utils.ripemd160('shard4'),
       contracts: [
         {
-          nodeID: storj.utils.rmd160('contact3'),
+          nodeID: storj.utils.ripemd160('contact3'),
           contract: {
-            data_hash: storj.utils.rmd160('shard4'),
+            data_hash: storj.utils.ripemd160('shard4'),
             store_begin: NOW - ms('1m'),
             store_end: NOW + ms('1m')
           }
         },
         {
-          nodeID: storj.utils.rmd160('contact2'),
+          nodeID: storj.utils.ripemd160('contact2'),
           contract: {
-            data_hash: storj.utils.rmd160('shard4'),
+            data_hash: storj.utils.ripemd160('shard4'),
             store_begin: NOW - ms('8d'),
             store_end: NOW + ms('16h')
           }
@@ -161,20 +161,20 @@ describe('ContractRenewalJob', function () {
       ]
     }));
     documents.push(new storage.models.Shard({
-      hash: storj.utils.rmd160('shard5'),
+      hash: storj.utils.ripemd160('shard5'),
       contracts: [
         {
-          nodeID: storj.utils.rmd160('contact1'),
+          nodeID: storj.utils.ripemd160('contact1'),
           contract: {
-            data_hash: storj.utils.rmd160('shard5'),
+            data_hash: storj.utils.ripemd160('shard5'),
             store_begin: NOW - ms('15s'),
             store_end: NOW + ms('11h')
           }
         },
         {
-          nodeID: storj.utils.rmd160('contact3'),
+          nodeID: storj.utils.ripemd160('contact3'),
           contract: {
-            data_hash: storj.utils.rmd160('shard5'),
+            data_hash: storj.utils.ripemd160('shard5'),
             store_begin: NOW - ms('15d'),
             store_end: NOW + ms('15m')
           }
@@ -187,31 +187,31 @@ describe('ContractRenewalJob', function () {
     // **
     let p1 = new storage.models.Pointer({
       index: 0,
-      hash: storj.utils.rmd160('shard1'),
+      hash: storj.utils.ripemd160('shard1'),
       size: 4096
     });
     documents.push(p1);
     let p2 = new storage.models.Pointer({
       index: 0,
-      hash: storj.utils.rmd160('shard2'),
+      hash: storj.utils.ripemd160('shard2'),
       size: 4096
     });
     documents.push(p2);
     let p3 = new storage.models.Pointer({
       index: 0,
-      hash: storj.utils.rmd160('shard3'),
+      hash: storj.utils.ripemd160('shard3'),
       size: 4096
     });
     documents.push(p3);
     let p4 = new storage.models.Pointer({
       index: 0,
-      hash: storj.utils.rmd160('shard4'),
+      hash: storj.utils.ripemd160('shard4'),
       size: 4096
     });
     documents.push(p4);
     let p5 = new storage.models.Pointer({
       index: 0,
-      hash: storj.utils.rmd160('shard5'),
+      hash: storj.utils.ripemd160('shard5'),
       size: 4096
     });
     documents.push(p5);
