@@ -3,7 +3,7 @@
 const storj = require('storj-lib');
 const Logger = require('../lib/logger');
 const path = require('path');
-const async = require('async');
+const async = require('neo-async');
 const Config = require('../lib/config');
 const Storage = require('storj-service-storage-models');
 const { expect } = require('chai');
