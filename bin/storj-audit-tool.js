@@ -5,7 +5,7 @@
 
 const fs = require('fs');
 const http = require('http');
-const async = require('neo-async');
+const async = require('async');
 const crypto = require('crypto');
 const Config = require('../lib/config');
 const program = require('commander');
