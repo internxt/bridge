@@ -59,13 +59,13 @@ describe('ContactsRouter', function () {
       var contact1 = new contactsRouter.storage.models.Contact({
         address: '127.0.0.1',
         port: 1337,
-        _id: storj.utils.rmd160('1'),
+        _id: storj.utils.ripemd160('1'),
         lastSeen: Date.now() - 10
       });
       var contact2 = new contactsRouter.storage.models.Contact({
         address: '127.0.0.1',
         port: 1338,
-        _id: storj.utils.rmd160('2'),
+        _id: storj.utils.ripemd160('2'),
         lastSeen: Date.now() + 10
       });
       var _contactFind = sinon.stub(
@@ -83,8 +83,8 @@ describe('ContactsRouter', function () {
       response.on('end', function () {
         var result = response._getData();
         _contactFind.restore();
-        expect(result[0].nodeID).to.equal(storj.utils.rmd160('2'));
-        expect(result[1].nodeID).to.equal(storj.utils.rmd160('1'));
+        expect(result[0].nodeID).to.equal(storj.utils.ripemd160('2'));
+        expect(result[1].nodeID).to.equal(storj.utils.ripemd160('1'));
         done();
       });
       contactsRouter.getContactList(request, response);
@@ -182,9 +182,9 @@ describe('ContactsRouter', function () {
     it('should return not found error if no contact', function (done) {
       var request = httpMocks.createRequest({
         method: 'GET',
-        url: '/contacts/' + storj.utils.rmd160('nodeid'),
+        url: '/contacts/' + storj.utils.ripemd160('nodeid'),
         params: {
-          nodeID: storj.utils.rmd160('nodeid')
+          nodeID: storj.utils.ripemd160('nodeid')
         }
       });
       var response = httpMocks.createResponse({
@@ -217,7 +217,7 @@ describe('ContactsRouter', function () {
       var contact1 = new contactsRouter.storage.models.Contact({
         address: '127.0.0.1',
         port: 1337,
-        _id: storj.utils.rmd160('1'),
+        _id: storj.utils.ripemd160('1'),
         lastSeen: Date.now()
       });
       var _contactFind = sinon.stub(

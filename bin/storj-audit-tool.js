@@ -360,7 +360,7 @@ stream.on('data', function (line) {
                 });
 
                 res.on('end', () => {
-                  const actual = storj.utils.rmd160b(hasher.digest()).toString('hex');
+                  const actual = storj.utils.ripemd160b(hasher.digest()).toString('hex');
                   if (actual !== shard.hash) {
                     shardResults[sanitizeNodeID(shard.hash)] = {
                       status: ERROR_HASH,

@@ -1977,7 +1977,7 @@ describe('BucketsRouter', function () {
       ).callsArgWith(1, null, new storj.StorageItem({
         contracts: {
           nodeid: {
-            data_hash: storj.utils.rmd160('')
+            data_hash: storj.utils.ripemd160('')
           }
         }
       }));
@@ -1998,7 +1998,7 @@ describe('BucketsRouter', function () {
       ).callsArgWith(1, null, new storj.StorageItem({
         contracts: {
           nodeid: {
-            data_hash: storj.utils.rmd160('')
+            data_hash: storj.utils.ripemd160('')
           }
         }
       }));
@@ -2006,7 +2006,7 @@ describe('BucketsRouter', function () {
         bucketsRouter,
         'getContactById'
       ).callsArgWith(1, null, {
-        nodeID: storj.utils.rmd160('1'),
+        nodeID: storj.utils.ripemd160('1'),
         address: '0.0.0.0',
         port: 1337
       });
@@ -2027,7 +2027,7 @@ describe('BucketsRouter', function () {
       ).callsArgWith(1, null, new storj.StorageItem({
         contracts: {
           nodeid: {
-            data_hash: storj.utils.rmd160('')
+            data_hash: storj.utils.ripemd160('')
           }
         }
       }));
@@ -2035,7 +2035,7 @@ describe('BucketsRouter', function () {
         bucketsRouter,
         'getContactById'
       ).callsArgWith(1, null, {
-        nodeID: storj.utils.rmd160('1'),
+        nodeID: storj.utils.ripemd160('1'),
         address: '0.0.0.0',
         port: 1337
       });
@@ -2097,7 +2097,7 @@ describe('BucketsRouter', function () {
       sandbox.stub(bucketsRouter.contracts, 'load').callsArgWith(
         1,
         null,
-        new storj.StorageItem({ hash: storj.utils.rmd160('') })
+        new storj.StorageItem({ hash: storj.utils.ripemd160('') })
       );
       bucketsRouter.createMirrorsFromTokenMap([
         [{
@@ -2105,10 +2105,10 @@ describe('BucketsRouter', function () {
           destination: storj.Contact({
             address: '0.0.0.0',
             port: 1337,
-            nodeID: storj.utils.rmd160('')
+            nodeID: storj.utils.ripemd160('')
           }),
           mirror: {
-            contract: storj.Contract({ data_hash: storj.utils.rmd160('') }),
+            contract: storj.Contract({ data_hash: storj.utils.ripemd160('') }),
             save: sinon.stub().callsArgWith(0, new Error('Failed to save'))
           }
         }]
@@ -2122,7 +2122,7 @@ describe('BucketsRouter', function () {
       sandbox.stub(bucketsRouter.contracts, 'load').callsArgWith(
         1,
         null,
-        new storj.StorageItem({ hash: storj.utils.rmd160('') })
+        new storj.StorageItem({ hash: storj.utils.ripemd160('') })
       );
       sandbox.stub(bucketsRouter.contracts, 'save').callsArgWith(
         1,
@@ -2134,10 +2134,10 @@ describe('BucketsRouter', function () {
           destination: storj.Contact({
             address: '0.0.0.0',
             port: 1337,
-            nodeID: storj.utils.rmd160('')
+            nodeID: storj.utils.ripemd160('')
           }),
           mirror: {
-            contract: storj.Contract({ data_hash: storj.utils.rmd160('') }),
+            contract: storj.Contract({ data_hash: storj.utils.ripemd160('') }),
             save: sinon.stub().callsArg(0)
           }
         }]
@@ -2151,7 +2151,7 @@ describe('BucketsRouter', function () {
       sandbox.stub(bucketsRouter.contracts, 'load').callsArgWith(
         1,
         null,
-        new storj.StorageItem({ hash: storj.utils.rmd160('') })
+        new storj.StorageItem({ hash: storj.utils.ripemd160('') })
       );
       sandbox.stub(bucketsRouter.contracts, 'save').callsArgWith(
         1,
@@ -2167,10 +2167,10 @@ describe('BucketsRouter', function () {
           destination: storj.Contact({
             address: '0.0.0.0',
             port: 1337,
-            nodeID: storj.utils.rmd160('')
+            nodeID: storj.utils.ripemd160('')
           }),
           mirror: {
-            contract: storj.Contract({ data_hash: storj.utils.rmd160('') }),
+            contract: storj.Contract({ data_hash: storj.utils.ripemd160('') }),
             save: sinon.stub().callsArg(0)
           }
         }]
@@ -2206,7 +2206,7 @@ describe('BucketsRouter', function () {
         'find'
       ).callsArgWith(1, null, [
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid'),
+          _id: storj.utils.ripemd160('nodeid'),
           address: '0.0.0.0',
           port: 1234
         })
@@ -2265,11 +2265,11 @@ describe('BucketsRouter', function () {
         bucketsRouter.contracts,
         'load'
       ).callsArgWith(1, null, storj.StorageItem({
-        hash: storj.utils.rmd160(''),
+        hash: storj.utils.ripemd160(''),
         contracts: {
-          nodeid1: { data_hash: storj.utils.rmd160('') },
-          nodeid2: { data_hash: storj.utils.rmd160('') },
-          nodeid3: { data_hash: storj.utils.rmd160('') }
+          nodeid1: { data_hash: storj.utils.ripemd160('') },
+          nodeid2: { data_hash: storj.utils.ripemd160('') },
+          nodeid3: { data_hash: storj.utils.ripemd160('') }
         }
       }));
       sandbox.stub(
@@ -2277,19 +2277,19 @@ describe('BucketsRouter', function () {
         'find'
       ).callsArgWith(1, null, [
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid1'),
+          _id: storj.utils.ripemd160('nodeid1'),
           address: '0.0.0.0',
           port: 1234,
           lastSeen: 10
         }),
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid2'),
+          _id: storj.utils.ripemd160('nodeid2'),
           address: '0.0.0.0',
           port: 1234,
           lastSeen: 3
         }),
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid3'),
+          _id: storj.utils.ripemd160('nodeid3'),
           address: '0.0.0.0',
           port: 1234,
           lastSeen: 12
@@ -2329,11 +2329,11 @@ describe('BucketsRouter', function () {
         bucketsRouter.contracts,
         'load'
       ).callsArgWith(1, null, storj.StorageItem({
-        hash: storj.utils.rmd160(''),
+        hash: storj.utils.ripemd160(''),
         contracts: {
-          nodeid1: { data_hash: storj.utils.rmd160('') },
-          nodeid2: { data_hash: storj.utils.rmd160('') },
-          nodeid3: { data_hash: storj.utils.rmd160('') }
+          nodeid1: { data_hash: storj.utils.ripemd160('') },
+          nodeid2: { data_hash: storj.utils.ripemd160('') },
+          nodeid3: { data_hash: storj.utils.ripemd160('') }
         }
       }));
       sandbox.stub(
@@ -2341,7 +2341,7 @@ describe('BucketsRouter', function () {
         '_requestRetrievalPointer').callsFake(
         function (item, options, next) {
           options.pointer = {
-            token: options.contact.nodeID === storj.utils.rmd160('nodeid2') ?
+            token: options.contact.nodeID === storj.utils.ripemd160('nodeid2') ?
               'correct token' :
               'incorrect token'
           };
@@ -2353,20 +2353,20 @@ describe('BucketsRouter', function () {
         'find'
       ).callsArgWith(1, null, [
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid1'),
+          _id: storj.utils.ripemd160('nodeid1'),
           address: '0.0.0.0',
           port: 1234,
           lastSeen: Date.now() - 2000,
           lastTimeout: Date.now() - 1000
         }),
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid2'),
+          _id: storj.utils.ripemd160('nodeid2'),
           address: '0.0.0.0',
           port: 1234,
           lastSeen: 12
         }),
         new bucketsRouter.storage.models.Contact({
-          _id: storj.utils.rmd160('nodeid3'),
+          _id: storj.utils.ripemd160('nodeid3'),
           address: '0.0.0.0',
           port: 1234,
           lastSeen: 3
@@ -2391,22 +2391,22 @@ describe('BucketsRouter', function () {
       ).callsArgWith(1, null, {
         address: '0.0.0.0',
         port: 1337,
-        nodeID: storj.utils.rmd160('nodeid')
+        nodeID: storj.utils.ripemd160('nodeid')
       });
       sandbox.stub(
         bucketsRouter.network,
         'getRetrievalPointer'
       ).callsArgWith(2, new Error('Failed to get pointer'));
       var contracts = {};
-      contracts[storj.utils.rmd160('nodeid')] = {
-        data_hash: storj.utils.rmd160('')
+      contracts[storj.utils.ripemd160('nodeid')] = {
+        data_hash: storj.utils.ripemd160('')
       };
       bucketsRouter._requestRetrievalPointer(storj.StorageItem({
-        hash: storj.utils.rmd160(''),
+        hash: storj.utils.ripemd160(''),
         contracts: contracts
       }), {
         contact: new storj.Contact({
-          nodeID: storj.utils.rmd160('nodeid'),
+          nodeID: storj.utils.ripemd160('nodeid'),
           address: '0.0.0.0',
           port: 1234
         }),
@@ -2425,22 +2425,22 @@ describe('BucketsRouter', function () {
       ).callsArgWith(1, null, {
         address: '0.0.0.0',
         port: 1337,
-        nodeID: storj.utils.rmd160('nodeid')
+        nodeID: storj.utils.ripemd160('nodeid')
       });
       sandbox.stub(
         bucketsRouter.network,
         'getRetrievalPointer'
       ).callsArgWith(2, null, {});
       var contracts = {};
-      contracts[storj.utils.rmd160('nodeid')] = {
-        data_hash: storj.utils.rmd160('')
+      contracts[storj.utils.ripemd160('nodeid')] = {
+        data_hash: storj.utils.ripemd160('')
       };
       bucketsRouter._requestRetrievalPointer(storj.StorageItem({
-        hash: storj.utils.rmd160(''),
+        hash: storj.utils.ripemd160(''),
         contracts: contracts
       }), {
         contact: new storj.Contact({
-          nodeID: storj.utils.rmd160('nodeid'),
+          nodeID: storj.utils.ripemd160('nodeid'),
           address: '0.0.0.0',
           port: 1234
         }),
@@ -2459,7 +2459,7 @@ describe('BucketsRouter', function () {
       ).callsArgWith(1, null, {
         address: '0.0.0.0',
         port: 1337,
-        nodeID: storj.utils.rmd160('nodeid')
+        nodeID: storj.utils.ripemd160('nodeid')
       });
       sandbox.stub(
         bucketsRouter.network,
@@ -2468,11 +2468,11 @@ describe('BucketsRouter', function () {
         token: 'token'
       });
       var contracts = {};
-      contracts[storj.utils.rmd160('nodeid')] = {
-        data_hash: storj.utils.rmd160('')
+      contracts[storj.utils.ripemd160('nodeid')] = {
+        data_hash: storj.utils.ripemd160('')
       };
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160(''),
+        hash: storj.utils.ripemd160(''),
         contracts: contracts
       });
       sandbox.stub(
@@ -2481,7 +2481,7 @@ describe('BucketsRouter', function () {
       ).callsArg(1);
       var meta = {
         contact: new storj.Contact({
-          nodeID: storj.utils.rmd160('nodeid'),
+          nodeID: storj.utils.ripemd160('nodeid'),
           address: '0.0.0.0',
           port: 1234
         }),
@@ -2490,7 +2490,7 @@ describe('BucketsRouter', function () {
       bucketsRouter._requestRetrievalPointer(item, meta, function (err) {
         expect(err).to.equal(null);
         expect(meta.pointer.token).to.equal('token');
-        expect(meta.pointer.farmer.nodeID).to.equal(storj.utils.rmd160('nodeid'));
+        expect(meta.pointer.farmer.nodeID).to.equal(storj.utils.ripemd160('nodeid'));
         done();
       });
     });

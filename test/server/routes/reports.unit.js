@@ -27,10 +27,10 @@ describe('ReportsRouter', function () {
         method: 'POST',
         url: '/reports/exchanges',
         body: {
-          reporterId: storj.utils.rmd160('client'),
-          farmerId: storj.utils.rmd160('farmer'),
-          clientId: storj.utils.rmd160('client'),
-          dataHash: storj.utils.rmd160('data'),
+          reporterId: storj.utils.ripemd160('client'),
+          farmerId: storj.utils.ripemd160('farmer'),
+          clientId: storj.utils.ripemd160('client'),
+          dataHash: storj.utils.ripemd160('data'),
           exchangeStart: Date.now(),
           exchangeEnd: Date.now(),
           exchangeResultCode: 1000,
@@ -62,10 +62,10 @@ describe('ReportsRouter', function () {
         method: 'POST',
         url: '/reports/exchanges',
         body: {
-          reporterId: storj.utils.rmd160('client'),
-          farmerId: storj.utils.rmd160('farmer'),
-          clientId: storj.utils.rmd160('client'),
-          dataHash: storj.utils.rmd160('data'),
+          reporterId: storj.utils.ripemd160('client'),
+          farmerId: storj.utils.ripemd160('farmer'),
+          clientId: storj.utils.ripemd160('client'),
+          dataHash: storj.utils.ripemd160('data'),
           exchangeStart: Date.now(),
           exchangeEnd: Date.now(),
           exchangeResultCode: 1000,
@@ -97,10 +97,10 @@ describe('ReportsRouter', function () {
         method: 'POST',
         url: '/reports/exchanges',
         body: {
-          reporterId: storj.utils.rmd160('client'),
-          farmerId: storj.utils.rmd160('farmer'),
-          clientId: storj.utils.rmd160('client'),
-          dataHash: storj.utils.rmd160('data'),
+          reporterId: storj.utils.ripemd160('client'),
+          farmerId: storj.utils.ripemd160('farmer'),
+          clientId: storj.utils.ripemd160('client'),
+          dataHash: storj.utils.ripemd160('data'),
           exchangeStart: Date.now(),
           exchangeEnd: Date.now(),
           exchangeResultCode: 1000,
@@ -132,10 +132,10 @@ describe('ReportsRouter', function () {
         method: 'POST',
         url: '/reports/exchanges',
         body: {
-          reporterId: storj.utils.rmd160('client'),
-          farmerId: storj.utils.rmd160('farmer'),
-          clientId: storj.utils.rmd160('client'),
-          dataHash: storj.utils.rmd160('data'),
+          reporterId: storj.utils.ripemd160('client'),
+          farmerId: storj.utils.ripemd160('farmer'),
+          clientId: storj.utils.ripemd160('client'),
+          dataHash: storj.utils.ripemd160('data'),
           exchangeStart: Date.now(),
           exchangeEnd: Date.now(),
           exchangeResultCode: 1000,
@@ -167,10 +167,10 @@ describe('ReportsRouter', function () {
         method: 'POST',
         url: '/reports/exchanges',
         body: {
-          reporterId: storj.utils.rmd160('client'),
-          farmerId: storj.utils.rmd160('farmer'),
-          clientId: storj.utils.rmd160('client'),
-          dataHash: storj.utils.rmd160('data'),
+          reporterId: storj.utils.ripemd160('client'),
+          farmerId: storj.utils.ripemd160('farmer'),
+          clientId: storj.utils.ripemd160('client'),
+          dataHash: storj.utils.ripemd160('data'),
           exchangeStart: Date.now(),
           exchangeEnd: Date.now(),
           exchangeResultCode: 1000,
@@ -312,7 +312,7 @@ describe('ReportsRouter', function () {
     afterEach(() => sandbox.restore());
 
     const n = constants.M_REPLICATE;
-    const hash = storj.utils.rmd160('');
+    const hash = storj.utils.ripemd160('');
 
     it('should successfully replicate the shard', function (done) {
       sandbox.spy(Array.prototype, 'sort');
@@ -321,14 +321,14 @@ describe('ReportsRouter', function () {
           shardHash: 'shardhash',
           contact: null, // populated contact field not found
           contract: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           },
           isEstablished: true
         }),
         new reportsRouter.storage.models.Mirror({
           shardHash: 'shardhash',
           contact: new reportsRouter.storage.models.Contact({
-            _id: storj.utils.rmd160('node1'),
+            _id: storj.utils.ripemd160('node1'),
             address: '0.0.0.0',
             port: 1234,
             protocol: '1.0.0',
@@ -336,14 +336,14 @@ describe('ReportsRouter', function () {
             userAgent: 'test'
           }),
           contract: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           },
           isEstablished: true
         }),
         new reportsRouter.storage.models.Mirror({
           shardHash: 'shardhash',
           contact: new reportsRouter.storage.models.Contact({
-            _id: storj.utils.rmd160('node2'),
+            _id: storj.utils.ripemd160('node2'),
             address: '0.0.0.0',
             port: 1234,
             protocol: '1.0.0',
@@ -351,7 +351,7 @@ describe('ReportsRouter', function () {
             userAgent: 'test'
           }),
           contract: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           },
           isEstablished: false
         }),
@@ -366,7 +366,7 @@ describe('ReportsRouter', function () {
             userAgent: 'test'
           }),
           contract: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           },
           isEstablished: false
         })
@@ -382,10 +382,10 @@ describe('ReportsRouter', function () {
         }
       });
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160('shardhash'),
+        hash: storj.utils.ripemd160('shardhash'),
         contracts: {
           node3: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           },
           '28dd8e03bf86f7cf14ac7866c44628cebb21a2d3': {}
         }
@@ -398,7 +398,7 @@ describe('ReportsRouter', function () {
         reportsRouter,
         'getContactById'
       ).callsArgWith(1, null, new reportsRouter.storage.models.Contact({
-        _id: storj.utils.rmd160('node2'),
+        _id: storj.utils.ripemd160('node2'),
         address: '0.0.0.0',
         port: 1234,
         protocol: '1.0.0',
@@ -437,7 +437,7 @@ describe('ReportsRouter', function () {
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node1'),
+                  _id: storj.utils.ripemd160('node1'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -445,14 +445,14 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: true
               }),
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node2'),
+                  _id: storj.utils.ripemd160('node2'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -460,7 +460,7 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: false
               })
@@ -469,10 +469,10 @@ describe('ReportsRouter', function () {
         }
       });
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160('shardhash'),
+        hash: storj.utils.ripemd160('shardhash'),
         contracts: {
           node3: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           }
         }
       });
@@ -484,7 +484,7 @@ describe('ReportsRouter', function () {
         reportsRouter,
         'getContactById'
       ).callsArgWith(1, null, new reportsRouter.storage.models.Contact({
-        _id: storj.utils.rmd160('node2'),
+        _id: storj.utils.ripemd160('node2'),
         address: '0.0.0.0',
         port: 1234,
         protocol: '1.0.0',
@@ -526,7 +526,7 @@ describe('ReportsRouter', function () {
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node1'),
+                  _id: storj.utils.ripemd160('node1'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -534,14 +534,14 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: true
               }),
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node2'),
+                  _id: storj.utils.ripemd160('node2'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -549,7 +549,7 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: false
               })
@@ -558,10 +558,10 @@ describe('ReportsRouter', function () {
         }
       });
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160('shardhash'),
+        hash: storj.utils.ripemd160('shardhash'),
         contracts: {
           node3: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           }
         }
       });
@@ -573,7 +573,7 @@ describe('ReportsRouter', function () {
         reportsRouter,
         'getContactById'
       ).callsArgWith(1, null, new reportsRouter.storage.models.Contact({
-        _id: storj.utils.rmd160('node2'),
+        _id: storj.utils.ripemd160('node2'),
         address: '0.0.0.0',
         port: 1234,
         protocol: '1.0.0',
@@ -615,7 +615,7 @@ describe('ReportsRouter', function () {
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node1'),
+                  _id: storj.utils.ripemd160('node1'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -623,14 +623,14 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: true
               }),
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node2'),
+                  _id: storj.utils.ripemd160('node2'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -638,7 +638,7 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: false
               })
@@ -647,10 +647,10 @@ describe('ReportsRouter', function () {
         }
       });
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160('shardhash'),
+        hash: storj.utils.ripemd160('shardhash'),
         contracts: {
           node3: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           }
         }
       });
@@ -696,7 +696,7 @@ describe('ReportsRouter', function () {
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node1'),
+                  _id: storj.utils.ripemd160('node1'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -704,14 +704,14 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: true
               }),
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node2'),
+                  _id: storj.utils.ripemd160('node2'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -719,7 +719,7 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: false
               })
@@ -735,7 +735,7 @@ describe('ReportsRouter', function () {
         reportsRouter,
         'getContactById'
       ).callsArgWith(1, null, new reportsRouter.storage.models.Contact({
-        _id: storj.utils.rmd160('node2'),
+        _id: storj.utils.ripemd160('node2'),
         address: '0.0.0.0',
         port: 1234,
         protocol: '1.0.0',
@@ -777,7 +777,7 @@ describe('ReportsRouter', function () {
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node1'),
+                  _id: storj.utils.ripemd160('node1'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -785,14 +785,14 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: true
               }),
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node2'),
+                  _id: storj.utils.ripemd160('node2'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -800,14 +800,14 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash')
+                  data_hash: storj.utils.ripemd160('shardhash')
                 },
                 isEstablished: false
               }),
               new reportsRouter.storage.models.Mirror({
                 shardHash: 'shardhash',
                 contact: new reportsRouter.storage.models.Contact({
-                  _id: storj.utils.rmd160('node3'),
+                  _id: storj.utils.ripemd160('node3'),
                   address: '0.0.0.0',
                   port: 1234,
                   protocol: '1.0.0',
@@ -815,7 +815,7 @@ describe('ReportsRouter', function () {
                   userAgent: 'test'
                 }),
                 contract: {
-                  data_hash: storj.utils.rmd160('shardhash3')
+                  data_hash: storj.utils.ripemd160('shardhash3')
                 },
                 isEstablished: true
               })
@@ -824,11 +824,11 @@ describe('ReportsRouter', function () {
         }
       });
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160('shardhash'),
+        hash: storj.utils.ripemd160('shardhash'),
         contracts: {
           '2b6e0d0e45c1dcea62f701a31e4be1b507ab67d4': {},
           node3: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           }
         }
       });
@@ -840,7 +840,7 @@ describe('ReportsRouter', function () {
         reportsRouter,
         'getContactById'
       ).callsArgWith(1, null, new reportsRouter.storage.models.Contact({
-        _id: storj.utils.rmd160('node2'),
+        _id: storj.utils.ripemd160('node2'),
         address: '0.0.0.0',
         port: 1234,
         protocol: '1.0.0',
@@ -883,10 +883,10 @@ describe('ReportsRouter', function () {
         }
       });
       var item = storj.StorageItem({
-        hash: storj.utils.rmd160('shardhash'),
+        hash: storj.utils.ripemd160('shardhash'),
         contracts: {
           node3: {
-            data_hash: storj.utils.rmd160('shardhash')
+            data_hash: storj.utils.ripemd160('shardhash')
           }
         }
       });
@@ -898,7 +898,7 @@ describe('ReportsRouter', function () {
         reportsRouter,
         'getContactById'
       ).callsArgWith(1, null, new reportsRouter.storage.models.Contact({
-        _id: storj.utils.rmd160('node2'),
+        _id: storj.utils.ripemd160('node2'),
         address: '0.0.0.0',
         port: 1234,
         protocol: '1.0.0',
