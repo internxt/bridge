@@ -75,7 +75,7 @@
     "concat-stream": "^1.6.2",
     "cors": "^2.8.5",
     "csv-write-stream": "^2.0.0",
-    "disposable-email": "^0.2.3",
+    "disposable-email": "internxt/disposable",
     "elliptic": "^6.5.0",
     "express": "^4.17.1",
     "handlebars": "^4.1.2",
