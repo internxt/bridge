@@ -1,9 +1,0 @@
-language: node_js
-node_js:
-  - "10.19"
-after_script:
-  - npm run coverage
-  - cat ./coverage/lcov.info | ./node_modules/.bin/coveralls
-services:
-  - mongodb
-  - redis
