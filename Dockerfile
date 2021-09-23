@@ -23,6 +23,10 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | b
 ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
+# Create Prometheus directories
+RUN mkdir -p /mnt/prometheusvol1
+RUN mkdir -p /mnt/prometheusvol2
+
 WORKDIR /app/bridge
 
 CMD node bin/storj-bridge.js
