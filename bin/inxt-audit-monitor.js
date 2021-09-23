@@ -27,28 +27,33 @@ async function startMonitor() {
   try {
     if (program.wallet) {
       await audit.wallet(program.wallet);
+
       return;
     }
 
-    if(program.fileId) {
+    if (program.fileId) {
       await audit.file(program.fileId, 3);
-      return;
-    }  
 
-    if(program.nodeId) {
+      return;
+    }
+
+    if (program.nodeId) {
       const attempts = program.attempts && !isNaN(program.attempts) ? program.attempts : 1;
 
-      if(program.shardHash) {
+      if (program.shardHash) {
         await audit.shardInNode(program.shardHash, program.nodeId, attempts);
+
         return;
       } else {
         await audit.node(program.nodeId);
+
         return;
       }
     }
 
     if (program.shardHash) {
       await audit.shard(program.shardHash, 3);
+
       return;
     }
 
