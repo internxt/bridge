@@ -1,8 +1,6 @@
 Internxt Bridge
 =======================================================================================================
 
-[![Build Status](https://travis-ci.com/internxt/Bridge.svg?branch=master)](https://travis-ci.com/internxt/bridge)
-
 Quick Start
 -----------
 
@@ -15,9 +13,9 @@ sudo apt install mongodb redis-server git wget build-essential
 Install [NVM][nvmsite], Node.js and NPM:
 
 ```
-wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
 source ~/.profile
-nvm install 10.23
+nvm install 10
 ```
 
 Clone the repository, install dependencies:
@@ -25,14 +23,7 @@ Clone the repository, install dependencies:
 ```
 git clone https://github.com/internxt/bridge
 cd bridge
-npm install
-npm link
-```
-
-Start the server (set the `NODE_ENV` environment variable to specify the config):
-
-```
-NODE_ENV=develop inxt-bridge
+yarn --ignore-engines
 ```
 
 > **Note:** Internxt Bridge cannot communicate with the network on it's own, but 
