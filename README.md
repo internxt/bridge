@@ -15,8 +15,8 @@ Install [NVM][nvmsite], Node.js and Yarn:
 ```
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
 source ~/.profile
-npm i -g yarn
 nvm install 10
+npm i -g yarn
 ```
 
 (Default source name is .profile, but nvm will write its envs on your available shell, .zshrc, .bashrc...)
