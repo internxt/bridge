@@ -6,8 +6,9 @@ WORKDIR /app
 RUN apt update && apt upgrade -y && apt autoremove -y
 
 # Install utilities
-RUN apt install curl build-essential python git -y \
- && git clone https://github.com/internxt/bridge
+RUN apt install curl build-essential python git -y 
+
+COPY . ./
 
 # Install nvm
 ENV NVM_DIR /root/.nvm
@@ -16,7 +17,6 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | b
   && . $NVM_DIR/nvm.sh \
   && nvm install $NODE_VERSION \
   && npm i -g yarn \ 
-  && cd bridge \
   && yarn --ignore-engines \
   && yarn cache clean
 
@@ -27,6 +27,4 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 RUN mkdir -p /mnt/prometheusvol1
 RUN mkdir -p /mnt/prometheusvol2
 
-WORKDIR /app/bridge
-
-CMD node bin/storj-bridge.js
+CMD node ./bin/storj-bridge.js
