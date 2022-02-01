@@ -85,6 +85,7 @@
     "helmet": "^3.20.0",
     "inxt-service-mailer": "internxt/mailer",
     "is-ip": "^2.0.0",
+    "jsonwebtoken": "^8.5.1",
     "knuth-shuffle": "^1.0.1",
     "lodash": "^4.17.20",
     "merge": "^1.2.1",
