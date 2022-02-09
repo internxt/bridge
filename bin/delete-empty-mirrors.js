@@ -56,8 +56,8 @@ async function deleteEmptyMirrors() {
           const { shardHash } = mirror;
           const shard = await Shard.findOne({ hash: shardHash });
           if (!shard) {
-            console.log('deleted mirror', mirror._id);
             await mirror.remove();
+            console.log('deleted mirror: ', mirror._id);
             deleteCount += 1;
           }
         } catch (err) {
