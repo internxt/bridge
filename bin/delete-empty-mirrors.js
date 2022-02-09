@@ -4,6 +4,7 @@
 
 const program = require('commander');
 const Storage = require('storj-service-storage-models');
+const mongoose = require('mongoose');
 const Config = require('../lib/config');
 
 program.version('0.0.1')
@@ -18,11 +19,13 @@ async function deleteEmptyMirrors() {
   }
   try {
     let mongourl;
+    let deleteCount = 0;
+
     if (program.mongourl) {
       mongourl = program.mongourl;
     }
 
-    const config = new Config(process.env.NODE_ENV, program.config, program.datadir);
+    const config = new Config(process.env.NODE_ENV, program.config);
     const storage = new Storage(
       mongourl || config.storage.mongoUrl,
       config.storage.mongoOpts
@@ -31,46 +34,50 @@ async function deleteEmptyMirrors() {
     const Mirror = storage.models.Mirror;
     const Shard = storage.models.Shard;
 
-    const stream = Mirror.find()
+    const cursor = Mirror.find()
       .sort({
         '_id': 1
       })
-      .stream();
+      .cursor();
 
-    stream.on('data', mirror => {
-      stream.pause();
-      const shardHash = mirror.shardHash;
-      Shard.findOne({ hash: shardHash }).exec((err, shard) => {
-        if (err) {
-          console.log('Error getting shard', shardHash);
-          stream.resume();
+    const chunkOfMirrors = [];
+    const chunkSize = 5;
 
-          return;
-        }
-        if (shard === null) {
-          mirror.remove(err => {
-            if (err) {
-              console.log('Error deleting mirror', mirror.id);
-              stream.resume();
-
-              return;
-            }
-            console.log('Mirror removed: ', mirror.id);
-            stream.resume();
-          });
-
-          return;
-        }
-        stream.resume();
-      });
+    cursor.on('data', mirror => {
+      chunkOfMirrors.push(mirror);
+      if (chunkOfMirrors.length === chunkSize) {
+        cursor.pause();
+      }
     });
 
-    stream.on('end', () => {
-      // TODO:
-      // disconnect from mongo, finish script
+    cursor.on('pause', async () =>{
+      for (const mirror of chunkOfMirrors) {
+        try {
+          const { shardHash } = mirror;
+          const shard = await Shard.findOne({ hash: shardHash });
+          if (!shard) {
+            console.log('deleted mirror', mirror._id);
+            await mirror.remove();
+            deleteCount += 1;
+          }
+        } catch (err) {
+          console.error('Error processing mirror: ', mirror._id);
+          console.error('Error: ', err.message);
+          cursor.close();
+        }
+      }
+      cursor.resume();
     });
+
+    cursor.on('end', () => {
+      mongoose.disconnect();
+      console.log('Finished processing.');
+      console.log('Mirrors deleted: ', deleteCount);
+    });
+
   } catch (err) {
-    console.error(err);
+    console.error('Unexpected error during audit');
+    console.error(err.message);
   }
 }
 
