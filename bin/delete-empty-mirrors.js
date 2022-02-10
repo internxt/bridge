@@ -52,7 +52,7 @@ function deleteEmptyMirrors() {
 
     let idMirrorBeingDeleted;
 
-    const checkAndDeleteMirror = (mirror, cb) => {
+    const deleteEmptyMirror = (mirror, cb) => {
       idMirrorBeingDeleted = mirror._id;
       const { shardHash } = mirror;
       Shard.findOne({ hash: shardHash }, (err, shard) => {
@@ -78,7 +78,7 @@ function deleteEmptyMirrors() {
       });
     };
 
-    const checkAndDeleteMirrorChunks = (cb) => {
+    const deleteEmptyMirrorChunks = (cb) => {
       if (chunkOfMirrors.length === 0) {
         cb();
 
@@ -87,7 +87,7 @@ function deleteEmptyMirrors() {
       let remainingItemsProcessed = 0;
 
       chunkOfMirrors.forEach((mirror, index, remainingChunks) => {
-        checkAndDeleteMirror(mirror, () => {
+        deleteEmptyMirror(mirror, () => {
           remainingItemsProcessed += 1;
           if (remainingItemsProcessed === remainingChunks.length) {
             cb();
@@ -97,7 +97,7 @@ function deleteEmptyMirrors() {
     };
 
     cursor.on('pause', () => {
-      checkAndDeleteMirrorChunks(() => {
+      deleteEmptyMirrorChunks(() => {
         chunkOfMirrors = [];
         cursor.resume();
       });
@@ -119,7 +119,7 @@ function deleteEmptyMirrors() {
 
     cursor.once('end', () => {
       // There might be still some mirrors that are not deleted (the ones that are left before hitting the chunkSize):
-      checkAndDeleteMirrorChunks(() => {
+      deleteEmptyMirrorChunks(() => {
         clearInterval(idInterval);
         console.log('Finished processing, mirrors deleted: ', deleteCount);
         if (deleteCount > 0) {
