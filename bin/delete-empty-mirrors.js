@@ -50,33 +50,59 @@ async function deleteEmptyMirrors() {
       }
     });
 
-    cursor.on('pause', async () =>{
+    let idMirrorBeingDeleted;
+
+    cursor.on('pause', () =>{
       for (const mirror of chunkOfMirrors) {
-        try {
-          const { shardHash } = mirror;
-          const shard = await Shard.findOne({ hash: shardHash });
-          if (!shard) {
-            await mirror.remove();
-            console.log('deleted mirror: ', mirror._id);
-            deleteCount += 1;
+        idMirrorBeingDeleted = mirror._id;
+        const { shardHash } = mirror;
+        Shard.findOne({ hash: shardHash }, (err, shard) => {
+          if (err) {
+            cursor.emit('error', err);
+
+            return;
           }
-        } catch (err) {
-          console.error('Error processing mirror: ', mirror._id);
-          console.error('Error: ', err.message);
-          cursor.close();
-        }
+          if (!shard) {
+            mirror.remove((err) => {
+              if (err) {
+                cursor.emit('error', err);
+
+                return;
+              }
+              idMirrorBeingDeleted = mirror._id;
+              deleteCount += 1;
+            });
+          }
+        });
       }
       cursor.resume();
     });
 
-    cursor.on('end', () => {
+    const idInterval = setInterval(() => {
+      console.log('Deleted mirrors: ', deleteCount);
+      if (idMirrorBeingDeleted) {
+        console.log('Last mirror deleted: ', idMirrorBeingDeleted);
+      }
+    }, 4000);
+
+    cursor.once('error', (err) => {
+      clearInterval(idInterval);
+      console.error('Error processing mirror: ', idMirrorBeingDeleted);
+      console.error('Error: ', err.message);
+      cursor.close();
+    });
+
+    cursor.once('end', () => {
+      clearInterval(idInterval);
       mongoose.disconnect();
-      console.log('Finished processing.');
-      console.log('Mirrors deleted: ', deleteCount);
+      console.log('Finished processing, mirrors deleted: ', deleteCount);
+      if (deleteCount > 0) {
+        console.log('Last mirror deleted: ', idMirrorBeingDeleted);
+      }
     });
 
   } catch (err) {
-    console.error('Unexpected error during audit');
+    console.error('Unexpected error');
     console.error(err.message);
   }
 }
