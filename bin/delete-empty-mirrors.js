@@ -43,7 +43,7 @@ function deleteEmptyMirrors() {
     let chunkOfMirrors = [];
     const chunkSize = 5;
 
-    cursor.on('data', mirror => {
+    cursor.on('data', (mirror) => {
       chunkOfMirrors.push(mirror);
       if (chunkOfMirrors.length === chunkSize) {
         cursor.pause();
@@ -52,17 +52,55 @@ function deleteEmptyMirrors() {
 
     let idMirrorBeingDeleted;
 
-    cursor.on('pause', async () => {
-      const promises = [];
-      for (const mirror of chunkOfMirrors) {
-        idMirrorBeingDeleted = mirror._id;
-        promises.push(checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
-          deleteCount += 1;
-        }));
+    const checkAndDeleteMirror = (mirror, cb) => {
+      idMirrorBeingDeleted = mirror._id;
+      const { shardHash } = mirror;
+      Shard.findOne({ hash: shardHash }, (err, shard) => {
+        if (err) {
+          cursor.emit('error', err);
+
+          return;
+        }
+        if (!shard) {
+          mirror.remove((err) => {
+            if (err) {
+              cursor.emit('error', err);
+
+              return;
+            }
+            deleteCount += 1;
+            cb();
+          });
+
+          return;
+        }
+        cb();
+      });
+    };
+
+    const checkAndDeleteMirrorChunks = (cb) => {
+      if (chunkOfMirrors.length === 0) {
+        cb();
+
+        return;
       }
-      await Promise.all(promises);
-      chunkOfMirrors = [];
-      cursor.resume();
+      let remainingItemsProcessed = 0;
+
+      chunkOfMirrors.forEach((mirror, index, remainingChunks) => {
+        checkAndDeleteMirror(mirror, () => {
+          remainingItemsProcessed += 1;
+          if (remainingItemsProcessed === remainingChunks.length) {
+            cb();
+          }
+        });
+      });
+    };
+
+    cursor.on('pause', () => {
+      checkAndDeleteMirrorChunks(() => {
+        chunkOfMirrors = [];
+        cursor.resume();
+      });
     });
 
     const idInterval = setInterval(() => {
@@ -79,47 +117,20 @@ function deleteEmptyMirrors() {
       cursor.close();
     });
 
-    cursor.once('close', () => {
-
+    cursor.once('end', () => {
+      // There might be still some mirrors that are not deleted (the ones that are left before hitting the chunkSize):
+      checkAndDeleteMirrorChunks(() => {
+        clearInterval(idInterval);
+        console.log('Finished processing, mirrors deleted: ', deleteCount);
+        if (deleteCount > 0) {
+          console.log('Last mirror deleted: ', idMirrorBeingDeleted);
+        }
+        mongoose.disconnect();
+      });
     });
-
-    cursor.once('end', async () => {
-      // If the threshold of chunkSize is not met, we need to process the unprocessed chunkOfMirrors
-      for (const mirror of chunkOfMirrors) {
-        idMirrorBeingDeleted = mirror._id;
-        await checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
-          deleteCount += 1;
-        });
-      }
-      clearInterval(idInterval);
-
-      console.log('Finished processing, mirrors deleted: ', deleteCount);
-      if (deleteCount > 0) {
-        console.log('Last mirror deleted: ', idMirrorBeingDeleted);
-      }
-      mongoose.disconnect();
-    });
-
   } catch (err) {
     console.error('Unexpected error');
     console.error(err.message);
-  }
-}
-
-async function checkAndDeleteMirror({
-  mirror,
-  Shard,
-  cursor
-}, onDelete) {
-  const { shardHash } = mirror;
-  try {
-    const shard = await Shard.findOne({ hash: shardHash });
-    if (!shard) {
-      await mirror.remove();
-      onDelete();
-    }
-  } catch (err) {
-    cursor.emit('error', err);
   }
 }
 
