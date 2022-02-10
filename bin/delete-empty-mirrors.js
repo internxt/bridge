@@ -52,13 +52,15 @@ function deleteEmptyMirrors() {
 
     let idMirrorBeingDeleted;
 
-    cursor.on('pause', () => {
+    cursor.on('pause', async () => {
+      const promises = [];
       for (const mirror of chunkOfMirrors) {
         idMirrorBeingDeleted = mirror._id;
-        checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
+        promises.push(checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
           deleteCount += 1;
-        });
+        }));
       }
+      await Promise.all(promises);
       chunkOfMirrors = [];
       cursor.resume();
     });
@@ -78,6 +80,17 @@ function deleteEmptyMirrors() {
     });
 
     cursor.once('close', () => {
+
+    });
+
+    cursor.once('end', async () => {
+      // If the threshold of chunkSize is not met, we need to process the unprocessed chunkOfMirrors
+      for (const mirror of chunkOfMirrors) {
+        idMirrorBeingDeleted = mirror._id;
+        await checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
+          deleteCount += 1;
+        });
+      }
       clearInterval(idInterval);
 
       console.log('Finished processing, mirrors deleted: ', deleteCount);
@@ -87,46 +100,27 @@ function deleteEmptyMirrors() {
       mongoose.disconnect();
     });
 
-    cursor.once('end', () => {
-      // If the threshold of chunkSize is not met, we need to process the unprocessed chunkOfMirrors
-      for (const mirror of chunkOfMirrors) {
-        idMirrorBeingDeleted = mirror._id;
-        checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
-          deleteCount += 1;
-        });
-      }
-    });
-
   } catch (err) {
     console.error('Unexpected error');
     console.error(err.message);
   }
 }
 
-function checkAndDeleteMirror({
+async function checkAndDeleteMirror({
   mirror,
   Shard,
   cursor
 }, onDelete) {
   const { shardHash } = mirror;
-  Shard.findOne({ hash: shardHash }, (err, shard) => {
-    if (err) {
-      cursor.emit('error', err);
-
-      return;
-    }
+  try {
+    const shard = await Shard.findOne({ hash: shardHash });
     if (!shard) {
-      mirror.remove((err) => {
-        if (err) {
-          cursor.emit('error', err);
-
-          return;
-        }
-        onDelete();
-      });
+      await mirror.remove();
+      onDelete();
     }
-  });
-
+  } catch (err) {
+    cursor.emit('error', err);
+  }
 }
 
 deleteEmptyMirrors();
