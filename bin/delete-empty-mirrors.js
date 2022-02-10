@@ -69,7 +69,6 @@ async function deleteEmptyMirrors() {
 
                 return;
               }
-              idMirrorBeingDeleted = mirror._id;
               deleteCount += 1;
             });
           }
@@ -87,6 +86,7 @@ async function deleteEmptyMirrors() {
 
     cursor.once('error', (err) => {
       clearInterval(idInterval);
+
       console.error('Error processing mirror: ', idMirrorBeingDeleted);
       console.error('Error: ', err.message);
       cursor.close();
