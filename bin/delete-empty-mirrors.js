@@ -13,7 +13,7 @@ program.version('0.0.1')
   .parse(process.argv);
 
 
-async function deleteEmptyMirrors() {
+function deleteEmptyMirrors() {
   if (!process.env.NODE_ENV) {
     throw new Error('NODE_ENV is not set');
   }
@@ -40,7 +40,7 @@ async function deleteEmptyMirrors() {
       })
       .cursor();
 
-    const chunkOfMirrors = [];
+    let chunkOfMirrors = [];
     const chunkSize = 5;
 
     cursor.on('data', mirror => {
@@ -52,7 +52,7 @@ async function deleteEmptyMirrors() {
 
     let idMirrorBeingDeleted;
 
-    cursor.on('pause', () =>{
+    cursor.on('pause', () => {
       for (const mirror of chunkOfMirrors) {
         idMirrorBeingDeleted = mirror._id;
         const { shardHash } = mirror;
@@ -74,6 +74,7 @@ async function deleteEmptyMirrors() {
           }
         });
       }
+      chunkOfMirrors = [];
       cursor.resume();
     });
 
@@ -86,7 +87,6 @@ async function deleteEmptyMirrors() {
 
     cursor.once('error', (err) => {
       clearInterval(idInterval);
-
       console.error('Error processing mirror: ', idMirrorBeingDeleted);
       console.error('Error: ', err.message);
       cursor.close();
