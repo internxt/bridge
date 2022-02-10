@@ -103,12 +103,15 @@ function deleteEmptyMirrors() {
       });
     });
 
-    const idInterval = setInterval(() => {
+
+    const logStatus = () => {
       console.log('Deleted mirrors: ', deleteCount);
       if (idMirrorBeingDeleted) {
-        console.log('Last mirror deleted: ', idMirrorBeingDeleted);
+        console.log('Last mirror checked: ', idMirrorBeingDeleted);
       }
-    }, 4000);
+    };
+
+    const idInterval = setInterval(logStatus, 4000);
 
     cursor.once('error', (err) => {
       clearInterval(idInterval);
@@ -121,10 +124,8 @@ function deleteEmptyMirrors() {
       // There might be still some mirrors that are not deleted (the ones that are left before hitting the chunkSize):
       deleteEmptyMirrorChunks(() => {
         clearInterval(idInterval);
-        console.log('Finished processing, mirrors deleted: ', deleteCount);
-        if (deleteCount > 0) {
-          console.log('Last mirror deleted: ', idMirrorBeingDeleted);
-        }
+        console.log('finished');
+        logStatus();
         mongoose.disconnect();
       });
     });
