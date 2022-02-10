@@ -55,23 +55,8 @@ function deleteEmptyMirrors() {
     cursor.on('pause', () => {
       for (const mirror of chunkOfMirrors) {
         idMirrorBeingDeleted = mirror._id;
-        const { shardHash } = mirror;
-        Shard.findOne({ hash: shardHash }, (err, shard) => {
-          if (err) {
-            cursor.emit('error', err);
-
-            return;
-          }
-          if (!shard) {
-            mirror.remove((err) => {
-              if (err) {
-                cursor.emit('error', err);
-
-                return;
-              }
-              deleteCount += 1;
-            });
-          }
+        checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
+          deleteCount += 1;
         });
       }
       chunkOfMirrors = [];
@@ -92,12 +77,23 @@ function deleteEmptyMirrors() {
       cursor.close();
     });
 
-    cursor.once('end', () => {
+    cursor.once('close', () => {
       clearInterval(idInterval);
-      mongoose.disconnect();
+
       console.log('Finished processing, mirrors deleted: ', deleteCount);
       if (deleteCount > 0) {
         console.log('Last mirror deleted: ', idMirrorBeingDeleted);
+      }
+      mongoose.disconnect();
+    });
+
+    cursor.once('end', () => {
+      // If the threshold of chunkSize is not met, we need to process the unprocessed chunkOfMirrors
+      for (const mirror of chunkOfMirrors) {
+        idMirrorBeingDeleted = mirror._id;
+        checkAndDeleteMirror({ mirror, Shard, cursor }, () => {
+          deleteCount += 1;
+        });
       }
     });
 
@@ -107,5 +103,30 @@ function deleteEmptyMirrors() {
   }
 }
 
+function checkAndDeleteMirror({
+  mirror,
+  Shard,
+  cursor
+}, onDelete) {
+  const { shardHash } = mirror;
+  Shard.findOne({ hash: shardHash }, (err, shard) => {
+    if (err) {
+      cursor.emit('error', err);
+
+      return;
+    }
+    if (!shard) {
+      mirror.remove((err) => {
+        if (err) {
+          cursor.emit('error', err);
+
+          return;
+        }
+        onDelete();
+      });
+    }
+  });
+
+}
 
 deleteEmptyMirrors();
