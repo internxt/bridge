@@ -73,7 +73,6 @@ function deleteFilesThatAreNotInDrive() {
     const stopScriptAndError = err => {
       console.error('Error processing user: ', idUserBeingChecked);
       console.error('Error: ', err.message);
-      // console.log(err);
       stopScript();
     };
 
@@ -190,7 +189,7 @@ function checkBucketEntries({ storage, sqlPool }, { idBucket, username, password
       const count = results[0].count;
       if (count === 0) {
         // There are no files referencing this bucket entry, we should delete it:
-        deleteBucketEntry({ idBucket, idFile, username, password, bridgeEndPoint }, (err) => {
+        deleteFile({ idBucket, idFile, username, password, bridgeEndPoint }, (err) => {
           if (err) {
             cb(err);
 
@@ -247,7 +246,7 @@ function checkBucketEntries({ storage, sqlPool }, { idBucket, username, password
 
 }
 
-function deleteBucketEntry({ idBucket, idFile, username, password, bridgeEndPoint }, cb) {
+function deleteFile({ idBucket, idFile, username, password, bridgeEndPoint }, cb) {
   const pwdHash = crypto.createHash('sha256').update(password).digest('hex');
   const credential = Buffer.from(`${username}:${pwdHash}`).toString('base64');
 
