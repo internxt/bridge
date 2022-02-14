@@ -208,6 +208,12 @@ function checkBucketEntries({ storage, sqlPool }, { idBucket, username, password
   };
 
   const checkEntries = (cb) => {
+    if (chunkOfBucketEntries.length === 0) {
+      cb();
+
+      return;
+    }
+
     async.each(chunkOfBucketEntries, checkEntry, (err) => {
       if (err) {
         cb(err);
@@ -242,8 +248,6 @@ function checkBucketEntries({ storage, sqlPool }, { idBucket, username, password
       cb(null, deletedFilesCount);
     });
   });
-
-
 }
 
 function deleteFile({ idBucket, idFile, username, password, bridgeEndPoint }, cb) {
