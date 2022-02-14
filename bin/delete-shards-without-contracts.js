@@ -55,18 +55,19 @@ function deleteShardsWithoutContracts() {
     const checkAndDeleteShard = (shard, cb) => {
       checkedShards += 1;
       if (!shard.contracts || shard.contracts.length === 0) {
-        deleteCount += 1;
         shard.remove((err) => {
           if (err) {
             cb(err);
 
             return;
           }
+          deleteCount += 1;
           cb();
         });
 
         return;
       }
+
       cb();
     };
 
