@@ -53,7 +53,6 @@ function deleteShardsWithoutContracts() {
     let checkedShards = 0;
 
     const checkAndDeleteShard = (shard, cb) => {
-      checkedShards += 1;
       if (!shard.contracts || shard.contracts.length === 0) {
         shard.remove((err) => {
           if (err) {
@@ -87,6 +86,7 @@ function deleteShardsWithoutContracts() {
 
             return;
           }
+          checkedShards += 1;
           processedItemsOfChunk += 1;
           if (processedItemsOfChunk === remainingChunks.length) {
             cb();
