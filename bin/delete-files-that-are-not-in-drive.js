@@ -145,8 +145,7 @@ function deleteFilesThatAreNotInDrive() {
     );
 
   } catch (err) {
-    console.error('Unexpected error');
-    console.error(err.message);
+    console.error('Unexpected error %s', err.message);
   }
 }
 
