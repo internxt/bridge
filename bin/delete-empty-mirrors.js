@@ -20,10 +20,15 @@ if (!process.env.NODE_ENV) {
 
 let mongourl;
 let deleteCount = 0;
-let idMirrorBeingDeleted;
+let idMirrorBeingChecked;
+let lastMirror;
 
 if (program.mongourl) {
   mongourl = program.mongourl;
+}
+
+if (program.lastMirror) {
+  lastMirror = program.lastMirror;
 }
 
 const config = new Config(process.env.NODE_ENV, program.config);
@@ -36,45 +41,55 @@ const { Shard, Mirror } = storage.models;
 
 const logStatus = () => {
   console.log('Deleted mirrors: ', deleteCount);
-  if (idMirrorBeingDeleted) {
-    console.log('Last mirror checked: ', idMirrorBeingDeleted);
+  if (idMirrorBeingChecked) {
+    console.log('Last mirror checked: ', idMirrorBeingChecked);
   }
 };
 
 const loggerInterval = setInterval(logStatus, 4000);
 
-const deleteEmptyMirror = (mirror, cb) => {
+const deleteEmptyMirror = (mirror, onDelete, cb) => {
   const { shardHash } = mirror;
-
   Shard.findOne({ hash: shardHash }, (err, shard) => {
     if (err) {
       return cb(err);
     }
 
     if (!shard) {
-      return mirror.remove(cb);
+      mirror.remove(err => {
+        if (err) {
+          cb(err);
+        } else {
+          onDelete(cb);
+        }
+      });
+    } else {
+      cb();
     }
-
-    cb();
   });
 };
 
-const deleteEmptyMirrorChunks = (mirrors, cb) => {
+const processMirrorChunks = (mirrors, cb) => {
   if (mirrors.length === 0) {
     return cb();
   }
 
   eachLimit(mirrors, 1, (mirror, next) => {
-    idMirrorBeingDeleted = mirror._id;
+    idMirrorBeingChecked = mirror._id;
 
-    deleteEmptyMirror(mirror, (err) => {
-      if (err) {
-        next(err);
-      } else {
+    deleteEmptyMirror(
+      mirror,
+      (cb) => {
         deleteCount += 1;
-        next();
-      }
-    });
+        cb();
+      },
+      (err) => {
+        if (err) {
+          next(err);
+        } else {
+          next();
+        }
+      });
   }, cb);
 };
 
@@ -82,36 +97,39 @@ function deleteEmptyMirrors(cb) {
   let chunkOfMirrors = [];
   const chunkSize = 5;
 
-  const cursor = Mirror.find()
+  const filter = {};
+
+  if (lastMirror) {
+    filter.id = { $gt: lastMirror };
+  }
+
+  const cursor = Mirror
+    .find(filter)
     .sort({
       '_id': 1
     })
     .cursor();
 
-  cursor.once('error', (err) => {
-    // close?
-    cb(err);
-  });
+  cursor.once('error', cb);
 
   cursor.once('end', () => {
     // There might be still some mirrors that are not deleted (the ones that are left before hitting the chunkSize):
-    deleteEmptyMirrorChunks(chunkOfMirrors, (err) => {
-      // TODO: should emit error?
+    processMirrorChunks(chunkOfMirrors, (err) => {
       if (err) {
         return cursor.emit('error', err);
+      } else {
+        cursor.close();
+        cb();
       }
     });
-    // emit 'end' == close ?
-    cursor.close();
-    // mongoose.disconnect();
-    cb();
   });
 
   cursor.on('pause', () => {
-    deleteEmptyMirrorChunks(chunkOfMirrors, (err) => {
+    processMirrorChunks(chunkOfMirrors, (err) => {
       if (err) {
         cursor.emit('error', err);
       } else {
+        chunkOfMirrors = [];
         cursor.resume();
       }
     });
@@ -126,9 +144,10 @@ function deleteEmptyMirrors(cb) {
 }
 
 deleteEmptyMirrors((err) => {
+  mongoose.disconnect();
   clearInterval(loggerInterval);
 
-  let programFinishedMessage = `Program finished. Deleted ${deleteCount} mirrors. Last mirror was ${idMirrorBeingDeleted}.`;
+  let programFinishedMessage = `Program finished. Deleted ${deleteCount} mirror(s). Last mirror checked was ${idMirrorBeingChecked}`;
 
   if (err) {
     programFinishedMessage += `Error ${err.message || 'Unknown error'}`;
