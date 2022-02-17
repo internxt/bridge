@@ -1,7 +1,7 @@
 const { eachSeries, whilst, each } = require('async');
 
 
-function iterateOverUsers(sqlPool, sqlUsersQuery, onEveryUser, cb) {
+function iterateOverUsers(sqlPool, sqlUsersQuery, onEveryUser, finished) {
   const chunkSize = 5;
   let page = 0;
   let moreResults = true;
@@ -34,7 +34,7 @@ function iterateOverUsers(sqlPool, sqlUsersQuery, onEveryUser, cb) {
         }
       );
     },
-    cb
+    finished
   );
 }
 
