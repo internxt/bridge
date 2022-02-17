@@ -49,6 +49,15 @@ if (
   );
 }
 
+if (
+  program.deleteUnreferencedFilesFromUser &&
+  program.deleteUnreferencedFilesFromBackups
+) {
+  throw new Error(
+    'You must specify which files to delete either from backups (-B) or from users (-U). But not both'
+  );
+}
+
 let mongourl;
 let startFromUser;
 let idUserBeingChecked;
