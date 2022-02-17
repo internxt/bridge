@@ -160,17 +160,17 @@ const checkBucketEntry = (
     }
 
     const count = results[0].count;
-    if (count === 0) {
-      // There are no files referencing this bucket entry, we should delete it:
-      deleteFile({ idFile, idBucket, username, password }, (err) => {
-        if (err) {
-          return cb(err);
-        }
-        onDelete(cb);
-      });
-    } else {
-      cb();
+    if (count > 0) {
+      return cb();
     }
+    // There are no files referencing this bucket entry, we should delete it:
+    deleteFile({ idFile, idBucket, username, password }, (err) => {
+      if (err) {
+        return cb(err);
+      }
+      onDelete(cb);
+    });
+
   });
 };
 
