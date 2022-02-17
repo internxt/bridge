@@ -5,11 +5,10 @@
 const program = require('commander');
 const Storage = require('storj-service-storage-models');
 const mongoose = require('mongoose');
-const { eachSeries, whilst, each } = require('async');
 const sqlDriver = require('mysql');
-const crypto = require('crypto');
-const axios = require('axios');
-const Config = require('../lib/config');
+const Config = require('../../lib/config');
+const { deleteFile } = require('./requests');
+const { iterateOverUsers, getFileCountQuery, iterateOverBucketEntries } = require('./database');
 
 // Example:
 // node bin/delete-unreferenced-files.js \
@@ -71,7 +70,7 @@ const storage = new Storage(
   config.storage.mongoOpts
 );
 
-const { BucketEntry } = storage.models;
+const { BucketEntry: BucketEntryModel } = storage.models;
 
 const logStatus = () => {
   console.log('Deleted files: ', deletedFiles);
@@ -134,183 +133,73 @@ function deleteUnreferencedFilesFromBackups(startFromUserClause, cb) {
   deleteUnreferencedFiles(cb);
 }
 
-const processBucketEntries = (bucketEntries, params, onDelete, cb) => {
-  if (bucketEntries.length === 0) {
-    return cb();
-  }
-
-  each(
-    bucketEntries,
-    (entry, cb) => checkBucketEntry(entry, params, onDelete, cb),
-    cb
-  );
-};
-
 const checkBucketEntry = (
   entry,
   { idBucket, username, password },
-  onDelete,
   cb
 ) => {
   const idFile = entry._id.toString();
 
-  sqlPool.query(sqlFilesQuery, [idFile], (err, results) => {
-    if (err) {
-      return cb(err);
-    }
-
-    const count = results[0].count;
-    if (count > 0) {
-      return cb();
-    }
-    // There are no files referencing this bucket entry, we should delete it:
-    deleteFile({ idFile, idBucket, username, password }, (err) => {
+  getFileCountQuery(
+    sqlPool,
+    sqlFilesQuery,
+    idFile,
+    (err, count) => {
       if (err) {
         return cb(err);
       }
-      onDelete(cb);
+      if (count > 0) {
+        return cb();
+      }
+      // There are no files referencing this bucket entry, we should delete it:
+      deleteFile({ bridgeEndpoint, idFile, idBucket, username, password }, (err) => {
+        if (err) {
+          return cb(err);
+        }
+        deletedFiles += 1;
+        cb();
+      });
     });
-
-  });
 };
 
 function deleteUnreferencedFiles(cb) {
-  const chunkSize = 5;
-  let page = 0;
-  let moreResults = true;
+  iterateOverUsers(
+    sqlPool,
+    sqlUsersQuery,
+    (user, nextUser) => {
 
-  whilst(
-    (cb) => cb(null, moreResults),
-    (cb) => {
-      sqlPool.query(
-        sqlUsersQuery,
-        [chunkSize, page * chunkSize],
-        (err, results) => {
+      const {
+        id_user: idUser,
+        id_bucket: idBucket,
+        bridge_user: username,
+        password,
+      } = user;
+
+      idUserBeingChecked = idUser;
+
+      iterateOverBucketEntries(
+        BucketEntryModel,
+        idBucket,
+
+        (entry, nextBucketEntry) => {
+          checkBucketEntry(
+            entry,
+            { idBucket, username, password },
+            nextBucketEntry
+          );
+        },
+
+        (err) => {
           if (err) {
             return cb(err);
           }
-
-          if (results.length === 0) {
-            moreResults = false;
-
-            return cb();
-          }
-
-          eachSeries(
-            results,
-            (result, nextResult) => {
-              const {
-                id_user: idUser,
-                id_bucket: idBucket,
-                bridge_user: username,
-                password,
-              } = result;
-
-              idUserBeingChecked = idUser;
-
-              checkBucketEntries(
-                { idBucket, username, password },
-                (err, deletedFilesCountLocal) => {
-                  if (err) {
-                    return cb(err);
-                  }
-
-                  deletedFiles += deletedFilesCountLocal;
-
-                  nextResult();
-                }
-              );
-            },
-            () => {
-              checkedUsers += results.length;
-              page += 1;
-              cb();
-            }
-          );
+          checkedUsers += 1;
+          nextUser();
         }
       );
     },
     cb
   );
-}
-
-function checkBucketEntries({ idBucket, username, password }, cb) {
-  let chunkOfBucketEntries = [];
-  const chunkSize = 5;
-  let deletedFilesCount = 0;
-
-  const cursor = BucketEntry.find({
-    bucket: idBucket,
-  })
-    .sort({
-      _id: 1,
-    })
-    .cursor();
-
-  cursor.once('error', cb);
-
-  cursor.once('end', () => {
-    processBucketEntries(
-      chunkOfBucketEntries,
-      { idBucket, username, password },
-      (cb) => {
-        deletedFilesCount += 1;
-        cb();
-      },
-      (err) => {
-        if (err) {
-          return cursor.emit('error', err);
-        }
-
-        cursor.close();
-        cb(null, deletedFilesCount);
-      }
-    );
-  });
-
-  cursor.on('pause', () => {
-    processBucketEntries(
-      chunkOfBucketEntries,
-      { idBucket, username, password },
-      (cb) => {
-        deletedFilesCount += 1;
-        cb();
-      },
-      (err) => {
-        if (err) {
-          return cursor.emit('error', err);
-        }
-
-        chunkOfBucketEntries = [];
-        cursor.resume();
-      }
-    );
-  });
-
-  cursor.on('data', (bucketEntry) => {
-    chunkOfBucketEntries.push(bucketEntry);
-    if (chunkOfBucketEntries.length === chunkSize) {
-      cursor.pause();
-    }
-  });
-}
-
-function deleteFile({ idFile, idBucket, username, password }, cb) {
-  const pwdHash = crypto.createHash('sha256').update(password).digest('hex');
-  const credential = Buffer.from(`${username}:${pwdHash}`).toString('base64');
-
-  const params = {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${credential}`,
-    },
-  };
-  axios
-    .delete(`${bridgeEndpoint}/buckets/${idBucket}/files/${idFile}`, params)
-    .then(() => {
-      cb();
-    })
-    .catch(cb);
 }
 
 deleteUnreferencedFilesEntryPoint((err) => {
