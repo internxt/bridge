@@ -1,6 +1,5 @@
 const { eachSeries, whilst, each } = require('async');
 
-
 function iterateOverUsers(sqlPool, sqlUsersQuery, onEveryUser, finished) {
   const chunkSize = 5;
   let page = 0;
@@ -56,7 +55,6 @@ function getFileCountQuery(sqlPool, sqlFilesQuery, idFile, cb) {
     cb(null, count);
   });
 }
-
 
 const processBucketEntries = (bucketEntries, onEveryBucketEntry, cb) => {
   if (bucketEntries.length === 0) {

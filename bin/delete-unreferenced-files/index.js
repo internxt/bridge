@@ -93,8 +93,7 @@ function deleteUnreferencedFilesEntryPoint(cb) {
 
   if (program.deleteUnreferencedFilesFromUser) {
     deleteUnreferencedFilesFromUser(startFromUserClause, cb);
-  }
-  if (program.deleteUnreferencedFilesFromBackups) {
+  } else if (program.deleteUnreferencedFilesFromBackups) {
     deleteUnreferencedFilesFromBackups(startFromUserClause, cb);
   }
 }
