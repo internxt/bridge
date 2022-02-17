@@ -97,7 +97,7 @@ let sqlFilesQuery;
 function deleteUnreferencedFilesEntryPoint(cb) {
   let startFromUserClause = '';
   if (startFromUser) {
-    startFromUserClause = `WHERE users.id > ${startFromUser}`;
+    startFromUserClause = `WHERE users.id >= ${startFromUser}`;
   }
 
   if (program.deleteUnreferencedFilesFromUser) {
