@@ -22,23 +22,11 @@ program
   .version('0.0.1')
   .option('-c, --config <path_to_config_file>', 'path to the config file')
   .option('-d, --dburl <db connection string>', 'sql db connection string')
-  .option(
-    '-u, --mongourl <mongo connection string>',
-    'mongo url connection string'
-  )
+  .option('-u, --mongourl <mongo connection string>', 'mongo url connection string')
   .option('-b, --bridgeEndpoint <bridge url>', 'bridge endpoint url')
-  .option(
-    '-s, --startFromUser <last processed user id>',
-    'last user id from where to continue'
-  )
-  .option(
-    '-U, --deleteUnreferencedFilesFromUser',
-    'specifies to delete unreferenced files from user'
-  )
-  .option(
-    '-B, --deleteUnreferencedFilesFromBackups',
-    'specifies to delete unreferenced files from backups'
-  )
+  .option('-s, --startFromUser <last processed user id>', 'last user id from where to continue')
+  .option('-U, --deleteUnreferencedFilesFromUser', 'specifies to delete unreferenced files from user')
+  .option('-B, --deleteUnreferencedFilesFromBackups', 'specifies to delete unreferenced files from backups')
   .parse(process.argv);
 
 if (!process.env.NODE_ENV) {
