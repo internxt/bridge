@@ -111,8 +111,60 @@ function iterateOverCursor(cursor, onEveryEntry, cb) {
   });
 }
 
+function deleteBucketAndContents({
+  BucketEntryModel,
+  FrameModel,
+  PointerModel,
+}, bucket, onPointerDelete, cb) {
+  BucketEntryModel.find({
+    bucket: bucket.id,
+  }).populate('frame').exec((err, entries) => {
+    if (err) {
+      return cb(err);
+    }
+
+    eachSeries(entries, (entry, nextEntry) => {
+      entry.remove((err) => {
+        if (err) {
+          return cb(err);
+        }
+
+        FrameModel.findOne({ _id: entry.frame.id }, (err, frame) => {
+          if (err) {
+            return cb(err);
+          }
+          PointerModel.find({ _id: { $in: frame.shards } }, (err, pointers) => {
+            if (err) {
+              return cb(err);
+            }
+
+            eachSeries(pointers, (pointer, nextPointer) => {
+              pointer.remove((err) => {
+                if (err) {
+                  return cb(err);
+                }
+                onPointerDelete(pointer, nextPointer);
+              }, () => {
+                frame.remove((err) => {
+                  if (err) {
+                    cb(err);
+                  }
+                });
+              });
+            }, nextEntry);
+          });
+        });
+      });
+    }, () => {
+      bucket.remove(cb);
+    });
+  });
+}
+
+
 module.exports = {
   iterateOverUsers,
-  iterateOverModel,
-  getFileCountQuery
+  iterateOverCursor,
+  getFileCountQuery,
+  deleteBucketAndContents,
 };
