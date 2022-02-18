@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 const sqlDriver = require('mysql');
 const Config = require('../../lib/config');
 const { deleteFile } = require('./requests');
-const { iterateOverUsers, getFileCountQuery, iterateOverModel } = require('./database');
+const { iterateOverUsers, getFileCountQuery, iterateOverCursor } = require('./database');
 
 // Example:
 // node bin/cleaner/delete-unreferenced-files.js \
@@ -185,9 +185,15 @@ function deleteUnreferencedFiles(cb) {
 
       idUserBeingChecked = idUser;
 
-      iterateOverModel(
-        BucketEntryModel,
-        { bucket: idBucket },
+      const cursor = BucketEntryModel
+        .find({
+          bucket: idBucket,
+        })
+        .sort({ _id: 1 })
+        .cursor();
+
+      iterateOverCursor(
+        cursor,
         (entry, nextBucketEntry) => {
           checkBucketEntry(
             entry,

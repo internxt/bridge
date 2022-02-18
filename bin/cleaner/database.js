@@ -67,15 +67,9 @@ const processEntries = (entries, onEveryEntry, cb) => {
   each(entries, onEveryEntry, cb);
 };
 
-function iterateOverModel(Model, filter, onEveryEntry, cb) {
+function iterateOverCursor(cursor, onEveryEntry, cb) {
   let chunk = [];
   const chunkSize = 5;
-
-  const cursor = Model.find(filter)
-    .sort({
-      _id: 1,
-    })
-    .cursor();
 
   cursor.once('error', cb);
 
