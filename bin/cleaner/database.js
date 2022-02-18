@@ -25,7 +25,10 @@ function iterateOverUsers(sqlPool, sqlUsersQuery, onEveryUser, finished) {
           eachSeries(
             results,
             onEveryUser,
-            () => {
+            (err) => {
+              if (err) {
+                return cb(err);
+              }
               page += 1;
               cb();
             }
@@ -56,21 +59,19 @@ function getFileCountQuery(sqlPool, sqlFilesQuery, idFile, cb) {
   });
 }
 
-const processBucketEntries = (bucketEntries, onEveryBucketEntry, cb) => {
-  if (bucketEntries.length === 0) {
+const processEntries = (entries, onEveryEntry, cb) => {
+  if (entries.length === 0) {
     return cb();
   }
 
-  each(bucketEntries, onEveryBucketEntry, cb);
+  each(entries, onEveryEntry, cb);
 };
 
-function iterateOverBucketEntries(BucketEntryModel, idBucket, onEveryBucketEntry, cb) {
-  let chunkOfBucketEntries = [];
+function iterateOverModel(Model, filter, onEveryEntry, cb) {
+  let chunk = [];
   const chunkSize = 5;
 
-  const cursor = BucketEntryModel.find({
-    bucket: idBucket,
-  })
+  const cursor = Model.find(filter)
     .sort({
       _id: 1,
     })
@@ -79,9 +80,9 @@ function iterateOverBucketEntries(BucketEntryModel, idBucket, onEveryBucketEntry
   cursor.once('error', cb);
 
   cursor.once('end', () => {
-    processBucketEntries(
-      chunkOfBucketEntries,
-      onEveryBucketEntry,
+    processEntries(
+      chunk,
+      onEveryEntry,
       (err) => {
         if (err) {
           return cursor.emit('error', err);
@@ -94,23 +95,23 @@ function iterateOverBucketEntries(BucketEntryModel, idBucket, onEveryBucketEntry
   });
 
   cursor.on('pause', () => {
-    processBucketEntries(
-      chunkOfBucketEntries,
-      onEveryBucketEntry,
+    processEntries(
+      chunk,
+      onEveryEntry,
       (err) => {
         if (err) {
           return cursor.emit('error', err);
         }
 
-        chunkOfBucketEntries = [];
+        chunk = [];
         cursor.resume();
       }
     );
   });
 
-  cursor.on('data', (bucketEntry) => {
-    chunkOfBucketEntries.push(bucketEntry);
-    if (chunkOfBucketEntries.length === chunkSize) {
+  cursor.on('data', (entry) => {
+    chunk.push(entry);
+    if (chunk.length === chunkSize) {
       cursor.pause();
     }
   });
@@ -118,6 +119,6 @@ function iterateOverBucketEntries(BucketEntryModel, idBucket, onEveryBucketEntry
 
 module.exports = {
   iterateOverUsers,
-  iterateOverBucketEntries,
+  iterateOverModel,
   getFileCountQuery
 };

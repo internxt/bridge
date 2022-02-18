@@ -8,10 +8,10 @@ const mongoose = require('mongoose');
 const sqlDriver = require('mysql');
 const Config = require('../../lib/config');
 const { deleteFile } = require('./requests');
-const { iterateOverUsers, getFileCountQuery, iterateOverBucketEntries } = require('./database');
+const { iterateOverUsers, getFileCountQuery, iterateOverModel } = require('./database');
 
 // Example:
-// node bin/delete-unreferenced-files.js \
+// node bin/cleaner/delete-unreferenced-files.js \
 // -d mariadb://root:example@localhost:3306/xCloud \
 // -u mongodb://admin:password@localhost:27017/__inxt-network \
 // -b http://localhost:6382 \
@@ -185,10 +185,9 @@ function deleteUnreferencedFiles(cb) {
 
       idUserBeingChecked = idUser;
 
-      iterateOverBucketEntries(
+      iterateOverModel(
         BucketEntryModel,
-        idBucket,
-
+        { bucket: idBucket },
         (entry, nextBucketEntry) => {
           checkBucketEntry(
             entry,
@@ -199,7 +198,7 @@ function deleteUnreferencedFiles(cb) {
 
         (err) => {
           if (err) {
-            return cb(err);
+            return nextUser(err);
           }
           checkedUsers += 1;
           nextUser();
