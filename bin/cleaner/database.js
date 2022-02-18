@@ -155,8 +155,12 @@ function deleteBucketAndContents({
           });
         });
       });
-    }, () => {
-      bucket.remove(cb);
+    }, (err) => {
+      if (err) {
+        return cb(err);
+      } else {
+        bucket.remove(cb);
+      }
     });
   });
 }
