@@ -144,18 +144,13 @@ const checkBucket = (bucket, nextBucket) => {
 };
 
 function deleteBucketsWithNonExistingUsers(cb) {
-
-  let findConditions = {};
+  const filter = {};
   if (startFromBucket) {
-    findConditions.where = {
-      id: {
-        $gte: startFromBucket,
-      },
-    };
+    filter.id = { $gte: startFromBucket };
   }
 
   const cursor = BucketModel
-    .find(findConditions)
+    .find(filter)
     .sort({ _id: 1 })
     .cursor();
 
