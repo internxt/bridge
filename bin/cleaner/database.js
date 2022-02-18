@@ -113,6 +113,6 @@ function iterateOverCursor(cursor, onEveryEntry, cb) {
 
 module.exports = {
   iterateOverUsers,
-  iterateOverModel,
+  iterateOverCursor,
   getFileCountQuery
 };
