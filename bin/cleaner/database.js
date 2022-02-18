@@ -1,4 +1,4 @@
-const { eachSeries, whilst, each } = require('async');
+const { eachSeries, whilst, each, eachLimit } = require('async');
 
 function iterateOverUsers(sqlPool, sqlUsersQuery, onEveryUser, finished) {
   const chunkSize = 5;
@@ -111,6 +111,58 @@ function iterateOverCursor(cursor, onEveryEntry, cb) {
   });
 }
 
+const processEntriesSequentially = (entries, onEveryEntry, cb) => {
+  if (entries.length === 0) {
+    return cb();
+  }
+
+  eachLimit(entries, 1, onEveryEntry, cb);
+};
+
+function iterateOverCursorSequentially(cursor, onEveryEntry, cb) {
+  let chunk = [];
+  const chunkSize = 5;
+
+  cursor.once('error', cb);
+
+  cursor.once('end', () => {
+    processEntriesSequentially(
+      chunk,
+      onEveryEntry,
+      (err) => {
+        if (err) {
+          return cursor.emit('error', err);
+        }
+
+        cursor.close();
+        cb();
+      }
+    );
+  });
+
+  cursor.on('pause', () => {
+    processEntriesSequentially(
+      chunk,
+      onEveryEntry,
+      (err) => {
+        if (err) {
+          return cursor.emit('error', err);
+        }
+
+        chunk = [];
+        cursor.resume();
+      }
+    );
+  });
+
+  cursor.on('data', (entry) => {
+    chunk.push(entry);
+    if (chunk.length === chunkSize) {
+      cursor.pause();
+    }
+  });
+}
+
 function deleteBucketAndContents({
   BucketEntryModel,
   FrameModel,
@@ -169,6 +221,7 @@ function deleteBucketAndContents({
 module.exports = {
   iterateOverUsers,
   iterateOverCursor,
+  iterateOverCursorSequentially,
   getFileCountQuery,
   deleteBucketAndContents,
 };
