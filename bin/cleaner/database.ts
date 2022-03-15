@@ -1,12 +1,19 @@
 import { Pool } from 'mysql';
 
-export async function iterateOverUsers(pool: Pool, query: string, onEveryUser: Function): Promise<void> {
+export async function iterateOverUsers(
+  pool: Pool,
+  query: string,
+  onEveryUser: Function
+): Promise<void> {
   const chunkSize = 5;
   let page = 0;
   let moreResults = true;
 
   while (moreResults) {
-    const users = await queryPromise<any[]>(pool, query, [chunkSize, page * chunkSize]);
+    const users = await queryPromise<any[]>(pool, query, [
+      chunkSize,
+      page * chunkSize,
+    ]);
 
     if (users.length === 0) {
       moreResults = false;
@@ -20,27 +27,34 @@ export async function iterateOverUsers(pool: Pool, query: string, onEveryUser: F
   }
 }
 
-export async function getFileCountQuery(pool: Pool, query: string, fileId: string): Promise<number> {
+export async function getFileCountQuery(
+  pool: Pool,
+  query: string,
+  fileId: string
+): Promise<number> {
   const results = await queryPromise<any[]>(pool, query, [fileId]);
 
   if (results.length !== 1) {
-    throw new Error('SQL for files didn\'t return a single row');
+    throw new Error("SQL for files didn't return a single row");
   }
 
   const { count } = results[0] as { count: unknown };
 
   if (typeof count === 'number') return count;
-  else throw new Error('SQL for files didn\'t specify a count numeric column');
+  else throw new Error("SQL for files didn't specify a count numeric column");
 }
 
-export async function processEntries(entries: any[], onEveryEntry: Function): Promise<void> {
+export async function processEntries(
+  entries: any[],
+  onEveryEntry: Function
+): Promise<void> {
   for (const entry of entries) {
     await onEveryEntry(entry);
   }
 }
 
 export async function iterateOverCursor(cursor: any, onEveryEntry: Function) {
-  console.log('CURSOR', cursor);
+  // console.log('CURSOR', cursor);
 
   // https://mongoosejs.com/docs/api/querycursor.html#query_Query-Symbol.asyncIterator for Node >= 10.x (we use 14)
   for await (const doc of cursor) {
@@ -50,10 +64,10 @@ export async function iterateOverCursor(cursor: any, onEveryEntry: Function) {
 
 function queryPromise<T>(pool: Pool, query: string, args: any[]): Promise<T> {
   return new Promise((resolve, reject) => {
-    pool.query(query, args, (err, results) => {
+    pool.query(query, args, (err, results: T) => {
       if (err) reject(err);
       else resolve(results);
-    })
+    });
   });
 }
 
@@ -77,7 +91,12 @@ export function driveRepository(pool: Pool) {
 
       return queryPromise(pool, query, []);
     },
-    getFiles: (userId: number, limit: number, offset: number, fileId = 0): Promise<any[]> => {
+    getFiles: (
+      userId: number,
+      limit: number,
+      offset: number,
+      fileId = 0
+    ): Promise<any[]> => {
       const query = `
         SELECT 
           *
@@ -123,7 +142,44 @@ export function driveRepository(pool: Pool) {
             bucket IS NOT NULL
       `;
 
-      return queryPromise<{ bucket: string}[]>(pool, query, []).then((res) => res.map(b => b.bucket));
-    }
+      return queryPromise<{ bucket: string }[]>(pool, query, []).then((res) =>
+        res.map((b) => b.bucket)
+      );
+    },
+    getUsersOrTeamsWithEmail: (email: string): Promise<number> => {
+      const query = `
+        SELECT SUM(count) as count FROM (
+          SELECT id, COUNT(*) AS count FROM users WHERE users.bridge_user = ?
+          UNION
+          SELECT id, COUNT(*) AS count FROM teams WHERE teams.bridge_user = ?
+        ) users_and_teams ;`;
+
+      return queryPromise<{ count: number }[]>(pool, query, [
+        email,
+        email,
+      ]).then((res) => res[0].count);
+    },
   };
+}
+
+export async function deleteBucketAndContents(
+  { BucketEntryModel, FrameModel, PointerModel }: any,
+  bucket: any,
+  onPointerDelete: Function
+) {
+  const entries = await BucketEntryModel.find({ bucket: bucket._id }).populate(
+    'frame'
+  );
+
+  for (const entry of entries) {
+    await entry.remove();
+    const frame = await FrameModel.findOne({ _id: entry.frame._id });
+    const pointers = await PointerModel.find({ _id: { $in: frame.shards } });
+    for (const pointer of pointers) {
+      await pointer.remove();
+      await onPointerDelete(pointer);
+    }
+    await frame.remove();
+  }
+  await bucket.remove();
 }

@@ -7,7 +7,12 @@ import mysql from 'mysql';
 import { config as loadEnv } from 'dotenv';
 
 import { deleteFile } from './requests';
-import { iterateOverUsers, getFileCountQuery, iterateOverCursor, driveRepository } from './database';
+import {
+  iterateOverUsers,
+  getFileCountQuery,
+  iterateOverCursor,
+  driveRepository,
+} from './database';
 import Config from '../../lib/config';
 
 loadEnv();
@@ -25,10 +30,16 @@ program
   .version('0.0.1')
   .option('-c, --config <path_to_config_file>', 'path to the config file')
   .option('-d, --dburl <db connection string>', 'sql db connection string')
-  .option('-u, --mongourl <mongo connection string>', 'mongo url connection string')
+  .option(
+    '-u, --mongourl <mongo connection string>',
+    'mongo url connection string'
+  )
   .option('-b, --bridgeEndpoint <bridge url>', 'bridge endpoint url')
   .option('-f, --lastFileId <file_id>', 'last checked file id')
-  .option('-s, --startFromUser <last processed user id>', 'last user id from where to continue')
+  .option(
+    '-s, --startFromUser <last processed user id>',
+    'last user id from where to continue'
+  )
   .parse(process.argv);
 
 if (!process.env.NODE_ENV) {
@@ -76,9 +87,10 @@ if (program.startFromUser) {
 }
 
 const sqlPool = mysql.createPool(program.dburl);
-const config =
-  new Config(process.env.NODE_ENV, program.config, '') as { storage: { mongoUrl: string, mongoOpts: any }};
-  
+const config = new Config(process.env.NODE_ENV, program.config, '') as {
+  storage: { mongoUrl: string; mongoOpts: any };
+};
+
 console.log('program.mongourl', config.storage.mongoUrl);
 console.log('program.dburl', program.dburl);
 
@@ -126,7 +138,7 @@ const drive = driveRepository(sqlPool);
 //   let filesCount = 0;
 
 //   const users = await drive.getUsers(usersLimit, usersCount, lastUserId);
-  
+
 //   for (const user of users) {
 //     const files = await drive.getFiles(user.id, filesLimit, filesCount, lastFileId);
 
@@ -136,7 +148,10 @@ const drive = driveRepository(sqlPool);
 //   }
 // }
 
-async function deleteFilesInTheNetworkButNotInDrive(lastFileId: string, lastUserId: number) {
+async function deleteFilesInTheNetworkButNotInDrive(
+  lastFileId: string,
+  lastUserId: number
+) {
   let usersLimit = 5;
   let usersCount = 0;
   let filesCount = 0;
@@ -148,27 +163,26 @@ async function deleteFilesInTheNetworkButNotInDrive(lastFileId: string, lastUser
   try {
     do {
       const users = await drive.getUsers(usersLimit, usersCount, lastUserId);
-    
+
       for (const user of users) {
         currentUser = user;
 
         const buckets = await drive.getUserBuckets(user.id);
-  
+
         for (const bucket of buckets) {
-          const cursor = BucketEntryModel
-            .find({
-              bucket,
-              _id: {
-                $gte: lastFileId
-              }
-            })
+          const cursor = BucketEntryModel.find({
+            bucket,
+            _id: {
+              $gte: lastFileId,
+            },
+          })
             .sort({ _id: 1 })
             .cursor();
-    
-          await iterateOverCursor(cursor, async (bucketEntry:any) => {
+
+          await iterateOverCursor(cursor, async (bucketEntry: any) => {
             currentFile = bucketEntry;
             const file = await drive.getFileByNetworkFileId(bucketEntry._id);
-    
+
             if (!file) {
               // DELETE FROM NETWORK
               deletedFiles++;
@@ -177,17 +191,30 @@ async function deleteFilesInTheNetworkButNotInDrive(lastFileId: string, lastUser
         }
         checkedUsers++;
       }
-  
+
       usersCount += users.length;
       lastUsersCount = users.length;
     } while (lastUsersCount === usersLimit);
   } catch (err) {
     console.log(err);
-    console.log('Error removing file %s of user %s: %s', currentFile!._id, (currentUser as any).id, (err as Error).message);
+    console.log(
+      'Error removing file %s of user %s: %s',
+      currentFile!._id,
+      (currentUser as any).id,
+      (err as Error).message
+    );
     console.error((err as Error).stack);
   } finally {
-    console.log('Program finished. %s users deleted %s. %s files deleted', usersCount, filesCount);
-    console.log('Last file deleted: %s (from user %s)', currentFile!._id, (currentUser as any).id);
+    console.log(
+      'Program finished. %s users deleted %s. %s files deleted',
+      usersCount,
+      filesCount
+    );
+    console.log(
+      'Last file deleted: %s (from user %s)',
+      currentFile!._id,
+      (currentUser as any).id
+    );
   }
 }
 
@@ -282,10 +309,13 @@ async function deleteFilesInTheNetworkButNotInDrive(lastFileId: string, lastUser
 deleteFilesInTheNetworkButNotInDrive(
   program.lastFileId || 'aaaaaaaaaaaaaaaaaaaaaaaa',
   program.startFromUser || 1
-).then(() => {
-  console.log('finished');
-}).catch((err) => {
-  console.log('err', err);
-}).finally(() => {
-  clearInterval(loggerInterval);
-})
+)
+  .then(() => {
+    console.log('finished');
+  })
+  .catch((err) => {
+    console.log('err', err);
+  })
+  .finally(() => {
+    clearInterval(loggerInterval);
+  });
