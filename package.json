@@ -16,6 +16,7 @@
     "inxt-audit": "bin/inxt-audit-monitor.js"
   },
   "scripts": {
+    "build:commands": "tsc",
     "testsuite": "STORJ_ALLOW_LOOPBACK=1 NODE_ENV=test ./node_modules/.bin/mocha --recursive test/ --exit",
     "coverage": "STORJ_ALLOW_LOOPBACK=1 NODE_ENV=test ./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- --recursive",
     "integration": "NODE_ENV=test _mocha --recursive test-integration/**",
@@ -23,6 +24,7 @@
     "lint:fix": "npm run linter -- --fix",
     "test": "npm run testsuite && npm run linter",
     "dev": "NODE_ENV=development nodemon bin/storj-bridge.js",
+    "debug": "NODE_ENV=development nodemon --watch 'lib/**' --inspect=0.0.0.0:9229 bin/storj-bridge.js",
     "make-docs": "./node_modules/.bin/jsdoc index.js lib -r -R README.md -u ./doc -c .jsdoc.json --verbose -d ./jsdoc",
     "publish-docs": "gh-pages -d jsdoc --repo git@github.com:internxt/bridge.git",
     "payout-report": "node script/payouts.js"
@@ -46,8 +48,11 @@
   },
   "homepage": "https://github.com/internxt/bridge#readme",
   "devDependencies": {
+    "@types/mongoose": "^5.11.97",
+    "@types/mysql": "^2.15.21",
     "chai": "^4.2.0",
     "coveralls": "^2.11.6",
+    "dotenv": "^16.0.0",
     "eslint": "^7.10.0",
     "eslint-plugin-sonarjs": "^0.6.0",
     "gh-pages": "^2.1.1",
@@ -57,13 +62,15 @@
     "jshint": "^2.10.2",
     "memdown": "^4.1.0",
     "mocha": "^6.2.0",
+    "mysql": "^2.18.1",
     "node-mocks-http": "^1.7.6",
     "nodemon": "^2.0.7",
     "noisegen": "^1.0.0",
     "proxyquire": "^1.7.10",
     "redis-mock": "^0.16.0",
     "rimraf": "^2.6.3",
-    "sinon": "^7.4.1"
+    "sinon": "^7.4.1",
+    "typescript": "^4.6.2"
   },
   "dependencies": {
     "@amplitude/node": "^0.3.3",
@@ -87,6 +94,7 @@
     "lodash": "^4.17.20",
     "merge": "^1.2.1",
     "mime-db": "^1.40.0",
+    "mongoose": "^6.2.6",
     "ms": "^2.1.2",
     "rc": "^1.2.8",
     "readable-stream": "^3.4.0",
@@ -101,6 +109,7 @@
     "storj-service-storage-models": "github:internxt/service-storage-models#10.6.1-beta",
     "stripe": "^8.49.0",
     "through": "^2.3.8",
+    "ts-node": "^10.7.0",
     "winston": "^3.2.1"
   }
 }
