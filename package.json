@@ -70,6 +70,7 @@
     "redis-mock": "^0.16.0",
     "rimraf": "^2.6.3",
     "sinon": "^7.4.1",
+    "ts-node": "^10.7.0",
     "typescript": "^4.6.2"
   },
   "dependencies": {
@@ -109,7 +110,6 @@
     "storj-service-storage-models": "github:internxt/service-storage-models#10.6.1-beta",
     "stripe": "^8.49.0",
     "through": "^2.3.8",
-    "ts-node": "^10.7.0",
     "winston": "^3.2.1"
   }
 }
