@@ -4,7 +4,6 @@
 
 const program = require('commander');
 const Storage = require('storj-service-storage-models');
-const mongoose = require('mongoose');
 const { eachLimit } = require('async');
 const Config = require('../lib/config');
 
@@ -56,7 +55,7 @@ const deleteEmptyMirror = (mirror, onDelete, cb) => {
     }
 
     if (!shard) {
-      mirror.remove(err => {
+      mirror.remove((err) => {
         if (err) {
           cb(err);
         } else {
@@ -103,10 +102,9 @@ function deleteEmptyMirrors(cb) {
     filter.id = { $gt: lastMirror };
   }
 
-  const cursor = Mirror
-    .find(filter)
+  const cursor = Mirror.find(filter)
     .sort({
-      '_id': 1
+      _id: 1
     })
     .cursor();
 
@@ -144,7 +142,7 @@ function deleteEmptyMirrors(cb) {
 }
 
 deleteEmptyMirrors((err) => {
-  mongoose.disconnect();
+  storage.connection.close();
   clearInterval(loggerInterval);
 
   let programFinishedMessage = `Program finished. Deleted ${deleteCount} mirror(s). Last mirror checked was ${idMirrorBeingChecked}`;
