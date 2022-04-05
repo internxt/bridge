@@ -1,23 +1,13 @@
 import { UsersRepository } from "./Repository";
-import { User } from './User';
+import { CreateUserData, User, BasicUser } from './User';
 
-interface UserModel extends Omit<User, 'id'> {
-  _id: string;
-  resetter: string;
-  deactivator: string;
-  activator: string;
+interface UserModel extends User {
   created: Date;
-  hashpass: string;
-  activated: boolean;
-  isFreeTier: boolean;
 }
-
-type CreateUserData = Pick<UserModel, 'password' | 'maxSpaceBytes' | 'activated'> & { id: User['id'] };
-type CreatedUser = Pick<User, 'id' | 'uuid' | 'maxSpaceBytes'>;
 
 type DatabaseUser = {
   id: string;
-  email: CreatedUser['id'];
+  email: BasicUser['id'];
   uuid: string;
   created: Date;
   activated: boolean;
@@ -36,18 +26,20 @@ type DatabaseUser = {
 export class MongoDBUsersRepository implements UsersRepository {
   constructor(private userModel: any) {}
 
-  async findById(id: string): Promise<Omit<User, 'password'>> {
+  async findById(id: string): Promise<BasicUser | null> {
     const { id: userId, uuid, maxSpaceBytes }: DatabaseUser = await this.userModel.findOne({ _id: id });
     
     return { id: userId, uuid, maxSpaceBytes };
   }
 
-  findOne(where: any): any {
-    return this.userModel.findOne(where);
+  async findOne(where: Partial<User>): Promise<BasicUser | null> {
+    const { id: userId, uuid, maxSpaceBytes }: DatabaseUser = await this.userModel.findOne(where);
+
+    return { id: userId, uuid, maxSpaceBytes };
   }
 
-  async create(data: CreateUserData): Promise<CreatedUser> {
-    const user = await new Promise((resolve: (newUser: CreatedUser) => void, reject) => {
+  async create(data: CreateUserData): Promise<BasicUser> {
+    const user = await new Promise((resolve: (newUser: BasicUser) => void, reject) => {
       this.userModel.create(data, (err: Error, user: DatabaseUser) => {
         if (err) {
           reject(err);
