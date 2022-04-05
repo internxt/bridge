@@ -59,15 +59,17 @@
     "memdown": "^4.1.0",
     "mocha": "^6.2.0",
     "node-mocks-http": "^1.7.6",
-    "nodemon": "^2.0.7",
+    "nodemon": "^2.0.15",
     "noisegen": "^1.0.0",
     "proxyquire": "^1.7.10",
     "redis-mock": "^0.16.0",
     "rimraf": "^2.6.3",
-    "sinon": "^7.4.1"
+    "sinon": "^7.4.1",
+    "ts-node": "^10.7.0"
   },
   "dependencies": {
     "@amplitude/node": "^0.3.3",
+    "@types/express": "^4.17.13",
     "amqplib": "^0.8.0",
     "analytics-node": "^2.4.0",
     "async": "^3.2.0",
@@ -104,6 +106,7 @@
     "storj-service-storage-models": "github:internxt/service-storage-models#10.6.1-beta",
     "stripe": "^8.49.0",
     "through": "^2.3.8",
+    "typescript": "^4.6.3",
     "winston": "^3.2.1"
   }
 }
