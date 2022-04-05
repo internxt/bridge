@@ -124,4 +124,39 @@ export class UsersUsecase {
     return user;
   }
 
+  /**
+   * Confirms and applies the password reset
+   * @param password new password
+   * @param resetter token used to reset the password
+   */
+  async resetPassword(password: string, resetter: string) {
+    const isSHA256Encoded = Buffer.from(password, 'hex').length * 8 === 256;
+
+    if (!isSHA256Encoded) {
+      throw new InvalidDataFormatError('Password must be an hex encoded SHA-256 hash');
+    }
+
+    const resetterIsHexEncoded = Buffer.from(resetter, 'hex').length === 256;
+
+    if (!resetterIsHexEncoded) {
+      throw new InvalidDataFormatError('Resetter must be an hex encoded 256 byte string');
+    }
+
+    const user = await this.usersRepository.findOne({ resetter });
+
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    const hashpass = createHash('sha256').update(password).digest('hex');
+    const newResetter = null;
+
+    await this.usersRepository.updateById(user.id, {
+      resetter: newResetter,
+      hashpass
+    });
+
+    return user;
+  }
+
 }

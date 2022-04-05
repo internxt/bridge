@@ -10,6 +10,7 @@ export const createUsersHTTPRouter = (
   router.post('/', controller.createUser.bind(controller));
   
   router.post('/:id/request-password-reset', controller.requestPasswordReset.bind(controller));
+  router.post('/confirm-password-reset/:token', controller.resetPassword.bind(controller));
 
   return router;
 }
