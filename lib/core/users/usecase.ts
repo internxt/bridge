@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 import { UsersRepository } from './Repository';
 import { BucketsRepository } from '../buckets/Repository';
@@ -93,6 +93,33 @@ export class UsersUsecase {
     });
 
     this.eventBus.emit(EventBusEvents.UserCreationEnds, { uuid: user.uuid, email });
+
+    return user;
+  }
+
+  async requestPasswordReset(
+    userRequestingResetId: string,
+    redirect: string,
+    url?: string
+  ): Promise<any> {
+    const user = await this.usersRepository.findById(userRequestingResetId);
+
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    const resetToken = randomBytes(256).toString('hex');
+
+    await this.usersRepository.updateById(userRequestingResetId, {
+      resetter: resetToken
+    });
+
+    await this.mailUsecase.sendResetPasswordMail(
+      userRequestingResetId, 
+      resetToken, 
+      redirect, 
+      url
+    );
 
     return user;
   }

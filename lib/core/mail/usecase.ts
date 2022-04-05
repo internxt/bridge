@@ -1,7 +1,7 @@
 export interface Mailer {
   dispatchSendGrid: (
     email: string, 
-    type: 'delete', 
+    type: 'delete' | 'reset', 
     params: {
       token: string;
       redirect: string;
@@ -17,6 +17,13 @@ export interface MailUsecase {
     deactivator: string, 
     redirect: string
   ) => Promise<void>;
+
+  sendResetPasswordMail: (
+    sendTo: string,
+    token: string,
+    redirect: string,
+    url?: string
+  ) => Promise<void>
 }
 
 export interface Profile {
@@ -43,5 +50,19 @@ export class SendGridMailUsecase implements MailUsecase {
         if (err) { reject(err) } else resolve(null);
       });
     })
+  }
+
+  async sendResetPasswordMail(sendTo: string, token: string, redirect: string, url?: string | undefined): Promise<void> {
+    const { protocol, host, port } = this.profile;
+
+    await new Promise((resolve, reject) => {
+      this.mailer.dispatchSendGrid(sendTo, 'reset', {
+        token,
+        redirect,
+        url: url || protocol + '//' + host + (port ? `:${port}` : '')
+      }, (err) => {
+        if (err) { reject(err) } else resolve(null);
+      });
+    });
   }
 }

@@ -15,7 +15,7 @@ interface UserModel extends Omit<User, 'id'> {
 type CreateUserData = Pick<UserModel, 'password' | 'maxSpaceBytes' | 'activated'> & { id: User['id'] };
 type CreatedUser = Pick<User, 'id' | 'uuid' | 'maxSpaceBytes'>;
 
-type DatabaseCreatedUser = {
+type DatabaseUser = {
   id: string;
   email: CreatedUser['id'];
   uuid: string;
@@ -36,8 +36,10 @@ type DatabaseCreatedUser = {
 export class MongoDBUsersRepository implements UsersRepository {
   constructor(private userModel: any) {}
 
-  findById(id: string): any {
-    return this.userModel.findOne({ _id: id });
+  async findById(id: string): Promise<Omit<User, 'password'>> {
+    const { id: userId, uuid, maxSpaceBytes }: DatabaseUser = await this.userModel.findOne({ _id: id });
+    
+    return { id: userId, uuid, maxSpaceBytes };
   }
 
   findOne(where: any): any {
@@ -46,7 +48,7 @@ export class MongoDBUsersRepository implements UsersRepository {
 
   async create(data: CreateUserData): Promise<CreatedUser> {
     const user = await new Promise((resolve: (newUser: CreatedUser) => void, reject) => {
-      this.userModel.create(data, (err: Error, user: DatabaseCreatedUser) => {
+      this.userModel.create(data, (err: Error, user: DatabaseUser) => {
         if (err) {
           reject(err);
         } else {
@@ -73,7 +75,7 @@ export class MongoDBUsersRepository implements UsersRepository {
   }
 
   updateById(id: string, update: any) {
-    return this.userModel.update(id, update);
+    return this.userModel.updateOne({ _id: id }, update);
   }
 
   remove(where: any) {

@@ -40,4 +40,35 @@ export class HTTPUsersController {
     }    
   }
 
+  async requestPasswordReset(
+    req: Request<{ id: string }, {}, { redirect?: string, url?: string }>, 
+    res: Response
+  ) {
+    if (!req.body || !req.body.redirect) {
+      return res.status(400).send();
+    }
+
+    const { id: userId } = req.params;
+    const { redirect, url } = req.body;
+
+    try {
+      const user = await this.usersUsecase.requestPasswordReset(userId, redirect, url);
+
+      return res.status(200).send(user);
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send();
+      }
+
+      this.logger.error(
+        'Error requesting password reset for user %s: %s. %s', 
+        (req as AuthorizedRequest<any>).user._id, 
+        (err as Error).message, 
+        (err as Error).stack
+      );
+
+      return res.status(500).send({ message: 'Internal Server Error' });
+    }
+  }
+
 }
