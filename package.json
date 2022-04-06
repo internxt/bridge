@@ -47,6 +47,7 @@
   },
   "homepage": "https://github.com/internxt/bridge#readme",
   "devDependencies": {
+    "@types/node": "^17.0.23",
     "chai": "^4.2.0",
     "coveralls": "^2.11.6",
     "eslint": "^7.10.0",
