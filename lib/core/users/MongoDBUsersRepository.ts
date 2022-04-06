@@ -70,7 +70,7 @@ export class MongoDBUsersRepository implements UsersRepository {
     return this.userModel.updateOne({ _id: id }, update);
   }
 
-  remove(where: any) {
-    return this.userModel.remove(where);
+  removeById(id: User['id']) {
+    return this.userModel.deleteOne({ _id: id });
   }
 }

@@ -4,6 +4,8 @@ import { UsersRepository } from './Repository';
 import { BucketsRepository } from '../buckets/Repository';
 import { MailUsecase } from '../mail/usecase';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
+import { FramesRepository } from '../frames/Repository';
+import { BasicUser } from './User';
 
 const disposable = require('disposable-email');
 
@@ -53,6 +55,7 @@ export class ResetPasswordImpersonationError extends Error {
 export class UsersUsecase {
   constructor(
     private usersRepository: UsersRepository,
+    private framesRepository: FramesRepository,
     private bucketsRepository: BucketsRepository,
     private mailUsecase: MailUsecase,
     private eventBus: EventBus
@@ -175,5 +178,32 @@ export class UsersUsecase {
         redirect
       }
     });
+  }
+
+  async confirmDestroyUser(deactivator: string): Promise<BasicUser> {
+    const user = await this.usersRepository.findOne({ deactivator });
+
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    await this.destroyUser(user.id);
+
+    return user;
+  }
+
+  async destroyUser(userId: string): Promise<void> {
+    const user = await this.usersRepository.findById(userId);
+
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    await Promise.all([
+      this.bucketsRepository.removeAll({ user: user.id }),
+      this.framesRepository.removeAll({ user: user.id })
+    ]);
+
+    await this.usersRepository.removeById(user.id);
   }
 }

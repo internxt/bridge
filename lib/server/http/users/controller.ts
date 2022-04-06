@@ -96,7 +96,7 @@ export class HTTPUsersController {
 
       this.logger.error(
         'Error requesting password reset for user %s: %s. %s', 
-        (req as AuthorizedRequest<any>).user._id, 
+        userId, 
         (err as Error).message, 
         (err as Error).stack
       );
@@ -136,5 +136,37 @@ export class HTTPUsersController {
       )
       return res.status(500).send({ error: 'Internal Server Error' });
     }
+  }
+
+  async destroyUser(req: Request<{ token?: string }, {}, {}, { redirect?: string }>, res: Response) {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).send({ error: 'Missing required parameter "token"' });
+    }
+
+    try {
+      const user = await this.usersUsecase.confirmDestroyUser(token);
+
+      this.logger.info('User %s destroyed succesfully', user.id);
+   
+      if (req.query.redirect) {
+        return res.redirect(req.query.redirect);
+      } else {
+        res.status(200).send({ message: 'Deleted' });
+      }
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ error: err.message });
+      }
+      this.logger.error(
+        'Error destroying user with deactivator %s: %s. %s', 
+        token,
+        (err as Error).message,
+        (err as Error).stack
+      );
+
+      return res.status(500).send({ error: 'Internal Server Error' });
+    }    
   }
 }

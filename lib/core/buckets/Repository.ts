@@ -1,3 +1,6 @@
+import { Bucket } from "./Bucket";
+
 export interface BucketsRepository {
-  removeByUserEmail(userEmail: string): Promise<void>;
+  find(where: Partial<Bucket>): Promise<void>;
+  removeAll(where: Partial<Bucket>): Promise<void>;
 }
