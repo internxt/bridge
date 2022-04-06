@@ -17,5 +17,5 @@ jobs:
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
 
-      - run: yarn
+      - run: yarn --ignore-engines
       - run: yarn run test
