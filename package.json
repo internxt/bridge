@@ -103,15 +103,16 @@
     "redis": "^3.1.0",
     "secp256k1": "^4.0.2",
     "storj-analytics": "internxt/inxt-analytics",
-    "storj-complex": "github:internxt/complex#v7.6.3-beta",
+    "storj-complex": "github:internxt/complex#update/update-with-storj-models",
     "storj-lib": "github:internxt/core#v8.7.3-beta",
-    "storj-mongodb-adapter": "github:internxt/mongodb-adapter#v9.0.1-beta",
+    "storj-mongodb-adapter": "github:internxt/mongodb-adapter#update/update-with-storj-models",
     "storj-service-error-types": "github:internxt/service-error-types",
     "storj-service-middleware": "github:internxt/service-middleware",
-    "storj-service-storage-models": "github:internxt/service-storage-models#10.6.1-beta",
+    "storj-service-storage-models": "github:internxt/service-storage-models#v10.6.2",
     "stripe": "^8.49.0",
     "through": "^2.3.8",
     "typescript": "^4.6.3",
+    "uuid": "^8.3.2",
     "winston": "^3.2.1"
   }
 }
