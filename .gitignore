@@ -42,5 +42,3 @@ playbook.retry
 .scannerwork/
 
 .env
-
-dist

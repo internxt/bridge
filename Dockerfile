@@ -18,7 +18,6 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | b
   && nvm install $NODE_VERSION \
   && npm i -g yarn \ 
   && yarn --ignore-engines \
-  && yarn run build \
   && yarn cache clean
 
 ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
@@ -28,4 +27,4 @@ ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 RUN mkdir -p /mnt/prometheusvol1
 RUN mkdir -p /mnt/prometheusvol2
 
-CMD node ./dist/bin/storj-bridge.js
+CMD node ./bin/storj-bridge.js
