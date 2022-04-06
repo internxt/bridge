@@ -159,4 +159,21 @@ export class UsersUsecase {
     return user;
   }
 
+  async requestUserDestroy(userId: string, deactivator: string, redirect: string) {
+    const user = await this.usersRepository.findById(userId);
+
+    if (!user) {
+      throw new UserNotFoundError(userId);
+    }
+
+    await this.usersRepository.updateById(user.id, { deactivator });
+
+    this.eventBus.emit(EventBusEvents.UserDestroyRequest, {
+      userRequestingDestroyEmail: user.id,
+      mailParams: {
+        deactivator,
+        redirect
+      }
+    });
+  }
 }

@@ -12,5 +12,7 @@ export const createUsersHTTPRouter = (
   router.post('/:id/request-password-reset', controller.requestPasswordReset.bind(controller));
   router.post('/confirm-password-reset/:token', controller.resetPassword.bind(controller));
 
+  router.delete('/request-deactivate', basicAuth, controller.requestDestroyUser.bind(controller));
+
   return router;
 }

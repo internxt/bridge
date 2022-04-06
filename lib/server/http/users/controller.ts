@@ -105,4 +105,36 @@ export class HTTPUsersController {
     }
   }
 
+  async requestDestroyUser(
+    req: Request<{}, {}, {}, { deactivator?: string, redirect?: string }>, 
+    res: Response
+  ) {
+    const { deactivator, redirect } = req.query;
+    const userId = (req as AuthorizedRequest<any>).user._id;
+
+    if (!deactivator || !redirect) {
+      return res.status(400).send({ error: 'Missing required params' });
+    }
+
+    try {
+      const userRequestedToBeDestroyed = await this.usersUsecase.requestUserDestroy(
+        userId, 
+        deactivator, 
+        redirect
+      );
+      
+      return res.status(200).send(userRequestedToBeDestroyed);
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ error: err.message });
+      }
+      this.logger.error(
+        'Error requesting user destroy for user %s: %s. %s',
+        (req as AuthorizedRequest<any>).user._id,
+        (err as Error).message, 
+        (err as Error).stack
+      )
+      return res.status(500).send({ error: 'Internal Server Error' });
+    }
+  }
 }

@@ -22,15 +22,15 @@ export function bindNewRoutes(
   storage: { models: Models }, 
   mailer: Mailer, 
   profile: Profile,
-  eventBus: EventBus,
   log: Logger
 ): void {
   const { models } = storage;
-
   const bucketsRepository: BucketsRepository = new MongoDBBucketsRepository(models.Bucket);
   const usersRepository: UsersRepository = new MongoDBUsersRepository(models.User);
 
   const mailUsecase: MailUsecase = new SendGridMailUsecase(mailer, profile);
+  const eventBus = new EventBus(log, mailUsecase);
+
   const usersUsecase = new UsersUsecase(
     usersRepository, 
     bucketsRepository, 
@@ -39,10 +39,9 @@ export function bindNewRoutes(
   );
 
   const basicAuthMiddleware = authenticate(storage);
-  const usersRouter = createUsersHTTPRouter(
-    new HTTPUsersController(usersUsecase, log), 
-    basicAuthMiddleware
-  );
+  const usersController = new HTTPUsersController(usersUsecase, log);
+
+  const usersRouter = createUsersHTTPRouter(usersController, basicAuthMiddleware);
 
   app.use('/v2/users', usersRouter);
 }

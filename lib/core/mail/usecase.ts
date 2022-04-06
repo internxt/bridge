@@ -12,18 +12,8 @@ export interface Mailer {
 }
 
 export interface MailUsecase {
-  sendDeleteUserMail: (
-    sendTo: string, 
-    deactivator: string, 
-    redirect: string
-  ) => Promise<void>;
-
-  sendResetPasswordMail: (
-    sendTo: string,
-    token: string,
-    redirect: string,
-    url?: string
-  ) => Promise<void>
+  sendDeleteUserMail: (sendTo: string, token: string, redirect: string) => Promise<void>;
+  sendResetPasswordMail: (sendTo: string, token: string, redirect: string, url?: string) => Promise<void>
 }
 
 export interface Profile {
@@ -38,12 +28,12 @@ export class SendGridMailUsecase implements MailUsecase {
     private profile: Profile
   ) {}
 
-  async sendDeleteUserMail(sendTo: string, deactivator: string, redirect: string): Promise<void> {
+  async sendDeleteUserMail(sendTo: string, token: string, redirect: string): Promise<void> {
     const { protocol, host, port } = this.profile;
 
     await new Promise((resolve, reject) => {
       this.mailer.dispatchSendGrid(sendTo, 'delete', {
-        token: deactivator,
+        token,
         redirect,
         url: protocol + '//' + host + (port ? `:${port}` : '')
       }, (err) => {

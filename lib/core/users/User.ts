@@ -1,6 +1,6 @@
 export interface User {
   id: string;
-  resetter: string;
+  resetter: string | null;
   uuid: string;
   password: string;
   maxSpaceBytes: number;
