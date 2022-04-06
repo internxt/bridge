@@ -104,6 +104,7 @@
     "storj-service-storage-models": "https://github.com/internxt/service-storage-models#v10.6.2",
     "stripe": "^8.49.0",
     "through": "^2.3.8",
+    "uuid": "^8.3.2",
     "winston": "^3.2.1"
   }
 }
