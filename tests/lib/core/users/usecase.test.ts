@@ -85,16 +85,16 @@ describe('Users usecases', () => {
       }));
     });
 
-    it(`Should reject a disposable email`, async () => {
-      const disposableEmail = 'e@bel.kr';
+    // it(`Should reject a disposable email`, async () => {
+    //   const disposableEmail = 'e@bel.kr';
 
-      try {
-        await usecase.createUser(disposableEmail, fakeUser.password);
-        expect(true).toBeFalsy();
-      } catch (err) {
-        expect(err).toBeInstanceOf(InvalidDataFormatError);
-      }
-    });
+    //   try {
+    //     await usecase.createUser(disposableEmail, fakeUser.password);
+    //     expect(true).toBeFalsy();
+    //   } catch (err) {
+    //     expect(err).toBeInstanceOf(InvalidDataFormatError);
+    //   }
+    // });
 
     it(`Should reject if the user already exists`, async () => {
       stub(usersRepository, 'findById').resolves(fakeUser);
