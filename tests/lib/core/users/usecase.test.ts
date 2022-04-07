@@ -6,7 +6,10 @@ import {
   MongoDBUsersRepository, 
   UsersUsecase, 
   InvalidDataFormatError, 
-  UserAlreadyExistsError 
+  UserAlreadyExistsError, 
+  UserNotFoundError,
+  RESET_PASSWORD_TOKEN_BYTES_LENGTH,
+  SHA256_HASH_BYTES_LENGTH
 } from '../../../../lib/core';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
@@ -14,6 +17,7 @@ import { BucketsRepository } from '../../../../lib/core/buckets/Repository';
 import { Mailer, MailUsecase, SendGridMailUsecase } from '../../../../lib/core/mail/usecase';
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { createLogger } from 'winston';
+import { createHash, randomBytes } from 'crypto';
 
 let usersRepository: UsersRepository;
 let framesRepository: FramesRepository;
@@ -105,6 +109,51 @@ describe('Users usecases', () => {
       } catch (err) {
         expect(err).toBeInstanceOf(UserAlreadyExistsError);
       }
+    });
+  });
+
+  describe('requestPasswordReset()', () => {
+    it('Should work if input data is valid', async () => {
+      const findByIdStub = stub(usersRepository, 'findById').resolves(fakeUser);
+      const updateByIdStub = stub(usersRepository, 'updateById').resolves();
+      const sendResetPasswordMailStub = stub(mailUsecase, 'sendResetPasswordMail').resolves();
+
+      const user = await usecase.requestPasswordReset(fakeUser.id, fakeUser.password);
+        
+      expect(findByIdStub.calledOnce).toBeTruthy();
+      expect(updateByIdStub.calledOnce).toBeTruthy();
+      expect(sendResetPasswordMailStub.calledOnce).toBeTruthy();
+      expect(user).toStrictEqual(fakeUser);
+    });
+
+    it('Should reject if user does not exist', async () => {
+      const findByIdStub = stub(usersRepository, 'findById').resolves(null);
+
+      try {
+        await usecase.requestPasswordReset(fakeUser.id, fakeUser.password);
+        expect(true).toBeFalsy()
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+        
+      expect(findByIdStub.calledOnce).toBeTruthy();
+    });
+
+    it('Should try to update the reset token of the user requesting the reset', async () => {
+      const findByIdStub = stub(usersRepository, 'findById').resolves(fakeUser);
+      const updateByIdStub = stub(usersRepository, 'updateById').resolves();
+      const sendResetPasswordMailStub = stub(mailUsecase, 'sendResetPasswordMail').resolves();
+
+      await usecase.requestPasswordReset(fakeUser.id, fakeUser.password);
+        
+      expect(findByIdStub.calledOnce).toBeTruthy();
+      expect(updateByIdStub.calledOnce).toBeTruthy();
+      expect(sendResetPasswordMailStub.calledOnce).toBeTruthy();
+      
+      const [userRequestingResetId, { resetter }] = updateByIdStub.args[0];
+
+      expect(userRequestingResetId).toStrictEqual(fakeUser.id);
+      expect(Buffer.from(resetter || '', 'hex').length).toBe(RESET_PASSWORD_TOKEN_BYTES_LENGTH);
     });
   });
 });
