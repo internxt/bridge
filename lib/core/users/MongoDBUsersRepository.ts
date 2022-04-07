@@ -27,15 +27,23 @@ export class MongoDBUsersRepository implements UsersRepository {
   constructor(private userModel: any) {}
 
   async findById(id: string): Promise<BasicUser | null> {
-    const { id: userId, uuid, maxSpaceBytes }: DatabaseUser = await this.userModel.findOne({ _id: id });
+    const user: DatabaseUser = await this.userModel.findOne({ _id: id });
     
-    return { id: userId, uuid, maxSpaceBytes };
+    return user && { 
+      uuid: user.uuid, 
+      id: user.id, 
+      maxSpaceBytes: user.maxSpaceBytes 
+    };
   }
 
   async findOne(where: Partial<User>): Promise<BasicUser | null> {
-    const { id: userId, uuid, maxSpaceBytes }: DatabaseUser = await this.userModel.findOne(where);
+    const user: DatabaseUser = await this.userModel.findOne(where);
 
-    return { id: userId, uuid, maxSpaceBytes };
+    return user && { 
+      uuid: user.uuid, 
+      id: user.id, 
+      maxSpaceBytes: user.maxSpaceBytes 
+    };
   }
 
   async create(data: CreateUserData): Promise<BasicUser> {
