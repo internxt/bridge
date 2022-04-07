@@ -7673,8 +7673,8 @@ storj-analytics@internxt/inxt-analytics:
     restify "^4.1.1"
     secp256k1 "^4.0.0"
     storj-lib "github:internxt/core#v8.7.3-beta"
-    storj-mongodb-adapter "github:internxt/mongodb-adapter#v9.0.1-beta"
-    storj-service-storage-models "github:internxt/service-storage-models#10.6.1-beta"
+    storj-mongodb-adapter "github:internxt/mongodb-adapter#update/update-with-storj-models"
+    storj-service-storage-models "github:internxt/service-storage-models#v10.6.2"
     uuid "^3.0.0"
 
 "storj-lib@github:internxt/core#v8.7.3-beta":
@@ -7722,6 +7722,14 @@ storj-analytics@internxt/inxt-analytics:
   dependencies:
     mongoose "^5.10.4"
     storj-lib "github:internxt/core#v8.7.3-beta"
+    storj-service-storage-models "github:internxt/service-storage-models#v10.6.2"
+
+"storj-mongodb-adapter@github:internxt/mongodb-adapter#v9.0.1-beta":
+  version "9.0.1-beta"
+  resolved "https://codeload.github.com/internxt/mongodb-adapter/tar.gz/a5a1f94cb474c7d8cc278a1b072bbfafc315e7ab"
+  dependencies:
+    mongoose "^5.10.4"
+    storj-lib "github:internxt/core#v8.7.3-beta"
     storj-service-storage-models "github:internxt/service-storage-models#10.6.1-beta"
 
 "storj-service-error-types@github:internxt/service-error-types":
@@ -7740,9 +7748,33 @@ storj-analytics@internxt/inxt-analytics:
     secp256k1 "^4.0.0"
     storj-service-error-types "github:internxt/service-error-types"
 
+"storj-service-storage-models@github:internxt/service-storage-models#10.6.1-beta":
+  version "10.6.1-beta"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/eeb766d5a0385811a4c410eb364d2879edf8ff4e"
+  dependencies:
+    bluebird "^3.4.7"
+    coinpayments "^2.1.1"
+    cross-env "^7.0.2"
+    dotenv "^8.2.0"
+    elliptic "^6.3.2"
+    hat "0.0.3"
+    merge "^2.1.1"
+    mime-db "^1.24.0"
+    moment "^2.17.1"
+    mongoose "=4.11.14"
+    mongoose-int32 "^0.1.0"
+    mongoose-types "^1.0.3"
+    ms "^2.1.3"
+    proxyquire "^1.8.0"
+    random-word "^2.0.0"
+    storj-lib "github:internxt/core#v8.7.3-beta"
+    storj-service-error-types "github:internxt/service-error-types"
+    stripe "^8.142.0"
+    uuid-validate "^0.0.3"
+
 "storj-service-storage-models@github:internxt/service-storage-models#v10.6.2":
   version "10.6.2"
-  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/2dc552b270570a416df6a143f1d961048f92d144"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/940769dc2a8a08d087ef25dfe2799f9b6a3b4e6d"
   dependencies:
     bluebird "^3.4.7"
     coinpayments "^2.1.1"
@@ -8408,6 +8440,11 @@ utils-merge@1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/utils-merge/-/utils-merge-1.0.1.tgz#9f95710f50a267947b2ccc124741c1028427e713"
   integrity sha1-n5VxD1CiZ5R7LMwSR0HBAoQn5xM=
+
+uuid-validate@^0.0.3:
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/uuid-validate/-/uuid-validate-0.0.3.tgz#e30617f75dc742a0e4f95012a11540faf9d39ab4"
+  integrity sha512-Fykw5U4eZESbq739BeLvEBFRuJODfrlmjx5eJux7W817LjRaq4b7/i4t2zxQmhcX+fAj4nMfRdTzO4tmwLKn0w==
 
 uuid@3.3.2:
   version "3.3.2"
