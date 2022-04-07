@@ -17,6 +17,9 @@ function isEmailValid(email: string) {
   return email.match(emailPattern);
 }
 
+export const RESET_PASSWORD_TOKEN_BYTES_LENGTH = 256;
+export const SHA256_HASH_BYTES_LENGTH = 32;
+
 export class UserAlreadyExistsError extends Error {
   constructor() {
     super('User already exists');
@@ -104,14 +107,14 @@ export class UsersUsecase {
     userRequestingResetId: string,
     redirect: string,
     url?: string
-  ): Promise<any> {
+  ): Promise<BasicUser> {
     const user = await this.usersRepository.findById(userRequestingResetId);
 
     if (!user) {
       throw new UserNotFoundError();
     }
 
-    const resetToken = randomBytes(256).toString('hex');
+    const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
 
     await this.usersRepository.updateById(userRequestingResetId, {
       resetter: resetToken
@@ -133,13 +136,13 @@ export class UsersUsecase {
    * @param resetter token used to reset the password
    */
   async resetPassword(password: string, resetter: string) {
-    const isSHA256Encoded = Buffer.from(password, 'hex').length * 8 === 256;
+    const isSHA256Encoded = Buffer.from(password, 'hex').length === SHA256_HASH_BYTES_LENGTH;
 
     if (!isSHA256Encoded) {
       throw new InvalidDataFormatError('Password must be an hex encoded SHA-256 hash');
     }
 
-    const resetterIsHexEncoded = Buffer.from(resetter, 'hex').length === 256;
+    const resetterIsHexEncoded = Buffer.from(resetter, 'hex').length === RESET_PASSWORD_TOKEN_BYTES_LENGTH;
 
     if (!resetterIsHexEncoded) {
       throw new InvalidDataFormatError('Resetter must be an hex encoded 256 byte string');
