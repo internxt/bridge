@@ -156,4 +156,70 @@ describe('Users usecases', () => {
       expect(Buffer.from(resetter || '', 'hex').length).toBe(RESET_PASSWORD_TOKEN_BYTES_LENGTH);
     });
   });
+
+  describe('resetPassword()', () => {
+    it('Should work if input data is valid', async () => {
+      const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
+      const newPassword = randomBytes(SHA256_HASH_BYTES_LENGTH).toString('hex');
+
+      const findOneStub = stub(usersRepository, 'findOne').resolves(fakeUser);
+      const updateByIdStub = stub(usersRepository, 'updateById').resolves();
+
+      const user = await usecase.resetPassword(newPassword, resetToken);
+
+      const [{ resetter }] = findOneStub.args[0];
+      const [userId, { resetter: newResetter, hashpass }] = updateByIdStub.args[0];
+
+      expect(findOneStub.calledOnce).toBeTruthy();
+      expect(resetter).not.toBeNull();
+      expect(resetter).toBe(resetToken);
+
+      expect(updateByIdStub.calledOnce).toBeTruthy();
+      expect(userId).toBe(fakeUser.id);
+      expect(newResetter).toBeNull();
+      expect(hashpass).toBe(
+        createHash('sha256').update(newPassword).digest('hex')
+      );
+
+      expect(user).toStrictEqual(fakeUser);
+    });
+
+    it('Should throw if the new password is invalid', async () => {
+      const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
+      const newPassword = randomBytes(SHA256_HASH_BYTES_LENGTH - 1).toString('hex');
+
+      try {
+        await usecase.resetPassword(newPassword, resetToken);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(InvalidDataFormatError);
+      }
+    });
+
+    it('Should throw if the reset token is invalid', async () => {
+      const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH - 1).toString('hex');
+      const newPassword = randomBytes(SHA256_HASH_BYTES_LENGTH).toString('hex');
+
+      try {
+        await usecase.resetPassword(newPassword, resetToken);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(InvalidDataFormatError);
+      }
+    });
+
+    it('Should throw if the user does not exist', async () => {
+      const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
+      const newPassword = randomBytes(SHA256_HASH_BYTES_LENGTH).toString('hex');
+
+      stub(usersRepository, 'findOne').resolves(null);
+
+      try {
+        await usecase.resetPassword(newPassword, resetToken);
+        expect(false).toBeTruthy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+    });
+  });
 });
