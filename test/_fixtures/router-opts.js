@@ -15,6 +15,7 @@ const Storage = proxyquire('storj-service-storage-models', {
 });
 const Network = require('storj-complex').createClient;
 const Mailer = require('inxt-service-mailer');
+const NetworkMessageQueue = require('../../lib/server/queues/networkQueue');
 const MongoDBAdapter = proxyquire('storj-mongodb-adapter', {
   mongoose: mongoose
 });
@@ -27,11 +28,29 @@ var mailer = new Mailer(config.mailer);
 var contracts = new StorageManager(
   new MongoDBAdapter(storage.connection)
 );
+const { QUEUE_USERNAME, QUEUE_PASSWORD, QUEUE_HOST } = config.queue;
+const QUEUE_NAME = 'NETWORK_WORKER_TASKS_QUEUE';
+var networkQueue = new NetworkMessageQueue({
+  connection: {
+    url: `amqp://${QUEUE_USERNAME}:${QUEUE_PASSWORD}@${QUEUE_HOST}`,
+  },
+  exchange: {
+    name: 'exchangeName',
+    type: 'direct',
+  },
+  queue: {
+    name: QUEUE_NAME,
+  },
+  routingKey: {
+    name: 'routingKeyName',
+  },
+});
 
 module.exports = {
   network: network,
   config: config,
   contracts: contracts,
   storage: storage,
-  mailer: mailer
+  mailer: mailer,
+  networkQueue: networkQueue,
 };
