@@ -82,7 +82,7 @@ async function deletePendingFiles() {
   let currentFile;
   
   try {
-    await waitForQueueToConnect();
+    await networkQueue.init();
     do {
       const filesToDelete = await drive.getDeletedFiles(filesBatchSize);
       for (const file of filesToDelete) {
@@ -124,23 +124,9 @@ async function deletePendingFiles() {
     }
     sqlPool.end();
     storage.connection.close();
-    networkQueue.close((err: Error | null) => {
-      if (err) {
-        console.log('Error closing queue: ', err.message);
-      }
-    });
+    await networkQueue.close();
   }
 }
 
-async function waitForQueueToConnect():Promise<void> {
-  return new Promise((resolve, reject) => {
-    networkQueue.init((err: Error | null) => {
-      if (err) {
-        return reject(err);
-      }
-      return resolve();
-    })
-  })
-}
 
 deletePendingFiles();

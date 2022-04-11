@@ -164,11 +164,7 @@ function onProgramFinished(err: Error | void) {
   console.log(programFinishedMessage);
 }
 
-networkQueue.init((err: Error | null) => {
-  if (err) {
-    console.error('Error connecting to Queue');
-  }
-
+networkQueue.init().then(() => {
   deleteBucketsWithNonExistingUsers()
     .then(onProgramFinished)
     .catch(onProgramFinished)
@@ -176,10 +172,14 @@ networkQueue.init((err: Error | null) => {
       sqlPool.end();
       storage.connection.close();
       clearInterval(loggerInterval);
-      networkQueue.close((err: Error | null) => {
+      networkQueue.close().catch(err => {
         if (err) {
           console.log('Error closing queue: ', err.message);
         }
       });
     });
-});
+}).catch(err => {
+  console.error('Error connecting to Queue');
+  console.error(err.message);
+  console.error(err.stack);
+})
