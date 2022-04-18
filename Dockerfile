@@ -1,4 +1,4 @@
-FROM debian:10
+FROM debian:11
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY . ./
 # Install nvm
 ENV NVM_DIR /root/.nvm
 ENV NODE_VERSION 14.18.0
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash  \
+RUN curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash \
   && . $NVM_DIR/nvm.sh \
   && nvm install $NODE_VERSION \
   && npm i -g yarn \ 
