@@ -103,4 +103,43 @@ export class BucketsUsecase {
     return { ...bucketEntry, frame: bucketEntry.frame.id, size: bucketEntry.frame.size };
   }
 
+  async getBucketEntryDownloadLinks(bucketEntryId: BucketEntry['id']): Promise<{
+    index: BucketEntryShard['index'],
+    size: Shard['size'],
+    hash: Shard['hash'],
+    url: string
+  }[]> {  
+    const bucketEntryShards = await this.bucketEntryShardsRepository.findByBucketEntrySortedByIndex(bucketEntryId);
+    const shards = await this.shardsRepository.findByIds(bucketEntryShards.map(b => b.shard));
+    const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shards.map(s => s.hash));
+
+    const response: {
+      index: BucketEntryShard['index'],
+      size: Shard['size'],
+      hash: Shard['hash'],
+      url: string
+    }[] = [];
+
+    for (const { contact, shardHash } of mirrors) {
+      const { address, port } = contact;
+
+      const shard = shards.find(s => s.hash === shardHash) as Shard;
+      const bucketEntryShard = bucketEntryShards.find(
+        b => b.shard.toString() === shard.id.toString()
+      ) as BucketEntryShard;
+      const farmerUrl = `http://${address}:${port}/v2/download/link/${shard.uuid}`;
+
+      await axios.get(farmerUrl).then(res => {
+        response.push({
+          index: bucketEntryShard.index,
+          size: shard.size,
+          hash: shard.hash,
+          url: res.data.result,
+        });
+      });
+    }
+
+    return response;
+  }
+
 }
