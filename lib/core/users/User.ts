@@ -9,6 +9,7 @@ export interface User {
   hashpass: string;
   activated: boolean;
   isFreeTier: boolean;
+  totalUsedSpaceBytes: number;
 }
 
 export type CreateUserData = Pick<User, 'password' | 'maxSpaceBytes' | 'activated'> & { email: string };

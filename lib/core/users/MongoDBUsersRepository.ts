@@ -26,14 +26,10 @@ type DatabaseUser = {
 export class MongoDBUsersRepository implements UsersRepository {
   constructor(private userModel: any) {}
 
-  async findById(id: string): Promise<BasicUser | null> {
-    const user: DatabaseUser = await this.userModel.findOne({ _id: id });
+  async findById(id: string): Promise<UserModel | null> {
+    const user: UserModel = await this.userModel.findOne({ _id: id });
     
-    return user && { 
-      uuid: user.uuid, 
-      id: user.id, 
-      maxSpaceBytes: user.maxSpaceBytes 
-    };
+    return user;
   }
 
   async findOne(where: Partial<User>): Promise<BasicUser | null> {
@@ -76,6 +72,10 @@ export class MongoDBUsersRepository implements UsersRepository {
 
   updateById(id: string, update: any) {
     return this.userModel.updateOne({ _id: id }, update);
+  }
+
+  updateTotalUsedSpaceBytes(id: string, totalUsedSpaceBytes: number): Promise<void> {
+    return this.userModel.updateOne({ _id: id }, { $inc: { totalUsedSpaceBytes } });
   }
 
   removeById(id: User['id']) {

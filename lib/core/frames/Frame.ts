@@ -7,4 +7,5 @@ export interface Frame {
   storageSize: number;
   size: number;
   locked: boolean;
+  bucketEntry: string;
 }
