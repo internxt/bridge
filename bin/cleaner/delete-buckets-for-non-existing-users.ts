@@ -104,7 +104,7 @@ const onEveryPointerDeleted = (pointer: any): Promise<void> => {
     networkQueue.enqueueMessage(
       {
         type: DELETING_FILE_MESSAGE,
-        payload: { hash: pointer.hash },
+        payload: { key: pointer.hash },
       },
       (err: Error | null) => {
         if (err) reject(err);
