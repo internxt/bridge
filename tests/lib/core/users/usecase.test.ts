@@ -18,6 +18,7 @@ import { Mailer, MailUsecase, SendGridMailUsecase } from '../../../../lib/core/m
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { createLogger } from 'winston';
 import { createHash, randomBytes } from 'crypto';
+import { User } from '../../../../lib/core/users/User';
 
 let usersRepository: UsersRepository;
 let framesRepository: FramesRepository;
@@ -45,11 +46,18 @@ beforeEach(() => {
   );
 });
 
-const fakeUser = {
+const fakeUser: User = {
   id: 'myemail@internxt.com',
   maxSpaceBytes: 0,
   uuid: 'uuid',
-  password: 'fake-pass'
+  password: 'fake-pass',
+  activated: true,
+  activator: '',
+  deactivator: '',
+  hashpass: '',
+  isFreeTier: true,
+  resetter: '',
+  totalUsedSpaceBytes: 0
 }
 
 describe('Users usecases', () => {
