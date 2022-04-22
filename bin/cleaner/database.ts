@@ -159,6 +159,22 @@ export function driveRepository(pool: Pool) {
         email,
       ]).then((res) => res[0].count);
     },
+    getDeletedFiles: (limit: number): Promise<{ file_id: string; bucket: string; user_email: string }[]> => {
+      const query = `
+        SELECT file_id, bucket, users.email as user_email
+        FROM deleted_files
+        INNER JOIN users
+        ON deleted_files.user_id = users.id
+        LIMIT ${limit};
+      `
+      return queryPromise<{ file_id: string; bucket: string; user_email: string; }[]>(pool, query, [])
+    },
+    deleteReferenceToDeletedFile: (fileId: string): Promise<void> => {
+      const query = `
+        DELETE FROM deleted_files WHERE file_id = '${fileId}';
+      `
+      return queryPromise(pool, query, []);
+    },
   };
 }
 
