@@ -169,7 +169,7 @@ async function migrateUser(userEmail: string): Promise<void> {
   console.log('Migrating user: ', userEmail);
 
   const bucketsCursor = BucketModel
-    .find({ user: { $eq: userEmail } })
+    .find({ user: userEmail })
     .sort({ _id: 1 })
     .cursor();
   
