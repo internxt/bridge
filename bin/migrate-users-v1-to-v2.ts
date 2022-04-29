@@ -4,7 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { config as loadEnv } from 'dotenv';
 import axios from 'axios';
 import Config from '../lib/config';
+import { pipeline } from 'stream/promises';
 import { iterateOverCursor } from './cleaner/database';
+import { PipelineSource, Stream } from 'stream';
 
 const Storage = require('storj-service-storage-models') as any;
 
@@ -38,11 +40,12 @@ if (!program.email) {
   throw new Error('Add the user email as -e or --email');
 }
 
-const S3BucketName = '';
-const S3Endpoint = '';
-const S3AccessKeyId = '';
-const S3SecretAccessKey = ''
-const S3Region = ''
+// TODO: To be decided if by program or ENV variables:
+const S3BucketName = process.env.S3BucketName
+const S3Endpoint = process.env.S3Endpoint
+const S3AccessKeyId = process.env.S3AccessKeyId
+const S3SecretAccessKey = process.env.S3SecretAccessKey
+const S3Region = process.env.S3Region
 
 const S3Bucket = new AWS.S3({
   endpoint: new AWS.Endpoint(S3Endpoint),
@@ -52,6 +55,7 @@ const S3Bucket = new AWS.S3({
   }),
   signatureVersion: 'v4',
   region: S3Region,
+  apiVersion: '2006-03-01',
 });
 
 let idBucketBeingChecked: string;
@@ -73,7 +77,6 @@ const {
   Bucket: BucketModel,
   BucketEntry: BucketEntryModel,
   BucketEntryShard: BucketEntryShardModel,
-  Contact: ContactModel,
   Mirror: MirrorModel,
 } = storage.models;
 
@@ -86,6 +89,22 @@ const logStatus = () => {
 };
 
 const loggerInterval = setInterval(logStatus, 4000);
+
+const performDownloadUpload = async (uuid: string, downloadUrl: string) => {
+  const response = await axios.get<PipelineSource<ReadableStream>>(downloadUrl, {
+    responseType: 'stream',
+  });
+  const shardReadable = response.data;
+
+  const shardWriteable = new Stream.PassThrough();
+
+  S3Bucket.upload({
+    Bucket: S3BucketName,
+    Key: uuid,
+    Body: shardWriteable
+  })
+  return pipeline(shardReadable, shardWriteable);
+}
 
 const getDownloadUrl = async (shard: any) => {
   const mirror = await MirrorModel
@@ -102,25 +121,12 @@ const getDownloadUrl = async (shard: any) => {
   return downloadUrl;
 }
 
-const getUploadUrl = (uuid: string) => {
-  return S3Bucket.getSignedUrl('putObject', {
-    Bucket: S3BucketName,
-    Key: uuid,
-    ContentType: 'application/octet-stream',
-    Expires: 3600,
-  });
-}
-
 const migrateShard = async (shard: any, index: number, bucketEntry: any): Promise<void> => {
   const uuid = uuidv4();
   
-  const [downloadUrl, uploadUrl] = await Promise.all([
-    getDownloadUrl(shard),
-    getUploadUrl(uuid),
-  ]);
-  // Perform shard stream download/upload here.
-    // TODO
-  // End perform shard stream download/upload
+  const downloadUrl = await getDownloadUrl(shard);
+
+  await performDownloadUpload(uuid, downloadUrl);
 
   // Update data structures:
   shard.uuid = uuid;
