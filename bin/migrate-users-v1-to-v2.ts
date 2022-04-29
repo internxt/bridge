@@ -1,5 +1,6 @@
 import program from 'commander';
-const { v4: uuidv4} = require('uuid');
+import AWS from 'aws-sdk';
+import { v4 as uuidv4 } from 'uuid';
 import { config as loadEnv } from 'dotenv';
 import axios from 'axios';
 import Config from '../lib/config';
@@ -36,6 +37,22 @@ if (!program.mongourl) {
 if (!program.email) {
   throw new Error('Add the user email as -e or --email');
 }
+
+const S3BucketName = '';
+const S3Endpoint = '';
+const S3AccessKeyId = '';
+const S3SecretAccessKey = ''
+const S3Region = ''
+
+const S3Bucket = new AWS.S3({
+  endpoint: new AWS.Endpoint(S3Endpoint),
+  credentials: new AWS.Credentials({
+    accessKeyId: S3AccessKeyId,
+    secretAccessKey: S3SecretAccessKey,
+  }),
+  signatureVersion: 'v4',
+  region: S3Region,
+});
 
 let idBucketBeingChecked: string;
 let migratedBuckets = 0;
@@ -85,19 +102,13 @@ const getDownloadUrl = async (shard: any) => {
   return downloadUrl;
 }
 
-const getUploadUrl = async (uuid:string) => {
-  const randomPositionOfNode = Math.floor(Math.random() * XNODES.length);
-  const nodeID = XNODES[randomPositionOfNode];
-
-  const contact = await ContactModel.findOne({ _id: nodeID });
-  const { address, port } = contact;
-
-  const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
-  const { username, password } = config.nodes;
-  const farmerRes = await axios.get(farmerUrl, { auth: { username, password } });
-  const objectStorageUrl = farmerRes.data.result;
-
-  return objectStorageUrl;
+const getUploadUrl = (uuid: string) => {
+  return S3Bucket.getSignedUrl('putObject', {
+    Bucket: S3BucketName,
+    Key: uuid,
+    ContentType: 'application/octet-stream',
+    Expires: 3600,
+  });
 }
 
 const migrateShard = async (shard: any, index: number, bucketEntry: any): Promise<void> => {
