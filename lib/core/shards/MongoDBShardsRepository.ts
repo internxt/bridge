@@ -21,7 +21,6 @@ export class MongoDBShardsRepository implements ShardsRepository {
   )[]> {
     return this.model.find({ hash: { $in: hashes } }).then((shards: any) => {
       return shards.map((s: any) => {
-        console.log(s.toObject());
         return {
           id: s._id,
           ...s.toObject()
