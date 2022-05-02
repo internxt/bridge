@@ -17,10 +17,15 @@ import { GatewayUsecase } from "../../core/gateway/Usecase";
 import { MirrorsRepository } from "../../core/mirrors/Repository";
 import { MongoDBMirrorsRepository } from "../../core/mirrors/MongoDBMirrorsRepository";
 import { PointersRepository } from "../../core/pointers/Repository";
-import { MongoDBPointersRepository } from "../../core/pointers/MongoDBBucketEntryShardsRepository";
+import { MongoDBPointersRepository } from "../../core/pointers/MongoDBPointersRepository";
 import { BucketEntriesRepository } from "../../core/bucketEntries/Repository";
 import { MongoDBBucketEntriesRepository } from "../../core/bucketEntries/MongoDBBucketEntriesRepository";
 import { buildMiddleware as buildJwtMiddleware } from "./middleware/jwt";
+import { getEnv } from "../env";
+import { ContactsRepository } from "../../core/contacts/Repository";
+import { MongoDBContactsRepository } from "../../core/contacts/MongoDBContactsRepository";
+import { ShardsRepository } from "../../core/shards/Repository";
+import { MongoDBShardsRepository } from "../../core/shards/MongoDBShardsRepository";
 
 const { authenticate } = require('storj-service-middleware');
 
@@ -31,6 +36,8 @@ interface Models {
   Mirror: any;
   Pointer: any;
   BucketEntry: any;
+  Contact: any;
+  Shard: any;
 }
 
 export function bindNewRoutes(
@@ -39,7 +46,7 @@ export function bindNewRoutes(
   mailer: Mailer, 
   profile: Profile,
   log: Logger,
-  networkQueue: any
+  networkQueue: any,
 ): void {
   const { models } = storage;
 
@@ -49,6 +56,8 @@ export function bindNewRoutes(
   const framesRepository: FramesRepository = new MongoDBFramesRepository(models.Frame);
   const mirrorsRepository: MirrorsRepository = new MongoDBMirrorsRepository(models.Mirror);
   const pointersRepository: PointersRepository = new MongoDBPointersRepository(models.Pointer);
+  const contactsRepository: ContactsRepository = new MongoDBContactsRepository(models.Contact);
+  const shardsRepository: ShardsRepository = new MongoDBShardsRepository(models.Shard);
 
   const mailUsecase: MailUsecase = new SendGridMailUsecase(mailer, profile);
   const eventBus = new EventBus(log, mailUsecase);
@@ -64,8 +73,10 @@ export function bindNewRoutes(
   const gatewayUsecase = new GatewayUsecase(
     bucketEntriesRepository,
     framesRepository,
+    shardsRepository,
     pointersRepository,
     mirrorsRepository,
+    contactsRepository,
     eventBus,
     networkQueue
   );
