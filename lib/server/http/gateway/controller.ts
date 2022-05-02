@@ -27,7 +27,7 @@ export class HTTPGatewayController {
       return res.status(400).send();
     }
 
-    if (files.some(f => !(f instanceof String))) {
+    if (files.some(f => typeof f !== 'string')) {
       return res.status(400).send();
     }
 
