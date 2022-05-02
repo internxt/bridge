@@ -4,10 +4,12 @@ import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { DELETING_FILE_MESSAGE } from '../../server/queues/messageTypes';
 import { BucketEntry } from "../bucketEntries/BucketEntry"
 import { BucketEntriesRepository } from "../bucketEntries/Repository";
+import { ContactsRepository } from '../contacts/Repository';
 import { FramesRepository } from "../frames/Repository";
 import { MirrorsRepository } from '../mirrors/Repository';
 import { Pointer } from '../pointers/Pointer';
 import { PointersRepository } from "../pointers/Repository";
+import { ShardsRepository } from '../shards/Repository';
 
 export type DeleteFilesInBulkResult = {
   deleted: BucketEntry['id'][];
@@ -18,8 +20,10 @@ export class GatewayUsecase {
   constructor(
     private bucketEntriesRepository: BucketEntriesRepository,
     private framesRepository: FramesRepository,
+    private shardsRepository: ShardsRepository,
     private pointersRepository: PointersRepository,
     private mirrorsRepository: MirrorsRepository,
+    private contactsRepository: ContactsRepository,
     private eventBus: EventBus,
     private networkQueue: { enqueueMessage: (msg: any, cb: (err?: Error) => void) => void }
   ) {}
@@ -94,9 +98,13 @@ export class GatewayUsecase {
       
       if (pointerIds.length > 0) {
         const pointers = await this.pointersRepository.findByIds(pointerIds);
-        await this.deletePointers(pointers);
-      } else if (filesThatHaveFrames.length > 0) {
-        // log('Pointers not found for files %s', filesThatHaveFrames.map((f) => f.id))
+        const pointersFound = pointers.length > 0;
+
+        if (pointersFound) {
+          await this.deletePointers(pointers);
+        } else {
+          // log('Pointers not found for files %s', filesThatHaveFrames.map((f) => f.id))
+        }
       }
 
       if (filesThatHaveFrames.length > 0) {
