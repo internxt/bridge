@@ -59,6 +59,36 @@ export class GatewayUsecase {
     }
 
     await this.pointersRepository.deleteByIds(pointers.map(p => p.id));
+
+    const shards = await this.shardsRepository.findByHashes(pointers.map(p => p.hash));
+
+    for (const shard of shards) {
+      for (const nodeID of Object.keys(shard.contracts)) {
+        const contact = await this.contactsRepository.findById(nodeID);
+        const contactExists = !!contact;
+
+        if (contactExists) {
+          const { port, address } = contact;
+
+          const url = `http://${address}:${port}/shards/${shard.hash}`;
+
+          this.networkQueue.enqueueMessage({
+            type: DELETING_FILE_MESSAGE,
+            payload: { hash: shard.hash, url }
+          }, (err) => {
+            if (err) {
+              console.error(
+                'deletePointers: Error enqueueing shard %s deletion task: %s',
+                shard.hash,
+                err.message
+              );
+            }
+          });
+        }
+      }
+    }
+
+    await this.shardsRepository.removeByIds(shards.map(s => s.id));
   }
 
   /**
