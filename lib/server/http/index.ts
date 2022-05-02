@@ -82,7 +82,9 @@ export function bindNewRoutes(
   );
 
   const basicAuthMiddleware = authenticate(storage);
-  const jwtMiddleware = buildJwtMiddleware('secret');
+  const secretToUtf8 = Buffer.from(getEnv().gateway.jwtSecret, 'base64').toString('utf8')
+  const jwtMiddleware = buildJwtMiddleware(secretToUtf8, { algorithms: ['RS256'] });
+
   const usersController = new HTTPUsersController(usersUsecase, log);
   const gatewayController = new HTTPGatewayController(gatewayUsecase, log);
 

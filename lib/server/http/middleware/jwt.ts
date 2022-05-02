@@ -1,8 +1,8 @@
 import { RequestHandler } from "express";
-import { JwtPayload, verify } from 'jsonwebtoken';
+import { verify, VerifyOptions } from 'jsonwebtoken';
 import { BadRequestError, ForbiddenError, NotAuthorizedError } from "storj-service-error-types";
 
-export function buildMiddleware(secret: string): RequestHandler {
+export function buildMiddleware(secret: string, opts: Partial<VerifyOptions>): RequestHandler {
   return (req, _, next) => {
     const auth = req.headers['authorization'];
     if (!auth) {
@@ -15,14 +15,14 @@ export function buildMiddleware(secret: string): RequestHandler {
       return next(BadRequestError());
     }
 
-    verify(token, secret, ((err: Error, payload: JwtPayload) => {
+    verify(token, secret, opts, (err, decoded) => {
       if (err) {
         return next(ForbiddenError());
       }
 
-      (req as any).payload = payload;
+      (req as any).payload = decoded;
 
       next();
-    }) as any);
+    });
   };
 }
