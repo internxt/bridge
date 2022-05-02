@@ -9,7 +9,7 @@ import { MirrorsRepository } from '../../../../lib/core/mirrors/Repository';
 import { PointersRepository } from '../../../../lib/core/pointers/Repository';
 
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
-import { MongoDBPointersRepository } from '../../../../lib/core/pointers/MongoDBBucketEntryShardsRepository';
+import { MongoDBPointersRepository } from '../../../../lib/core/pointers/MongoDBPointersRepository';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
 import { 
@@ -21,11 +21,17 @@ import {
 import { Pointer } from '../../../../lib/core/pointers/Pointer';
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { MailUsecase, SendGridMailUsecase } from '../../../../lib/core/mail/usecase';
+import { ShardsRepository } from '../../../../lib/core/shards/Repository';
+import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
+import { ContactsRepository } from '../../../../lib/core/contacts/Repository';
+import { MongoDBContactsRepository } from '../../../../lib/core/contacts/MongoDBContactsRepository'; 
 
 let framesRepository: FramesRepository = new MongoDBFramesRepository({});
 let bucketEntriesRepository: BucketEntriesRepository = new MongoDBBucketEntriesRepository({});
 let pointersRepository: PointersRepository = new MongoDBPointersRepository({});
 let mirrorsRepository: MirrorsRepository = new MongoDBMirrorsRepository({});
+let shardsRepository: ShardsRepository = new MongoDBShardsRepository({});
+let contactsRepository: ContactsRepository = new MongoDBContactsRepository({});
 let networkQueue: any;
 let mailUsecase: MailUsecase = new SendGridMailUsecase({} as Mailer, {
   host: '',
@@ -40,8 +46,10 @@ let eventBus = new EventBus(logger, mailUsecase);
 let usecase = new GatewayUsecase(
   bucketEntriesRepository, 
   framesRepository,
+  shardsRepository,
   pointersRepository,
   mirrorsRepository,
+  contactsRepository,
   eventBus,
   networkQueue
 );
@@ -51,16 +59,21 @@ beforeEach(() => {
   bucketEntriesRepository = new MongoDBBucketEntriesRepository({});
   pointersRepository = new MongoDBPointersRepository({});
   mirrorsRepository = new MongoDBMirrorsRepository({});
+  shardsRepository = new MongoDBShardsRepository({});
+  contactsRepository = new MongoDBContactsRepository({});
   eventBus = new EventBus(logger, mailUsecase);
 
   usecase = new GatewayUsecase(
     bucketEntriesRepository, 
     framesRepository,
+    shardsRepository,
     pointersRepository,
     mirrorsRepository,
+    contactsRepository,
     eventBus,
     networkQueue
   );
+  
 
   restore();
 });
