@@ -1,4 +1,4 @@
-name: build & deploy
+name: Code coverage
 on:
   push:
     branches: [ master ]
