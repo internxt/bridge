@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/internxt/bridge/branch/master/graph/badge.svg?token=5D9UW1HSCK)](https://codecov.io/gh/internxt/bridge)
+
 Internxt Bridge
 =======================================================================================================
 
