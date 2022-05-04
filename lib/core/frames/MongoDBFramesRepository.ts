@@ -11,4 +11,8 @@ export class MongoDBFramesRepository implements FramesRepository {
   removeAll(where: Partial<Frame>): Promise<void> {
     return this.model.deleteMany(where);
   }
+
+  deleteByIds(ids: string[]): Promise<void> {
+    return this.model.deleteMany({ _id: { $in: ids } });
+  }
 }
