@@ -1,6 +1,6 @@
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
-import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError } from '../buckets/usecase';
+import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError, BucketEntryFrameNotFoundError } from '../buckets/usecase';
 import { FramesRepository } from '../frames/Repository';
 import { ShardsUsecase } from '../shards/usecase';
 
@@ -29,6 +29,10 @@ export class BucketEntriesUsecase {
       throw new BucketEntryNotFoundError();
     }
 
+    if (!bucketEntry.frame) {
+      throw new BucketEntryFrameNotFoundError();
+    }
+
     const frame = await this.framesRepository.findOne({ id: bucketEntry.frame.id });
 
     if (!frame) {
@@ -37,10 +41,13 @@ export class BucketEntriesUsecase {
       return this.bucketEntriesRepository.deleteByIds([bucketEntry.id]);
     }
 
+    const version = bucketEntry.version || 1;
+
     await this.shardsUsecase.deleteShardsByIds(frame.shards, {
       beforePointerIsDeleted: this.shardsUsecase.enqueueDeleteShardMessage,
-      version: bucketEntry.version,
+      version,
     });
+    
     await this.framesRepository.deleteByIds([frame.id]);
     await this.bucketEntriesRepository.deleteByIds([bucketEntry.id]);
   }
