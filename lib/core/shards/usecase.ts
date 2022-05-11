@@ -1,55 +1,43 @@
 import { MirrorsRepository } from '../mirrors/Repository';
 import { ShardsRepository } from './Repository';
-import { PointersRepository } from '../pointers/Repository';
 import NetworkMessageQueue from "../../server/queues/networkQueue";
 import { DELETING_FILE_MESSAGE } from "../../server/queues/messageTypes";
-import { Pointer } from "../pointers/Pointer";
+import { BucketEntryVersionNotFoundError } from '../bucketEntries/usecase';
 
 export class ShardsUsecase {
   constructor(
     private shardsRepository: ShardsRepository,
     private mirrorsRepository: MirrorsRepository,
-    private pointersRepository: PointersRepository,
     private networkQueue: NetworkMessageQueue
   ) {}
 
-  async deleteShardsByIds(
-    shardIds: string[],
-    {
-      beforePointerIsDeleted,
-      version
-    }: {
-      beforePointerIsDeleted: (pointer: Pointer, version: number) => Promise<void>;
-      version: number;
-    }
-  ) {
-    const pointers = await this.pointersRepository.findByIds(shardIds);
-    for (const pointer of pointers) {
-      await beforePointerIsDeleted(pointer, version);
-      await this.pointersRepository.deleteByIds([pointer.id]);
-    }
-  }
+  enqueueDeleteShardMessages = async(hashes: string[], version: number) => {
+    for(const hash of hashes) {
+      const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts([hash]);
+      const stillExistentMirrors = mirrors.filter((mirror) => {
+        return mirror.contact && mirror.contact.address && mirror.contact.port;
+      });
 
-  enqueueDeleteShardMessage = async(pointer: Pointer, version: number) => {
-    const { hash } = pointer;
-    const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts([hash]);
-    const stillExistentMirrors = mirrors.filter((mirror) => {
-      return mirror.contact && mirror.contact.address && mirror.contact.port;
-    });
+      for (const { contact } of stillExistentMirrors) {
+        const { address, port } = contact;
 
-    for (const { contact } of stillExistentMirrors) {
-      const { address, port } = contact;
+        let url: string;
+        
+        if(version === 1){
+          url = `http://${address}:${port}/shards/${hash}`;
+        }
+        else if (version === 2) {
+          url = `http://${address}:${port}/v2/shards/${hash}`;
+        }
+        else {
+          throw new BucketEntryVersionNotFoundError();
+        }
 
-      let url = `http://${address}:${port}/shards/${hash}`;
-
-      if (version === 2) {
-        url = `http://${address}:${port}/v2/shards/${hash}`;
+        this.networkQueue.enqueueMessage({
+          type: DELETING_FILE_MESSAGE,
+          payload: { hash, url }
+        })
       }
-
-      this.networkQueue.enqueueMessage({
-        type: DELETING_FILE_MESSAGE,
-        payload: { hash, url }
-      })
     }
   }
 }
