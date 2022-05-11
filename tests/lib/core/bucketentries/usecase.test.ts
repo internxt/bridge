@@ -4,6 +4,7 @@ import { MirrorsRepository } from '../../../../lib/core/mirrors/Repository';
 import { ShardsRepository } from '../../../../lib/core/shards/Repository';
 import { BucketsRepository } from '../../../../lib/core/buckets/Repository';
 import { PointersRepository } from '../../../../lib/core/pointers/Repository';
+import { BucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/Repository';
 
 import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
@@ -13,10 +14,10 @@ import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFram
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
 import { MongoDBPointersRepository } from '../../../../lib/core/pointers/MongoDBPointersRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
+import { MongoDBBucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/MongoDBBucketEntryShardsRepository';
 import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
 import { restore, stub } from 'sinon';
 import { DELETING_FILE_MESSAGE } from '../../../../lib/server/queues/messageTypes';
-
 
 describe('BucketEntriesUsecase', function () {
 
@@ -30,6 +31,7 @@ describe('BucketEntriesUsecase', function () {
   let shardsRepository: ShardsRepository = new MongoDBShardsRepository({});
   let bucketsRepository: BucketsRepository = new MongoDBBucketsRepository({});
   let pointersRepository: PointersRepository = new MongoDBPointersRepository({});
+  let bucketEntryShardsRepository: BucketEntryShardsRepository = new MongoDBBucketEntryShardsRepository({});
 
   let networkQueue: any = {
     enqueueMessage: (message: any) => {}
@@ -38,7 +40,6 @@ describe('BucketEntriesUsecase', function () {
   let shardsUseCase = new ShardsUsecase(
     shardsRepository,
     mirrorsRepository,
-    pointersRepository,
     networkQueue,
   );
 
@@ -46,6 +47,9 @@ describe('BucketEntriesUsecase', function () {
     bucketEntriesRepository,
     bucketsRepository,
     framesRepository,
+    bucketEntryShardsRepository,
+    shardsRepository,
+    pointersRepository,
     shardsUseCase,
   );
   
@@ -60,7 +64,6 @@ describe('BucketEntriesUsecase', function () {
     shardsUseCase = new ShardsUsecase(
       shardsRepository,
       mirrorsRepository,
-      pointersRepository,
       networkQueue,
     );
 
@@ -68,6 +71,9 @@ describe('BucketEntriesUsecase', function () {
       bucketEntriesRepository,
       bucketsRepository,
       framesRepository,
+      bucketEntryShardsRepository,
+      shardsRepository,
+      pointersRepository,
       shardsUseCase,
     );
 
@@ -80,7 +86,7 @@ describe('BucketEntriesUsecase', function () {
       stub(bucketsRepository, 'findOne').resolves(null);
 
       try {
-        await bucketEntriesUsecase.removeFile(bucketId, userEmail, fileId);
+        await bucketEntriesUsecase.removeFileAndValidateBucketExists(bucketId, fileId);
         expect(true).toBe(false);
       } catch (err) {
         expect(err).toBeInstanceOf(BucketNotFoundError);
@@ -92,7 +98,7 @@ describe('BucketEntriesUsecase', function () {
       stub(bucketsRepository, 'findOne').resolves(differentEmailBucket);
 
       try {
-        await bucketEntriesUsecase.removeFile(bucketId, userEmail, fileId);
+        await bucketEntriesUsecase.removeFileFromUser(bucketId, fileId, userEmail);
         expect(true).toBe(false);
       } catch (err) {
         expect(err).toBeInstanceOf(BucketForbiddenError);
@@ -110,10 +116,10 @@ describe('BucketEntriesUsecase', function () {
     });
 
     it('Fails when file is not found', async function () {
-      stub(bucketEntriesRepository, 'findOneWithFrame').resolves(null)
+      stub(bucketEntriesRepository, 'findOne').resolves(null)
 
       try {
-        await bucketEntriesUsecase.removeFile(bucketId, userEmail, fileId);
+        await bucketEntriesUsecase.removeFile(fileId);
         expect(true).toBe(false);
       } catch (err) {
         expect(err).toBeInstanceOf(BucketEntryNotFoundError);
@@ -126,14 +132,15 @@ describe('BucketEntriesUsecase', function () {
         id: 'id_of_bucket_entry',
         frame: {
           id: 'abc123'
-        }
+        },
+        version: 1
       }
       
-      stub(bucketEntriesRepository, 'findOneWithFrame').resolves(fakeBucketEntry);
+      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
       stub(framesRepository, 'findOne').resolves(null);
 
       try {
-        await bucketEntriesUsecase.removeFile(bucketId, userEmail, fileId);
+        await bucketEntriesUsecase.removeFile(fileId);
         expect(true).toBe(false);
       } catch (err) {
         expect(deleteBucketEntriesByIds.callCount).toEqual(1);
@@ -141,36 +148,74 @@ describe('BucketEntriesUsecase', function () {
       }
     });
 
-    it('removes all pointers, frame and bucketentry', async function () {
+    it('removes all pointers, frame and bucketentry, version 1', async function () {
       const fakeBucketEntry: any = {
-          version: 2,
+          version: 1,
           frame: {
             id: 'abc123',
           }
         }
-      stub(bucketEntriesRepository, 'findOneWithFrame').resolves(fakeBucketEntry);
+      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
 
       const deleteFramesByIds = stub(framesRepository, 'deleteByIds');
       const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
       const deletePointersByIds = stub(pointersRepository, 'deleteByIds');
 
       const fakeFrame: any = {
-        shards: ['shard1', 'shard2'],
+        shards: ['id_shard1', 'id_shard2'],
       };
 
       stub(framesRepository, 'findOne').resolves(fakeFrame);
 
-      const pointer1: any = { id: 'pointer1' };
-      const pointer2: any = { id: 'pointer2' };
+      const pointer1: any = { id: 'id_shard1' };
+      const pointer2: any = { id: 'id_shard2' };
       stub(pointersRepository, 'findByIds').resolves([pointer1, pointer2]);
 
-      const enqueueDeleteShardFunction = stub(shardsUseCase, 'enqueueDeleteShardMessage');
-      try {
-        await bucketEntriesUsecase.removeFile(bucketId, userEmail, fileId);
+      const shard1: any = { hash: 'shard1' };
+      const shard2: any = { hash: 'shard2' };
+      stub(shardsRepository, 'findByIds').resolves([shard1, shard2]);
 
-        expect(enqueueDeleteShardFunction.getCall(0).args[0]).toEqual(pointer1);
-        expect(enqueueDeleteShardFunction.getCall(1).args[0]).toEqual(pointer2);
+      const enqueueDeleteShardFunction = stub(shardsUseCase, 'enqueueDeleteShardMessages');
+      try {
+        await bucketEntriesUsecase.removeFile(fileId);
+
+        expect(enqueueDeleteShardFunction.getCall(0).args[0]).toEqual([shard1.hash, shard2.hash]);
+        expect(enqueueDeleteShardFunction.getCall(0).args[1]).toEqual(1);
+        expect(deletePointersByIds.getCall(0).args[0]).toEqual([pointer1.id, pointer2.id]);
         expect(deleteFramesByIds.calledOnce).toEqual(true);
+        expect(deleteBucketEntriesByIds.calledOnce).toEqual(true);
+      } catch (err) {
+        expect(true).toBe(false);
+      }
+    });
+
+    it('removes all pointers, frame and bucketentry, version 2', async function () {
+      const fakeBucketEntry: any = {
+          version: 2,
+          frame: {
+            id: 'abc123',
+          }
+        }
+      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
+
+      const fakeBucketEntryShards: any = [
+        { shard: 'shard1'}, { shard: 'shard2'}
+      ];
+
+      stub(bucketEntryShardsRepository, 'findByBucketEntry').resolves(fakeBucketEntryShards);
+
+      const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
+
+      const shard1: any = { hash: 'shard1' };
+      const shard2: any = { hash: 'shard2' };
+      stub(shardsRepository, 'findByIds').resolves([shard1, shard2]);
+
+      const enqueueDeleteShardFunction = stub(shardsUseCase, 'enqueueDeleteShardMessages');
+      try {
+        await bucketEntriesUsecase.removeFile(fileId);
+
+        expect(enqueueDeleteShardFunction.getCall(0).args[0]).toEqual([shard1.hash, shard2.hash]);
+        expect(enqueueDeleteShardFunction.getCall(0).args[1]).toEqual(2);
         expect(deleteBucketEntriesByIds.calledOnce).toEqual(true);
       } catch (err) {
         expect(true).toBe(false);
@@ -184,39 +229,37 @@ describe('BucketEntriesUsecase', function () {
             id: 'abc123',
           }
         }
-      stub(bucketEntriesRepository, 'findOneWithFrame').resolves(fakeBucketEntry);
+      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
 
-      const deleteFramesByIds = stub(framesRepository, 'deleteByIds');
       const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
-      const deletePointersByIds = stub(pointersRepository, 'deleteByIds');
+      const fakeBucketEntryShards: any = [
+        { shard: 'shard1'}, { shard: 'shard2'}
+      ];
+
+      stub(bucketEntryShardsRepository, 'findByBucketEntry').resolves(fakeBucketEntryShards);
+
+      const shard1: any = { hash: 'shard1' };
+      const shard2: any = { hash: 'shard2' };
+      stub(shardsRepository, 'findByIds').resolves([shard1, shard2]);
 
       const fakeMirrors: any = [
         { contact: { address: 'address', port: 9000 } }
       ];
       stub(mirrorsRepository, 'findByShardHashesWithContacts').resolves(fakeMirrors);
-      const fakeFrame: any = {
-        shards: ['shard1'],
-      };
-
-      stub(framesRepository, 'findOne').resolves(fakeFrame);
-
-      const pointer1: any = { id: 'pointer1', hash: 'shard1' };
-      stub(pointersRepository, 'findByIds').resolves([pointer1]);
 
       const enqueueMessageFunction = stub(networkQueue, 'enqueueMessage');
       try {
-        await bucketEntriesUsecase.removeFile(bucketId, userEmail, fileId);
+        await bucketEntriesUsecase.removeFile(fileId);
 
         const { contact } = fakeMirrors[0];
         const { address, port } = contact;
         expect(enqueueMessageFunction.firstCall.args).toStrictEqual([
           {
             type: DELETING_FILE_MESSAGE,
-            payload: {hash: pointer1.hash, url: `http://${address}:${port}/v2/shards/${pointer1.hash}`},
+            payload: {hash: shard1.hash, url: `http://${address}:${port}/v2/shards/${shard1.hash}`},
           }
         ]);
       } catch (err) {
-        console.log(err)
         expect(true).toBe(false);
       }
     });
