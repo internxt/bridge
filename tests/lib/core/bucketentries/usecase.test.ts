@@ -50,6 +50,7 @@ describe('BucketEntriesUsecase', function () {
     bucketEntryShardsRepository,
     shardsRepository,
     pointersRepository,
+    mirrorsRepository,
     shardsUseCase,
   );
   
@@ -74,6 +75,7 @@ describe('BucketEntriesUsecase', function () {
       bucketEntryShardsRepository,
       shardsRepository,
       pointersRepository,
+      mirrorsRepository,
       shardsUseCase,
     );
 
@@ -160,6 +162,13 @@ describe('BucketEntriesUsecase', function () {
       const deleteFramesByIds = stub(framesRepository, 'deleteByIds');
       const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
       const deletePointersByIds = stub(pointersRepository, 'deleteByIds');
+      const deleteMirrorsByIds = stub(mirrorsRepository, 'deleteByIds');
+      const deleteShardsByIds = stub(shardsRepository, 'deleteByIds');
+
+      const fakeMirrors: any = [
+        { id: 'id_mirror1' },
+      ]
+      stub(mirrorsRepository, 'findByShardHashesWithContacts').resolves(fakeMirrors);
 
       const fakeFrame: any = {
         shards: ['id_shard1', 'id_shard2'],
@@ -184,6 +193,8 @@ describe('BucketEntriesUsecase', function () {
         expect(deletePointersByIds.getCall(0).args[0]).toEqual([pointer1.id, pointer2.id]);
         expect(deleteFramesByIds.calledOnce).toEqual(true);
         expect(deleteBucketEntriesByIds.calledOnce).toEqual(true);
+        expect(deleteShardsByIds.calledOnce).toEqual(true);
+        expect(deleteMirrorsByIds.calledWithExactly(fakeMirrors.map((mirror: any) => mirror.id)));
       } catch (err) {
         expect(true).toBe(false);
       }
@@ -197,6 +208,14 @@ describe('BucketEntriesUsecase', function () {
           }
         }
       stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
+      const deleteBucketEntryShardsByIds = stub(bucketEntryShardsRepository, 'deleteByIds');
+      const deleteMirrorsByIds = stub(mirrorsRepository, 'deleteByIds');
+      const deleteShardsByIds = stub(shardsRepository, 'deleteByIds');
+
+      const fakeMirrors: any = [
+        { id: 'id_mirror1' },
+      ]
+      stub(mirrorsRepository, 'findByShardHashesWithContacts').resolves(fakeMirrors);
 
       const fakeBucketEntryShards: any = [
         { shard: 'shard1'}, { shard: 'shard2'}
@@ -217,6 +236,9 @@ describe('BucketEntriesUsecase', function () {
         expect(enqueueDeleteShardFunction.getCall(0).args[0]).toEqual([shard1.hash, shard2.hash]);
         expect(enqueueDeleteShardFunction.getCall(0).args[1]).toEqual(2);
         expect(deleteBucketEntriesByIds.calledOnce).toEqual(true);
+        expect(deleteBucketEntryShardsByIds.calledOnce).toEqual(true);
+        expect(deleteShardsByIds.calledWithExactly(fakeBucketEntryShards.map((shard: any) => shard.shard)));
+        expect(deleteMirrorsByIds.calledWithExactly(fakeMirrors.map((mirror: any) => mirror.id)));
       } catch (err) {
         expect(true).toBe(false);
       }
@@ -231,7 +253,10 @@ describe('BucketEntriesUsecase', function () {
         }
       stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
 
-      const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
+      stub(bucketEntriesRepository, 'deleteByIds');
+      stub(mirrorsRepository, 'deleteByIds');
+      stub(shardsRepository, 'deleteByIds');
+      stub(bucketEntryShardsRepository, 'deleteByIds');
       const fakeBucketEntryShards: any = [
         { shard: 'shard1'}, { shard: 'shard2'}
       ];
@@ -253,12 +278,10 @@ describe('BucketEntriesUsecase', function () {
 
         const { contact } = fakeMirrors[0];
         const { address, port } = contact;
-        expect(enqueueMessageFunction.firstCall.args).toStrictEqual([
-          {
-            type: DELETING_FILE_MESSAGE,
-            payload: {hash: shard1.hash, url: `http://${address}:${port}/v2/shards/${shard1.hash}`},
-          }
-        ]);
+        expect(enqueueMessageFunction.firstCall.args[0]).toStrictEqual({
+          type: DELETING_FILE_MESSAGE,
+          payload: {hash: shard1.hash, url: `http://${address}:${port}/v2/shards/${shard1.hash}`},
+        });
       } catch (err) {
         expect(true).toBe(false);
       }
