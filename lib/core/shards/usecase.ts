@@ -36,6 +36,14 @@ export class ShardsUsecase {
         this.networkQueue.enqueueMessage({
           type: DELETING_FILE_MESSAGE,
           payload: { hash, url }
+        }, (err: Error | undefined) => {
+          if (err) {
+            console.error(
+              'Error enqueuing delete shard hash %s : %s', 
+              hash, 
+              err.message
+            );
+          }
         })
       }
     }
