@@ -24,4 +24,8 @@ export class MongoDBMirrorsRepository implements MirrorsRepository {
   
     return rawModel.toObject();
   }
+
+  async insertMany(data: Omit<Mirror, 'id'>[]): Promise<void> {
+    await this.model.insertMany(data);
+  }
 }

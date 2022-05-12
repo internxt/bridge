@@ -30,4 +30,8 @@ export class MongoDBBucketEntryShardsRepository implements BucketEntryShardsRepo
 
     return { id: plainObj._id, ...plainObj };
   }
+
+  async insertMany(data: Omit<BucketEntryShard, "id">[]): Promise<void> {
+    await this.model.insertMany(data);
+  }
 }
