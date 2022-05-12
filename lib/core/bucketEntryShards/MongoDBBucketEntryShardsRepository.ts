@@ -30,4 +30,8 @@ export class MongoDBBucketEntryShardsRepository implements BucketEntryShardsRepo
 
     return { id: plainObj._id, ...plainObj };
   }
+
+  deleteByIds(ids: string[]): Promise<void> {
+    return this.model.deleteMany({ _id: { $in: ids } }).exec();
+  }
 }
