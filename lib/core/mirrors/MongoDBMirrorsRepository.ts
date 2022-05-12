@@ -24,4 +24,8 @@ export class MongoDBMirrorsRepository implements MirrorsRepository {
   
     return rawModel.toObject();
   }
+
+  deleteByIds(ids: string[]): Promise<void> {
+    return this.model.deleteMany({ _id: { $in: ids } }).exec();
+  }
 }
