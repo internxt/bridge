@@ -88,7 +88,7 @@ export class GatewayUsecase {
       }
     }
 
-    await this.shardsRepository.removeByIds(shards.map(s => s.id));
+    await this.shardsRepository.deleteByIds(shards.map(s => s.id));
   }
 
   /**
