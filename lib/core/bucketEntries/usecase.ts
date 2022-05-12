@@ -6,6 +6,7 @@ import { ShardsUsecase } from '../shards/usecase';
 import { BucketEntryShardsRepository } from '../bucketEntryShards/Repository';
 import { ShardsRepository } from '../shards/Repository';
 import { PointersRepository } from '../pointers/Repository';
+import { MirrorsRepository } from '../mirrors/Repository';
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -23,6 +24,7 @@ export class BucketEntriesUsecase {
     private bucketEntryShards: BucketEntryShardsRepository,
     private shardsRepository: ShardsRepository,
     private pointersRepository: PointersRepository,
+    private mirrorsRepository: MirrorsRepository,
     private shardsUsecase: ShardsUsecase,
   ) { }
 
@@ -78,6 +80,8 @@ export class BucketEntriesUsecase {
     } else if (version === 2 ) {
       const bucketEntryShards = await this.bucketEntryShards.findByBucketEntry(bucketEntry.id);
       shardIds = bucketEntryShards.map(bucketEntryShards => bucketEntryShards.shard);
+      await this.bucketEntryShards.deleteByIds(bucketEntryShards.map(bucketEntryShards => bucketEntryShards.id));
+
     } else {
 
       throw new BucketEntryVersionNotFoundError();
@@ -86,6 +90,9 @@ export class BucketEntriesUsecase {
     const shards = await this.shardsRepository.findByIds(shardIds);
     const shardHashes = shards.map(shard => shard.hash);
     await this.shardsUsecase.enqueueDeleteShardMessages(shardHashes, version);
+    const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shardHashes);
+    await this.mirrorsRepository.deleteByIds(mirrors.map(mirror => mirror.id));
+    await this.shardsRepository.deleteByIds(shardIds);
     await this.bucketEntriesRepository.deleteByIds([bucketEntry.id]);
   }
 }
