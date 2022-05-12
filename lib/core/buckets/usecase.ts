@@ -16,6 +16,12 @@ import { BucketsRepository } from './Repository';
 import { UploadsRepository } from '../uploads/Repository';
 import { UsersRepository } from '../users/Repository';
 import { UserNotFoundError } from '../users';
+import { TokensRepository } from '../tokens/Repository';
+import { User } from '../users/User';
+import { ContactsRepository } from '../contacts/Repository';
+import { StorageGateway } from '../storage/StorageGateway';
+import { Contact } from '../contacts/Contact';
+import { Upload } from '../uploads/Upload';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
@@ -74,7 +80,9 @@ export class BucketsUsecase {
     private shardsRepository: ShardsRepository,
     private bucketsRepository: BucketsRepository,
     private uploadsRepository: UploadsRepository,
-    private usersRepository: UsersRepository
+    private usersRepository: UsersRepository,
+    private tokensRepository: TokensRepository,
+    private contactsRepository: ContactsRepository
   ) {}
 
   async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id']): Promise<
@@ -127,6 +135,7 @@ export class BucketsUsecase {
       const bucketEntryShard = bucketEntryShards.find(
         b => b.shard.toString() === shard.id.toString()
       ) as BucketEntryShard;
+
       const farmerUrl = `http://${address}:${port}/v2/download/link/${shard.uuid}`;
 
       await axios.get(farmerUrl).then(res => {
@@ -142,15 +151,22 @@ export class BucketsUsecase {
     return response;
   }
 
+  async getUserUsage(user: User['id']): Promise<number> {
+    const usage = await this.framesRepository.getUserUsage(user);
+
+    return (usage && usage.total) || 0;
+  } 
+
   async completeUpload(
     userId: string, 
     bucketId: string, 
     fileIndex: string, 
     shards: Pick<Required<Shard>, 'hash' | 'uuid'>[]
   ): Promise<BucketEntry> {
-    const [bucket, user] = await Promise.all([
+    const [bucket, user, uploads] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
-      this.usersRepository.findById(userId)
+      this.usersRepository.findById(userId),
+      this.uploadsRepository.findByUuids(shards.map(s => s.uuid))
     ]);
 
     if (!user) {
@@ -165,48 +181,28 @@ export class BucketsUsecase {
       throw new BucketForbiddenError();
     }
 
-    const uploads = await this.uploadsRepository.findByUuids(shards.map(s => s.uuid));
-
     if (uploads.length !== shards.length) {
       throw new MissingUploadsError();
     }
 
     const bucketEntrySize = uploads.reduce((acumm, upload) => upload.data_size + acumm, 0);
 
-    if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
-      throw new MaxSpaceUsedError();
+    if (user.migrated) {
+      if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+        throw new MaxSpaceUsedError();
+      }
+    } else {
+      const usedSpaceBytes = await this.getUserUsage(user.id);
+
+      if (user.maxSpaceBytes < (user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize)) {
+        throw new MaxSpaceUsedError();
+      }
     }
 
-    const shardAndMirrorsCreationPromises = uploads.map(async (upload) => {
-      const { uuid, hash } = shards.find(s => s.uuid === upload.uuid) as Pick<Shard, 'hash' | 'uuid'>;
-      const { data_size, contracts } = upload;
+    const shardAndMirrorsCreationPromises = uploads.map((upload) => {
+      const shard = shards.find(s => s.uuid === upload.uuid) as Pick<Shard, 'hash' | 'uuid'>;
 
-      const newShardCreation = this.shardsRepository.create({
-        hash, 
-        uuid, 
-        size: data_size,
-        contracts: contracts.map(({ nodeID, contract }: any) => ({
-          nodeID, 
-          contract: {
-            ...contract,
-            data_hash: hash
-          }
-        }))
-      });
-
-      const newMirrorsCreation = contracts.map((contract) => {
-        return this.mirrorsRepository.create({
-          isEstablished: true,
-          shardHash: hash,
-          contact: contract.nodeID,
-          contract: { ...contract.contract, data_hash: hash },
-          token: '',
-        });
-      });
-      
-      const [newShard] = await Promise.all([newShardCreation, ...newMirrorsCreation]);
-
-      return newShard;
+      return this.createShardAndMirrors(upload, shard);
     });
 
     const bucketEntryCreation = this.bucketEntriesRepository.create({
@@ -220,19 +216,20 @@ export class BucketsUsecase {
     const [newBucketEntry, ...newShards] = await Promise.all([
       bucketEntryCreation,
       ...shardAndMirrorsCreationPromises
-    ]); 
+    ]);
 
-    // TODO: Ensure shards are sorted by index
-    const bucketEntryShardsCreation = newShards.map((shard, index) => {
-      return this.bucketEntryShardsRepository.create({
+    const bucketEntryShards: Omit<BucketEntryShard, 'id'>[] = [];
+
+    newShards.forEach((shard, index) => {
+      bucketEntryShards.push({
         bucketEntry: newBucketEntry.id,
         shard: shard.id,
         index
       });
     });
-   
 
-    await Promise.all(bucketEntryShardsCreation);    
+
+    await this.bucketEntryShardsRepository.insertMany(bucketEntryShards);
     await this.usersRepository.updateTotalUsedSpaceBytes(userId, bucketEntrySize);
     this.uploadsRepository.deleteManyByUuids(uploads.map(u => u.uuid)).catch((err) => {
       // TODO: Move to EventBus
@@ -241,4 +238,64 @@ export class BucketsUsecase {
 
     return newBucketEntry;
   }
+
+  async createShardAndMirrors(upload: Upload, shard: Pick<Shard, 'hash' | 'uuid'>): Promise<Shard> {
+    const { uuid, contracts, data_size } = upload;
+
+    const contacts = await this.contactsRepository.findByIds(contracts.map(c => c.nodeID));
+  
+    const contactsThatStoreTheShard: Contact[] = [];
+
+    for (const contact of contacts) {
+      const storesObject = await StorageGateway.stores(contact, uuid);
+
+      if (storesObject) {
+        contactsThatStoreTheShard.push(contact);
+      }
+    }
+
+    if (contactsThatStoreTheShard.length === 0) {
+      throw new Error('Shard not uploaded');
+      // throw new ShardNotUploadedError();
+    }
+
+    const contractsOfContactsThatStoreTheShard = contracts.filter((contract) => {
+      return contactsThatStoreTheShard.find((contact) => {
+        return (contact as any).nodeID === contract.nodeID;
+      });
+    });
+
+    if (contractsOfContactsThatStoreTheShard.length === 0) {
+      throw new Error('No contracts found for shard');
+    }
+
+    const mirrorsToInsert = [];
+    for (const contract of contractsOfContactsThatStoreTheShard) {
+      mirrorsToInsert.push({
+        isEstablished: true,
+        shardHash: shard.hash,
+        contact: contract.nodeID,
+        contract: { ...contract.contract, data_hash: shard.hash },
+        token: '',
+      });
+    }
+
+    const mirrorsCreation = this.mirrorsRepository.insertMany(mirrorsToInsert);
+    const shardCreation = this.shardsRepository.create({
+      hash: shard.hash, 
+      uuid, 
+      size: data_size,
+      contracts: contractsOfContactsThatStoreTheShard.map(({ nodeID, contract }: any) => ({
+        nodeID, 
+        contract: {
+          ...contract,
+          data_hash: shard.hash
+        }
+      }))
+    });
+
+    const [newShard] = await Promise.all([shardCreation, mirrorsCreation]);
+
+    return newShard;
+  } 
 }
