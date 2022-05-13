@@ -62,6 +62,7 @@ export class BucketEntriesUsecase {
     const version = bucketEntry.version;
 
     let shardIds: string[];
+    let shardHashes: string [];
 
     if (version === 1) {
       const frame = await this.framesRepository.findOne({ bucketEntry: bucketEntry.id });
@@ -76,20 +77,25 @@ export class BucketEntriesUsecase {
 
       await this.framesRepository.deleteByIds([frame.id]);
       await this.pointersRepository.deleteByIds(shardIds);
+      const shards = await this.shardsRepository.findByIds(shardIds);
+      shardHashes = shards.map(shard => shard.hash);
+      await this.shardsUsecase.deleteShardsStorageByHashes(shardHashes);
 
     } else if (version === 2 ) {
       const bucketEntryShards = await this.bucketEntryShards.findByBucketEntry(bucketEntry.id);
       shardIds = bucketEntryShards.map(bucketEntryShards => bucketEntryShards.shard);
       await this.bucketEntryShards.deleteByIds(bucketEntryShards.map(bucketEntryShards => bucketEntryShards.id));
+      const shards = await this.shardsRepository.findByIds(shardIds);
+      const shardUuids = shards.filter(shard => typeof shard.uuid!== 'undefined').map(shard => shard.uuid) as string [];
+      await this.shardsUsecase.deleteShardsStorageByUuids(shardUuids);
+      shardHashes = shards.map(shard => shard.hash);
 
     } else {
 
       throw new BucketEntryVersionNotFoundError();
     }
 
-    const shards = await this.shardsRepository.findByIds(shardIds);
-    const shardHashes = shards.map(shard => shard.hash);
-    await this.shardsUsecase.enqueueDeleteShardMessages(shardHashes, version);
+    
     const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shardHashes);
     await this.mirrorsRepository.deleteByIds(mirrors.map(mirror => mirror.id));
     await this.shardsRepository.deleteByIds(shardIds);
