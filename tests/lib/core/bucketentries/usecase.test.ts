@@ -280,7 +280,7 @@ describe('BucketEntriesUsecase', function () {
         const { address, port } = contact;
         expect(enqueueMessageFunction.firstCall.args[0]).toStrictEqual({
           type: DELETING_FILE_MESSAGE,
-          payload: {hash: shard1.hash, url: `http://${address}:${port}/v2/shards/${shard1.hash}`},
+          payload: { key: shard1.hash, hash: shard1.hash, url: `http://${address}:${port}/v2/shards/${shard1.hash}`},
         });
       } catch (err) {
         expect(true).toBe(false);
