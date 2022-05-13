@@ -34,4 +34,8 @@ export class MongoDBBucketEntryShardsRepository implements BucketEntryShardsRepo
   deleteByIds(ids: string[]): Promise<void> {
     return this.model.deleteMany({ _id: { $in: ids } }).exec();
   }
+
+  async insertMany(data: Omit<BucketEntryShard, "id">[]): Promise<void> {
+    await this.model.insertMany(data);
+  }
 }

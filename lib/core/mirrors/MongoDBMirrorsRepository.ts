@@ -43,4 +43,8 @@ export class MongoDBMirrorsRepository implements MirrorsRepository {
   deleteByIds(ids: string[]): Promise<void> {
     return this.model.deleteMany({ _id: { $in: ids } }).exec();
   }
+  
+  async insertMany(data: Omit<Mirror, 'id'>[]): Promise<void> {
+    await this.model.insertMany(data);
+  }
 }

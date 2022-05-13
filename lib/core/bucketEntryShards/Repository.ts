@@ -6,4 +6,5 @@ export interface BucketEntryShardsRepository {
   findByBucketEntrySortedByIndex(bucketEntry: BucketEntry['id']): Promise<BucketEntryShard[]>;
   create(data: Omit<BucketEntryShard, 'id'>): Promise<BucketEntryShard>;
   deleteByIds(ids: BucketEntryShard['id'][]): Promise<void>;
+  insertMany(data: Omit<BucketEntryShard, 'id'>[]): Promise<void>;
 }
