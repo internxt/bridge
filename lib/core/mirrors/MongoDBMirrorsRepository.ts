@@ -19,6 +19,21 @@ export class MongoDBMirrorsRepository implements MirrorsRepository {
       });
   }
 
+  findByShardUuidsWithContacts(uuids: string[]): Promise<MirrorWithContact[]> {
+    return this.model
+      .find({ uuid: { $in: uuids } })
+      .populate('contact')
+      .exec()
+      .then((mirrors: any) => {
+        return mirrors.map((m: any) => {
+          return {
+            id: m._id,
+            ...m.toObject()
+          };
+        });
+      });
+  }
+
   async create(data: Omit<Mirror, "id">): Promise<Mirror> {
     const rawModel = await new this.model({ ...data, created: new Date() }).save();
   
