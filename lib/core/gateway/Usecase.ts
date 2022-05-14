@@ -44,7 +44,7 @@ export class GatewayUsecase {
 
         this.networkQueue.enqueueMessage({
           type: DELETING_FILE_MESSAGE,
-          payload: { hash, url }
+          payload: { key: hash, hash, url }
         }, (err) => {
           if (err) {
             console.error(
@@ -74,7 +74,7 @@ export class GatewayUsecase {
 
           this.networkQueue.enqueueMessage({
             type: DELETING_FILE_MESSAGE,
-            payload: { hash: shard.hash, url }
+            payload: { key: shard.hash, hash: shard.hash, url }
           }, (err) => {
             if (err) {
               console.error(
@@ -88,7 +88,7 @@ export class GatewayUsecase {
       }
     }
 
-    await this.shardsRepository.removeByIds(shards.map(s => s.id));
+    await this.shardsRepository.deleteByIds(shards.map(s => s.id));
   }
 
   /**

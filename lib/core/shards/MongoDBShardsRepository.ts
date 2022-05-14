@@ -35,7 +35,11 @@ export class MongoDBShardsRepository implements ShardsRepository {
     return { id: rawModel._id, ...rawModel.toObject() };
   }
 
-  async removeByIds(ids: string[]): Promise<void> {
+  async deleteByIds(ids: string[]): Promise<void> {
     await this.model.deleteMany({ _id: { $in: ids } });
+  }
+
+  async deleteByHashes(hashes: string[]): Promise<void> {
+    await this.model.deleteMany({ hash: { $in: hashes } });
   }
 }

@@ -7,5 +7,6 @@ export interface ShardsRepository {
   (Omit<Shard, 'contracts'> & { contracts: Record<Contact['id'],any> }
   )[]>
   create(data: Omit<Shard, 'id'>): Promise<Shard>;
-  removeByIds(ids: Shard['id'][]): Promise<void>;
+  deleteByIds(ids: Shard['id'][]): Promise<void>;
+  deleteByHashes(hashes: Shard['hash'][]): Promise<void>;
 }

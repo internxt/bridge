@@ -22,7 +22,7 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
  
     const bucketEntry: BucketEntryModel | null = await this.model.findOne(query);
 
-    return bucketEntry ? { id: bucketEntry._id, ...bucketEntry } : bucketEntry;    
+    return bucketEntry ? { id: bucketEntry._id, ...bucketEntry.toObject() } : bucketEntry;    
   }
 
   async findOneWithFrame(

@@ -9,6 +9,12 @@ export class MongoDBFramesRepository implements FramesRepository {
     return this.model.findOne(where);
   }
 
+  async findByIds(ids: string[]): Promise<Frame[]> {
+    const rawFrames = await this.model.find({ _id: { $in: ids } });
+    
+    return rawFrames.map((f: any) => f.toObject());
+  }
+
   getUserUsage(user: User['id']): Promise<{ total: number } | null> {
     return this.model.aggregate([
       {

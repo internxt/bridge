@@ -228,9 +228,8 @@ export class BucketsUsecase {
       });
     });
 
-
     await this.bucketEntryShardsRepository.insertMany(bucketEntryShards);
-    await this.usersRepository.updateTotalUsedSpaceBytes(userId, bucketEntrySize);
+    await this.usersRepository.addTotalUsedSpaceBytes(userId, bucketEntrySize);
     this.uploadsRepository.deleteManyByUuids(uploads.map(u => u.uuid)).catch((err) => {
       // TODO: Move to EventBus
       console.log('completeUpload/uploads-deletion: Failed due to %s. %s', err.message, err.stack);

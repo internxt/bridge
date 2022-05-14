@@ -13,6 +13,12 @@ export class MongoDBBucketEntryShardsRepository implements BucketEntryShardsRepo
     return this.model.find({ bucketEntry: bucketEntryId });
   }
 
+  async findByBucketEntries(bucketEntries: string[]): Promise<BucketEntryShard[]> {
+    const bucketEntryShards = await this.model.find({ bucketEntry: { $in: bucketEntries } });
+
+    return bucketEntryShards.map((b: any) => ({ id: b._id, ...b.toObject() }));
+  }
+
   findByBucketEntrySortedByIndex(bucketEntryId: BucketEntry['id']): Promise<BucketEntryShard[]> {
     return this.model.find({ bucketEntry: bucketEntryId }).sort({ index: 1 }).exec().then((res: any) => {
       return res.map((r: any) => {
@@ -29,6 +35,10 @@ export class MongoDBBucketEntryShardsRepository implements BucketEntryShardsRepo
     const plainObj = rawModel.toObject();
 
     return { id: plainObj._id, ...plainObj };
+  }
+
+  deleteByIds(ids: string[]): Promise<void> {
+    return this.model.deleteMany({ _id: { $in: ids } }).exec();
   }
 
   async insertMany(data: Omit<BucketEntryShard, "id">[]): Promise<void> {
