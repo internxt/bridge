@@ -55,7 +55,7 @@ export class BucketEntriesUsecase {
     return this.removeFile(fileId);
   }
 
-  removeFile = async (fileId: string): Promise<void> => {
+  async removeFile(fileId: string): Promise<void> {
     const bucketEntry = await this.bucketEntriesRepository.findOne({ id: fileId });
 
     if (!bucketEntry) {
@@ -82,7 +82,7 @@ export class BucketEntriesUsecase {
     }
   }
 
-  private async removeFilesV1(files: BucketEntry[]) {
+  async removeFilesV1(files: BucketEntry[]) {
     const frameIds = files.map((f) => f.frame as string);
     const frames = await this.framesRepository.findByIds(frameIds);
 
@@ -91,14 +91,23 @@ export class BucketEntriesUsecase {
 
     const shardsHashes = pointers.map(p => p.hash);
 
-    await this.shardsUsecase.deleteShardsStorageByHashes(shardsHashes);
-    await this.shardsRepository.deleteByHashes(shardsHashes);  
-    await this.pointersRepository.deleteByIds(pointerIds);
-    await this.framesRepository.deleteByIds(frames.map(f => f.id));
+    if (shardsHashes.length > 0) {
+      await this.shardsUsecase.deleteShardsStorageByHashes(shardsHashes);
+      await this.shardsRepository.deleteByHashes(shardsHashes);  
+    }
+
+    if (pointerIds.length > 0) {
+      await this.pointersRepository.deleteByIds(pointerIds);
+    }
+
+    if (frames.length > 0) {
+      await this.framesRepository.deleteByIds(frames.map(f => f.id));
+    }
+    
     await this.bucketEntriesRepository.deleteByIds(files.map(f => f.id));
   }
 
-  private async removeFilesV2(files: BucketEntry[]) {
+  async removeFilesV2(files: BucketEntry[]) {
     const fileIds = files.map(f => f.id);
     const bucketEntryShards = await this.bucketEntryShardsRepository.findByBucketEntries(fileIds);
     const bucketEntryShardsIds = bucketEntryShards.map(b => b.id);

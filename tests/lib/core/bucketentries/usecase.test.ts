@@ -1,3 +1,5 @@
+import { restore, stub } from 'sinon';
+
 import { BucketEntriesRepository } from '../../../../lib/core/bucketEntries/Repository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
 import { MirrorsRepository } from '../../../../lib/core/mirrors/Repository';
@@ -5,22 +7,24 @@ import { ShardsRepository } from '../../../../lib/core/shards/Repository';
 import { BucketsRepository } from '../../../../lib/core/buckets/Repository';
 import { PointersRepository } from '../../../../lib/core/pointers/Repository';
 import { BucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/Repository';
+import { UsersRepository } from '../../../../lib/core/users/Repository';
 
 import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
-import { BucketEntriesUsecase } from '../../../../lib/core/bucketEntries/usecase';
+import { BucketEntriesUsecase, BucketEntryVersionNotFoundError } from '../../../../lib/core/bucketEntries/usecase';
 import { BucketEntryNotFoundError, BucketForbiddenError, BucketNotFoundError } from '../../../../lib/core/buckets/usecase';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
 import { MongoDBPointersRepository } from '../../../../lib/core/pointers/MongoDBPointersRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
 import { MongoDBBucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/MongoDBBucketEntryShardsRepository';
+import { MongoDBUsersRepository } from '../../../../lib/core/users';
 import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
-import { restore, stub } from 'sinon';
 import { DELETING_FILE_MESSAGE } from '../../../../lib/server/queues/messageTypes';
 
-describe('BucketEntriesUsecase', function () {
+import fixtures from './fixtures';
 
+describe('BucketEntriesUsecase', function () {
   const bucketId =  'bucketIdSAMPLE';
   const userEmail =  'sample@sample.com';
   const fileId =  'abc123';
@@ -31,6 +35,7 @@ describe('BucketEntriesUsecase', function () {
   let shardsRepository: ShardsRepository = new MongoDBShardsRepository({});
   let bucketsRepository: BucketsRepository = new MongoDBBucketsRepository({});
   let pointersRepository: PointersRepository = new MongoDBPointersRepository({});
+  let usersRepository: UsersRepository = new MongoDBUsersRepository({});
   let bucketEntryShardsRepository: BucketEntryShardsRepository = new MongoDBBucketEntryShardsRepository({});
 
   let networkQueue: any = {
@@ -38,7 +43,6 @@ describe('BucketEntriesUsecase', function () {
   };
 
   let shardsUseCase = new ShardsUsecase(
-    shardsRepository,
     mirrorsRepository,
     networkQueue,
   );
@@ -52,6 +56,7 @@ describe('BucketEntriesUsecase', function () {
     pointersRepository,
     mirrorsRepository,
     shardsUseCase,
+    usersRepository
   );
   
   beforeEach(() => {
@@ -63,7 +68,6 @@ describe('BucketEntriesUsecase', function () {
     pointersRepository = new MongoDBPointersRepository({});
 
     shardsUseCase = new ShardsUsecase(
-      shardsRepository,
       mirrorsRepository,
       networkQueue,
     );
@@ -77,214 +81,432 @@ describe('BucketEntriesUsecase', function () {
       pointersRepository,
       mirrorsRepository,
       shardsUseCase,
+      usersRepository
     );
 
     restore();
-  })
+  });
 
-  describe('validate removeFile', function () {
+  describe('removeFilesV1()', () => {
+    it('Should delete files even if nothing more exists', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
 
-    it('Fails when bucket is not found', async function () {
-      stub(bucketsRepository, 'findOne').resolves(null);
+      const findFramesByIdsStub = stub(framesRepository, 'findByIds').resolves([]);
+      const findPointersByIdsStub = stub(pointersRepository, 'findByIds').resolves([]);
+      const deleteBucketEntriesByIdsStub = stub(
+        bucketEntriesRepository,
+        'deleteByIds'
+      );
+    
+      await bucketEntriesUsecase.removeFilesV1(bucketEntries);
 
-      try {
-        await bucketEntriesUsecase.removeFileAndValidateBucketExists(bucketId, fileId);
-        expect(true).toBe(false);
-      } catch (err) {
-        expect(err).toBeInstanceOf(BucketNotFoundError);
-      }
+      expect(findFramesByIdsStub.calledOnce).toBeTruthy();
+      expect(findPointersByIdsStub.calledOnce).toBeTruthy();        
+      expect(deleteBucketEntriesByIdsStub.calledOnce).toBeTruthy();
+
+      expect(findPointersByIdsStub.calledAfter(findFramesByIdsStub)).toBeTruthy();
+      expect(deleteBucketEntriesByIdsStub.calledAfter(findPointersByIdsStub)).toBeTruthy();
+      expect(deleteBucketEntriesByIdsStub.calledWith(bucketEntries.map(b => b.id))).toBeTruthy();
     });
 
-    it('Fails when userEmail is not the same as user', async function () {
-      const differentEmailBucket: any = { user: 'different@email.com' };
-      stub(bucketsRepository, 'findOne').resolves(differentEmailBucket);
+    it('Should skip shards deletion if do not exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
 
-      try {
-        await bucketEntriesUsecase.removeFileFromUser(bucketId, fileId, userEmail);
-        expect(true).toBe(false);
-      } catch (err) {
-        expect(err).toBeInstanceOf(BucketForbiddenError);
-      }
+      stub(framesRepository, 'findByIds').resolves([]);
+      stub(pointersRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds');
+
+      const deleteStorageStub = stub(shardsUseCase, 'deleteShardsStorageByHashes');
+      const deleteShardsStub = stub(shardsRepository, 'deleteByHashes');
+
+      await bucketEntriesUsecase.removeFilesV1(bucketEntries);
+
+      expect(deleteShardsStub.callCount).toBe(0);
+      expect(deleteStorageStub.callCount).toBe(0);
+    });
+
+    it('Should skip pointers deletion if do not exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+
+      stub(framesRepository, 'findByIds').resolves([]);
+      stub(pointersRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds');
+
+      const deletePointersStub = stub(pointersRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV1(bucketEntries);
+
+      expect(deletePointersStub.callCount).toBe(0);
+    });
+
+    it('Should skip frames deletion if do not exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+
+      stub(framesRepository, 'findByIds').resolves([]);
+      stub(pointersRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds');
+
+      const deleteFramesStub = stub(framesRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV1(bucketEntries);
+
+      expect(deleteFramesStub.callCount).toBe(0);
+    });
+
+    it('Should delete frames if they exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+      const frames = bucketEntries.map(b => fixtures.getFrame({ id: b.frame }));
+
+      stub(framesRepository, 'findByIds').resolves(frames);
+      stub(pointersRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds');
+
+      const deleteFramesStub = stub(framesRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV1(bucketEntries);
+
+      expect(deleteFramesStub.calledOnce).toBeTruthy();
+      expect(deleteFramesStub.calledWith(frames.map(f => f.id))).toBeTruthy();
+    });
+
+    it('Should delete pointers and shards if they exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+      const frames = bucketEntries.map(b => fixtures.getFrame({ id: b.frame, shards: [ fixtures.getPointer().id ] }));
+      const pointers = frames.flatMap(f => f.shards.map(pId => fixtures.getPointer({ id: pId })));
+
+      stub(framesRepository, 'findByIds').resolves(frames);
+      stub(pointersRepository, 'findByIds').resolves(pointers);
+      stub(bucketEntriesRepository, 'deleteByIds');
+      stub(framesRepository, 'deleteByIds');
+
+      const deletePointersStub = stub(pointersRepository, 'deleteByIds');
+      const deleteStorageStub = stub(shardsUseCase, 'deleteShardsStorageByHashes');
+      const deleteShardsStub = stub(shardsRepository, 'deleteByHashes');
+
+      await bucketEntriesUsecase.removeFilesV1(bucketEntries);
+
+      expect(deletePointersStub.calledOnce).toBeTruthy();
+      expect(deletePointersStub.calledWith(pointers.map(p => p.id))).toBeTruthy();
+
+      expect(deleteShardsStub.calledOnce).toBeTruthy();
+      expect(deleteShardsStub.calledWith(pointers.map(p => p.hash))).toBeTruthy();
+
+      expect(deleteStorageStub.calledOnce).toBeTruthy();
+      expect(deleteStorageStub.calledWith(pointers.map(p => p.hash))).toBeTruthy();
     });
   });
 
-  describe('removeFile functionality', function () {
-    beforeEach(() => {
-      const standardBucket: any = {
-        user: userEmail,
-        _id: bucketId
-      };
-      stub(bucketsRepository, 'findOne').resolves(standardBucket);
+  describe('removeFilesV2()', () => {
+    it('Should delete files even if nothing more exists', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+
+      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves([]);
+      stub(shardsRepository, 'findByIds').resolves([]);
+      const deleteBucketEntriesByIdsStub = stub(
+        bucketEntriesRepository,
+        'deleteByIds'
+      );
+    
+      await bucketEntriesUsecase.removeFilesV2(bucketEntries);
+
+      expect(deleteBucketEntriesByIdsStub.calledOnce).toBeTruthy();
+      expect(deleteBucketEntriesByIdsStub.calledWith(bucketEntries.map(b => b.id))).toBeTruthy();
     });
 
-    it('Fails when file is not found', async function () {
-      stub(bucketEntriesRepository, 'findOne').resolves(null)
+    it('Should skip shards deletion if do not exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
 
+      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves([]);
+      stub(shardsRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds').resolves();
+      
+      const deleteStorageStub = stub(shardsUseCase, 'deleteShardsStorageByUuids');
+      const deleteShards = stub(shardsRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV2(bucketEntries);
+
+      expect(deleteStorageStub.callCount).toBe(0);
+      expect(deleteShards.callCount).toBe(0);
+    });
+
+    it('Should skip bucket entry shards deletion if do not exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+
+      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves([]);
+      stub(shardsRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds').resolves()
+      
+      const deleteBucketEntryShardsStub = stub(bucketEntryShardsRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV2(bucketEntries);
+
+      expect(deleteBucketEntryShardsStub.callCount).toBe(0);
+    });
+
+    it('Should delete bucket entry shards if they exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+      const bucketEntryShards = bucketEntries.map(b => fixtures.getBucketEntryShard({ bucketEntry: b.id }))
+
+      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves(bucketEntryShards);
+      stub(shardsRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds').resolves()
+      
+      const deleteBucketEntryShardsStub = stub(bucketEntryShardsRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV2(bucketEntries);
+
+      expect(deleteBucketEntryShardsStub.calledOnce).toBeTruthy();
+      expect(deleteBucketEntryShardsStub.calledWith(bucketEntryShards.map(b => b.id)));
+    });
+
+    it('Should delete shards shards if they exist', async () => {
+      const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
+      const bucketEntryShards = bucketEntries.map(b => fixtures.getBucketEntryShard({ bucketEntry: b.id }))
+
+      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves(bucketEntryShards);
+      stub(shardsRepository, 'findByIds').resolves([]);
+      stub(bucketEntriesRepository, 'deleteByIds').resolves()
+      
+      const deleteBucketEntryShardsStub = stub(bucketEntryShardsRepository, 'deleteByIds');
+
+      await bucketEntriesUsecase.removeFilesV2(bucketEntries);
+
+      expect(deleteBucketEntryShardsStub.calledOnce).toBeTruthy();
+      expect(deleteBucketEntryShardsStub.calledWith(bucketEntryShards.map(b => b.id)));
+    });
+  });
+
+  describe('removeFile()', () => {
+    it('Should throw an error if the bucket entry does not exist', async () => {
       try {
-        await bucketEntriesUsecase.removeFile(fileId);
-        expect(true).toBe(false);
+        stub(bucketEntriesRepository, 'findOne').resolves(null);
+
+        await bucketEntriesUsecase.removeFile('file-id');
       } catch (err) {
         expect(err).toBeInstanceOf(BucketEntryNotFoundError);
       }
     });
 
-    it('Removes the bucketEntry when there is no frame', async function () {
-      const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
-      const fakeBucketEntry: any = {
-        id: 'id_of_bucket_entry',
-        frame: {
-          id: 'abc123'
-        },
-        version: 1
-      }
-      
-      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
-      stub(framesRepository, 'findOne').resolves(null);
+    describe('Should delete a version 1 file', () => {
+      it('When has no version', async () => {
+        const fileId = 'file-id';
+        const bucketEntry = fixtures.getBucketEntry({
+          id: fileId,
+          version: undefined
+        })
 
-      try {
-        await bucketEntriesUsecase.removeFile(fileId);
-        expect(true).toBe(false);
-      } catch (err) {
-        expect(deleteBucketEntriesByIds.callCount).toEqual(1);
-        expect(deleteBucketEntriesByIds.firstCall.args).toStrictEqual([[fakeBucketEntry.id]]);
-      }
-    });
-
-    it('removes all pointers, frame and bucketentry, version 1', async function () {
-      const fakeBucketEntry: any = {
-          version: 1,
-          frame: {
-            id: 'abc123',
-          }
-        }
-      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
-
-      const deleteFramesByIds = stub(framesRepository, 'deleteByIds');
-      const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
-      const deletePointersByIds = stub(pointersRepository, 'deleteByIds');
-      const deleteMirrorsByIds = stub(mirrorsRepository, 'deleteByIds');
-      const deleteShardsByIds = stub(shardsRepository, 'deleteByIds');
-
-      const fakeMirrors: any = [
-        { id: 'id_mirror1' },
-      ]
-      stub(mirrorsRepository, 'findByShardHashesWithContacts').resolves(fakeMirrors);
-
-      const fakeFrame: any = {
-        shards: ['id_shard1', 'id_shard2'],
-      };
-
-      stub(framesRepository, 'findOne').resolves(fakeFrame);
-
-      const pointer1: any = { id: 'id_shard1' };
-      const pointer2: any = { id: 'id_shard2' };
-      stub(pointersRepository, 'findByIds').resolves([pointer1, pointer2]);
-
-      const shard1: any = { hash: 'shard1' };
-      const shard2: any = { hash: 'shard2' };
-      stub(shardsRepository, 'findByIds').resolves([shard1, shard2]);
-
-      const deleteShardsStorageByHashes = stub(shardsUseCase, 'deleteShardsStorageByHashes');
-      try {
+        stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
+        const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1').resolves();
+  
         await bucketEntriesUsecase.removeFile(fileId);
 
-        expect(deleteShardsStorageByHashes.getCall(0).args[0]).toEqual([shard1.hash, shard2.hash]);
-        expect(deletePointersByIds.getCall(0).args[0]).toEqual([pointer1.id, pointer2.id]);
-        expect(deleteFramesByIds.calledOnce).toEqual(true);
-        expect(deleteBucketEntriesByIds.calledOnce).toEqual(true);
-        expect(deleteShardsByIds.calledOnce).toEqual(true);
-        expect(deleteMirrorsByIds.calledWithExactly(fakeMirrors.map((mirror: any) => mirror.id)));
-      } catch (err) {
-        expect(true).toBe(false);
-      }
+        expect(removeFilesV1Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV1Stub.calledWith([bucketEntry])).toBeTruthy();
+      });
+
+      it('When has version 1', async () => {
+        const fileId = 'file-id';
+        const bucketEntry = fixtures.getBucketEntry({
+          id: fileId,
+          version: 1
+        })
+
+        stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
+        const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1').resolves();
+  
+        await bucketEntriesUsecase.removeFile(fileId);
+
+        expect(removeFilesV1Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV1Stub.calledWith([bucketEntry])).toBeTruthy();
+      });
     });
 
-    it('removes all pointers, frame and bucketentry, version 2', async function () {
-      const fakeBucketEntry: any = {
+    describe('Should delete a version 2 file', () => {
+      it('When user and bucket exist', async () => {
+        const user = fixtures.getUser({ id: userEmail });
+        const fileId = 'file-id';
+        const bucket = fixtures.getBucket({ user: user.id });
+        const bucketEntry = fixtures.getBucketEntry({
+          id: fileId,
           version: 2,
-          frame: {
-            id: 'abc123',
-          }
-        }
-      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
-      const deleteBucketEntryShardsByIds = stub(bucketEntryShardsRepository, 'deleteByIds');
-      const deleteMirrorsByIds = stub(mirrorsRepository, 'deleteByIds');
-      const deleteShardsByIds = stub(shardsRepository, 'deleteByIds');
+          bucket: bucket.id
+        })
 
-      const fakeMirrors: any = [
-        { id: 'id_mirror1' },
-      ]
-      stub(mirrorsRepository, 'findByShardHashesWithContacts').resolves(fakeMirrors);
+        stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
+        const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
+        const findUserStub = stub(usersRepository, 'findById').resolves(user);
+        const addTotalSpaceStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
 
-      const fakeBucketEntryShards: any = [
-        { shard: 'shard1'}, { shard: 'shard2'}
-      ];
+        const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
 
-      stub(bucketEntryShardsRepository, 'findByBucketEntry').resolves(fakeBucketEntryShards);
-
-      const deleteBucketEntriesByIds = stub(bucketEntriesRepository, 'deleteByIds');
-
-      const shard1: any = { hash: 'uncalledhash1', uuid: 'shard1' };
-      const shard2: any = { hash: 'uncalledhash2', uuid: 'shard2' };
-      stub(shardsRepository, 'findByIds').resolves([shard1, shard2]);
-
-      const deleteShardsStorageByUuids = stub(shardsUseCase, 'deleteShardsStorageByUuids');
-      try {
         await bucketEntriesUsecase.removeFile(fileId);
 
-        expect(deleteShardsStorageByUuids.getCall(0).args[0]).toEqual([shard1.uuid, shard2.uuid]);
-        expect(deleteBucketEntriesByIds.calledOnce).toEqual(true);
-        expect(deleteBucketEntryShardsByIds.calledOnce).toEqual(true);
-        expect(deleteShardsByIds.calledWithExactly(fakeBucketEntryShards.map((shard: any) => shard.shard)));
-        expect(deleteMirrorsByIds.calledWithExactly(fakeMirrors.map((mirror: any) => mirror.id)));
-      } catch (err) {
-        expect(true).toBe(false);
-      }
-    });
+        expect(removeFilesV2Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV2Stub.calledWith([bucketEntry])).toBeTruthy();
 
-    it('enqueues using correct url', async function () {
-      const fakeBucketEntry: any = {
+        expect(findBucketStub.calledOnce).toBeTruthy();
+        expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
+
+        expect(findUserStub.calledOnce).toBeTruthy();
+        expect(findUserStub.calledWith(bucket.user)).toBeTruthy();
+
+        expect(addTotalSpaceStub.calledOnce).toBeTruthy();
+        expect(addTotalSpaceStub.calledWith(bucket.user, -bucketEntry.size!)).toBeTruthy();
+      });
+
+      it('When bucket exists but user not', async () => {
+        const user = fixtures.getUser({ id: userEmail });
+        const fileId = 'file-id';
+        const bucket = fixtures.getBucket({ user: '' });
+        const bucketEntry = fixtures.getBucketEntry({
+          id: fileId,
           version: 2,
-          frame: {
-            id: 'abc123',
-          }
-        }
-      stub(bucketEntriesRepository, 'findOne').resolves(fakeBucketEntry);
-
-      stub(bucketEntriesRepository, 'deleteByIds');
-      stub(mirrorsRepository, 'deleteByIds');
-      stub(shardsRepository, 'deleteByIds');
-      stub(bucketEntryShardsRepository, 'deleteByIds');
-      const fakeBucketEntryShards: any = [
-        { shard: 'shard1'}, { shard: 'shard2'}
-      ];
-
-      stub(bucketEntryShardsRepository, 'findByBucketEntry').resolves(fakeBucketEntryShards);
-
-      const shard1: any = { uuid: 'shard1uuid', hash: 'unusedhash1' };
-      const shard2: any = { uuid: 'shard2uuid', hash: 'unusedhash2' };
-      stub(shardsRepository, 'findByIds').resolves([shard1, shard2]);
-
-      const fakeMirrors: any = [
-        { contact: { address: 'address', port: 9000 } }
-      ];
-      stub(mirrorsRepository, 'findByShardUuidsWithContacts').resolves(fakeMirrors);
-      stub(mirrorsRepository, 'findByShardHashesWithContacts').resolves(fakeMirrors);
-
-      const enqueueMessageFunction = stub(networkQueue, 'enqueueMessage');
-      try {
-        await bucketEntriesUsecase.removeFile(fileId);
-
-        const { contact } = fakeMirrors[0];
-        const { address, port } = contact;
-        expect(enqueueMessageFunction.firstCall.args[0]).toStrictEqual({
-          type: DELETING_FILE_MESSAGE,
-          payload: { key: shard1.uuid, hash: shard1.uuid, url: `http://${address}:${port}/v2/shards/${shard1.uuid}`},
+          bucket: bucket.id
         });
+
+        stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
+        const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
+        const findUserStub = stub(usersRepository, 'findById').resolves(user);
+        const addTotalSpaceStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
+
+        const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+
+        await bucketEntriesUsecase.removeFile(fileId);
+
+        expect(removeFilesV2Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV2Stub.calledWith([bucketEntry])).toBeTruthy();
+
+        expect(findBucketStub.calledOnce).toBeTruthy();
+        expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
+
+        expect(findUserStub.callCount).toBe(0)
+        expect(addTotalSpaceStub.callCount).toBe(0);
+      });
+
+      it('When bucket do not exist', async () => {
+        const user = fixtures.getUser({ id: userEmail });
+        const fileId = 'file-id';
+        const bucket = fixtures.getBucket({ user: '' });
+        const bucketEntry = fixtures.getBucketEntry({
+          id: fileId,
+          version: 2,
+          bucket: bucket.id
+        });
+
+        stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
+        const findBucketStub = stub(bucketsRepository, 'findOne').resolves(null);
+        const findUserStub = stub(usersRepository, 'findById').resolves(user);
+        const addTotalSpaceStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
+
+        const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+
+        await bucketEntriesUsecase.removeFile(fileId);
+
+        expect(removeFilesV2Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV2Stub.calledWith([bucketEntry])).toBeTruthy();
+
+        expect(findBucketStub.calledOnce).toBeTruthy();
+        expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
+
+        expect(findUserStub.callCount).toBe(0)
+        expect(addTotalSpaceStub.callCount).toBe(0);
+      });
+    });
+
+    it('Should throw an error if the file version is unknown', async () => {
+      const fileId = 'file-id';
+      const bucketEntry = fixtures.getBucketEntry({
+        id: fileId,
+        version: 3
+      })
+
+      stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
+
+      try { 
+        await bucketEntriesUsecase.removeFile(fileId);
+        expect(true).toBeFalsy();
       } catch (err) {
-        console.log(err)
-        expect(true).toBe(false);
+        expect(err).toBeInstanceOf(BucketEntryVersionNotFoundError);
       }
+    });
+  });
+
+  describe('removeFileFromUser()', () => {
+    it('Should throw an error if bucket is not found', async () => {
+      try {
+        const user = fixtures.getUser({ id: userEmail });
+        const bucket = fixtures.getBucket({ user: user.id + 'x' });
+        const fileId = 'file-id';
+
+        stub(bucketsRepository, 'findOne').resolves(null);
+
+        await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.id);
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketNotFoundError);
+      }
+    });
+
+    it('Should throw an error if bucket is not owned by the user', async () => {
+      try {
+        const user = fixtures.getUser({ id: userEmail });
+        const bucket = fixtures.getBucket({ user: user.id + 'x' });
+        const fileId = 'file-id';
+
+        stub(bucketsRepository, 'findOne').resolves(bucket);
+
+        await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.id);
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketForbiddenError);
+      }
+    });
+
+    it('Should try to remove the file if the bucket exists and is owned by the user', async () => {
+      const user = fixtures.getUser({ id: userEmail });
+      const bucket = fixtures.getBucket({ user: user.id });
+      const fileId = 'file-id';
+
+      const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
+      const removeFileStub = stub(bucketEntriesUsecase, 'removeFile').resolves();
+
+      await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.id);
+
+      expect(findBucketStub.calledOnce).toBeTruthy();
+      expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
+
+      expect(removeFileStub.calledOnce).toBeTruthy();
+      expect(removeFileStub.calledWith(fileId)).toBeTruthy();
+    });
+  });
+
+  describe('removeFileAndValidateBucketExists()', () => {
+    it('Should throw an error if bucket is not found', async () => {
+      try {
+        const bucket = fixtures.getBucket();
+        const fileId = 'file-id';
+
+        stub(bucketsRepository, 'findOne').resolves(null);
+
+        await bucketEntriesUsecase.removeFileAndValidateBucketExists(bucket.id, fileId);
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketNotFoundError);
+      }
+    });
+
+    it('Should try to remove the file if the bucket exists', async () => {
+      const user = fixtures.getUser({ id: userEmail });
+      const bucket = fixtures.getBucket({ user: user.id });
+      const fileId = 'file-id';
+
+      const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
+      const removeFileStub = stub(bucketEntriesUsecase, 'removeFile').resolves();
+
+      await bucketEntriesUsecase.removeFileAndValidateBucketExists(bucket.id, fileId);
+
+      expect(findBucketStub.calledOnce).toBeTruthy();
+      expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
+
+      expect(removeFileStub.calledOnce).toBeTruthy();
+      expect(removeFileStub.calledWith(fileId)).toBeTruthy();
     });
   });
 });
