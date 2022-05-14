@@ -8,4 +8,5 @@ export interface ShardsRepository {
   )[]>
   create(data: Omit<Shard, 'id'>): Promise<Shard>;
   deleteByIds(ids: Shard['id'][]): Promise<void>;
+  deleteByHashes(hashes: Shard['hash'][]): Promise<void>;
 }
