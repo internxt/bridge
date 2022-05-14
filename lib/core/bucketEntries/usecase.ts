@@ -1,12 +1,14 @@
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
-import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError, BucketEntryFrameNotFoundError } from '../buckets/usecase';
+import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError } from '../buckets/usecase';
 import { FramesRepository } from '../frames/Repository';
 import { ShardsUsecase } from '../shards/usecase';
 import { BucketEntryShardsRepository } from '../bucketEntryShards/Repository';
 import { ShardsRepository } from '../shards/Repository';
 import { PointersRepository } from '../pointers/Repository';
 import { MirrorsRepository } from '../mirrors/Repository';
+import { BucketEntry } from './BucketEntry';
+import { UsersRepository } from '../users/Repository';
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -21,11 +23,12 @@ export class BucketEntriesUsecase {
     private bucketEntriesRepository: BucketEntriesRepository,
     private bucketsRepository: BucketsRepository,
     private framesRepository: FramesRepository,
-    private bucketEntryShards: BucketEntryShardsRepository,
+    private bucketEntryShardsRepository: BucketEntryShardsRepository,
     private shardsRepository: ShardsRepository,
     private pointersRepository: PointersRepository,
     private mirrorsRepository: MirrorsRepository,
     private shardsUsecase: ShardsUsecase,
+    private usersRepository: UsersRepository
   ) { }
 
   async removeFileFromUser(bucketId: string, fileId: string, userId: string) {
@@ -61,44 +64,56 @@ export class BucketEntriesUsecase {
 
     const version = bucketEntry.version;
 
-    let shardIds: string[];
-    let shardHashes: string [];
+    if (!version || version === 1) {
+      await this.removeFilesV1([ bucketEntry ]);
+    } else if (version === 2) {
+      await this.removeFilesV2([ bucketEntry ]);
+      const bucket = await this.bucketsRepository.findOne({ id: bucketEntry.bucket });
 
-    if (version === 1) {
-      const frame = await this.framesRepository.findOne({ bucketEntry: bucketEntry.id });
+      if (bucket?.user) {
+        const user = await this.usersRepository.findById(bucket.user);
 
-      if (!frame) {
-        console.error('Frame not found for file %s', bucketEntry.id);
-
-        return this.bucketEntriesRepository.deleteByIds([bucketEntry.id]);
+        if (user) {
+          await this.usersRepository.addTotalUsedSpaceBytes(bucket.user, - bucketEntry.size!);
+        }
       }
-
-      shardIds = frame.shards;
-
-      await this.framesRepository.deleteByIds([frame.id]);
-      await this.pointersRepository.deleteByIds(shardIds);
-      const shards = await this.shardsRepository.findByIds(shardIds);
-      shardHashes = shards.map(shard => shard.hash);
-      await this.shardsUsecase.deleteShardsStorageByHashes(shardHashes);
-
-    } else if (version === 2 ) {
-      const bucketEntryShards = await this.bucketEntryShards.findByBucketEntry(bucketEntry.id);
-      shardIds = bucketEntryShards.map(bucketEntryShards => bucketEntryShards.shard);
-      await this.bucketEntryShards.deleteByIds(bucketEntryShards.map(bucketEntryShards => bucketEntryShards.id));
-      const shards = await this.shardsRepository.findByIds(shardIds);
-      const shardUuids = shards.filter(shard => typeof shard.uuid!== 'undefined').map(shard => shard.uuid) as string [];
-      await this.shardsUsecase.deleteShardsStorageByUuids(shardUuids);
-      shardHashes = shards.map(shard => shard.hash);
-
     } else {
-
       throw new BucketEntryVersionNotFoundError();
     }
+  }
 
+  private async removeFilesV1(files: BucketEntry[]) {
+    const frameIds = files.map((f) => f.frame as string);
+    const frames = await this.framesRepository.findByIds(frameIds);
+
+    const pointerIds = frames.flatMap(f => f.shards);
+    const pointers = await this.pointersRepository.findByIds(pointerIds);
+
+    const shardsHashes = pointers.map(p => p.hash);
+
+    await this.shardsUsecase.deleteShardsStorageByHashes(shardsHashes);
+    await this.shardsRepository.deleteByHashes(shardsHashes);  
+    await this.pointersRepository.deleteByIds(pointerIds);
+    await this.framesRepository.deleteByIds(frames.map(f => f.id));
+    await this.bucketEntriesRepository.deleteByIds(files.map(f => f.id));
+  }
+
+  private async removeFilesV2(files: BucketEntry[]) {
+    const fileIds = files.map(f => f.id);
+    const bucketEntryShards = await this.bucketEntryShardsRepository.findByBucketEntries(fileIds);
+    const bucketEntryShardsIds = bucketEntryShards.map(b => b.id);
+    const shardIds = bucketEntryShards.map(b => b.shard);
+    const shards = await this.shardsRepository.findByIds(shardIds);
+
+    if (shards.length > 0) {
+      await this.shardsUsecase.deleteShardsStorageByUuids(shards.map(s => ({ uuid: s.uuid!, hash: s.hash })));
+      await this.shardsRepository.deleteByIds(shards.map(s => s.id));   
+    }
+
+    if (bucketEntryShardsIds.length > 0) {
+      await this.bucketEntryShardsRepository.deleteByIds(bucketEntryShardsIds);
+    }
     
-    const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shardHashes);
-    await this.mirrorsRepository.deleteByIds(mirrors.map(mirror => mirror.id));
-    await this.shardsRepository.deleteByIds(shardIds);
-    await this.bucketEntriesRepository.deleteByIds([bucketEntry.id]);
+    await this.bucketEntriesRepository.deleteByIds(fileIds);
   }
 }
