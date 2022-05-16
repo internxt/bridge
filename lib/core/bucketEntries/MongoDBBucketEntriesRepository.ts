@@ -22,10 +22,12 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
  
     const bucketEntry: BucketEntryModel | null = await this.model.findOne(query);
 
-    return bucketEntry ? { id: bucketEntry._id, ...bucketEntry } : bucketEntry;    
+    return bucketEntry ? { id: bucketEntry._id, ...bucketEntry.toObject() } : bucketEntry;    
   }
 
-  async findOneWithFrame(where: Partial<BucketEntry>): Promise<Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame } | null> {
+  async findOneWithFrame(
+    where: Partial<BucketEntry>
+  ): Promise<Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame } | null> {
     let query: Partial<BucketEntry> & { _id?: string } = where;
 
     if (where.id) {
@@ -51,9 +53,22 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return result;    
   }
 
+  async findByIdsWithFrames(ids: BucketEntry['id'][]): Promise<(Omit<BucketEntryWithFrame, "frame"> & { frame?: Frame | undefined; })[]> {
+    const bucketEntriesModels: any[] = await this.model
+      .find({ _id: { $in: ids } })
+      .populate('frame')
+      .exec();
+
+    return bucketEntriesModels.map((be) => be.toObject());
+  }
+
   async create(data: Omit<BucketEntry, "id">): Promise<BucketEntry> {
     const rawModel = await new this.model({ ...data, created: new Date() }).save();
 
     return rawModel.toObject();
+  }
+
+  async deleteByIds(ids: BucketEntry['id'][]): Promise<void> {
+    await this.model.deleteMany({ _id: { $in: ids } });
   }
 }

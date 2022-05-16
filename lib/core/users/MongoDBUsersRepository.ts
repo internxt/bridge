@@ -74,7 +74,7 @@ export class MongoDBUsersRepository implements UsersRepository {
     return this.userModel.updateOne({ _id: id }, update);
   }
 
-  updateTotalUsedSpaceBytes(id: string, totalUsedSpaceBytes: number): Promise<void> {
+  addTotalUsedSpaceBytes(id: string, totalUsedSpaceBytes: number): Promise<void> {
     return this.userModel.updateOne({ _id: id }, { $inc: { totalUsedSpaceBytes } });
   }
 

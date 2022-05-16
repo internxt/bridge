@@ -7,7 +7,8 @@ const { trackUserActivated } = require('../analytics');
 export enum EventBusEvents {
   UserCreationStarts = 'user-creation-starts',
   UserCreationEnds = 'user-creation-ends',
-  UserDestroyRequest = 'user-destroy-request'
+  UserDestroyRequest = 'user-destroy-request',
+  FilesBulkDeleteFailed = 'files-bulk-delete-failed'
 }
 
 interface UserCreationStartsPayload {
@@ -25,6 +26,11 @@ interface UserDestroyRequestPayload {
     deactivator: string;
     redirect: string;
   } 
+}
+
+interface FilesBulkDeleteFailedPayload {
+  err: Error;
+  fileIds: string;
 }
 
 export class EventBus extends EventEmitter {
@@ -58,6 +64,15 @@ export class EventBus extends EventEmitter {
           err.stack
         );
       });
+    });
+
+    this.on(EventBusEvents.FilesBulkDeleteFailed, ({ err, fileIds }: FilesBulkDeleteFailedPayload) => {
+      logger.error(
+        'Files bulk delete failed: %s. %s. File ids: %s', 
+        err.message, 
+        err.stack || 'NO STACK', 
+        fileIds
+      );
     });
   }
 

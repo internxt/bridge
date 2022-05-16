@@ -2,5 +2,10 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  modulePathIgnorePatterns: ['utils']
+  modulePathIgnorePatterns: ['utils'],
+  collectCoverage: true,
+  collectCoverageFrom: [
+    './lib/core/**',
+    './lib/server/**'
+  ]
 };

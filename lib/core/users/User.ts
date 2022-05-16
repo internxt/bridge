@@ -10,6 +10,7 @@ export interface User {
   activated: boolean;
   isFreeTier: boolean;
   totalUsedSpaceBytes: number;
+  migrated?: boolean
 }
 
 export type CreateUserData = Pick<User, 'password' | 'maxSpaceBytes' | 'activated'> & { email: string };

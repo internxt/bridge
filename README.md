@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/internxt/bridge/branch/master/graph/badge.svg?token=5D9UW1HSCK)](https://codecov.io/gh/internxt/bridge)
+
 Internxt Bridge
 =======================================================================================================
 
@@ -22,6 +24,7 @@ npm i -g yarn
 (Default source name is .profile, but nvm will write its envs on your available shell, .zshrc, .bashrc...)
 
 Clone the repository, install dependencies:
+
 
 ```
 git clone https://github.com/internxt/bridge
