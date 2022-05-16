@@ -11,4 +11,5 @@ export interface Contact {
   lastSeen: Date;
   lastTimeout: Date;
   timeoutRate: number;
+  objectCheckNotRequired?: boolean;
 }

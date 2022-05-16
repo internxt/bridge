@@ -246,10 +246,14 @@ export class BucketsUsecase {
     const contactsThatStoreTheShard: Contact[] = [];
 
     for (const contact of contacts) {
-      const storesObject = await StorageGateway.stores(contact, uuid);
-
-      if (storesObject) {
+      if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
+      } else {
+        const storesObject = await StorageGateway.stores(contact, uuid);
+
+        if (storesObject) {
+          contactsThatStoreTheShard.push(contact);
+        }
       }
     }
 
