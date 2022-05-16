@@ -95,7 +95,7 @@ export class BucketsUsecase {
     });
 
     if (!bucketEntry) {
-      throw new BucketEntryNotFoundError();
+      throw new BucketEntryNotFoundError(fileId);
     }
 
     if (bucketEntry.version && bucketEntry.version === 2) {
