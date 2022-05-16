@@ -254,8 +254,8 @@ export class BucketsUsecase {
     }
 
     if (contactsThatStoreTheShard.length === 0) {
+      console.log('createShardAndMirrors | object %s NOT FOUND in contacts', uuid, contacts.map(c => c.id));
       throw new Error('Shard not uploaded');
-      // throw new ShardNotUploadedError();
     }
 
     const contractsOfContactsThatStoreTheShard = contracts.filter((contract) => {
