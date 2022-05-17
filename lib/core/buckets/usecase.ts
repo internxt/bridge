@@ -99,13 +99,9 @@ export class BucketsUsecase {
     }
 
     if (bucketEntry.version && bucketEntry.version === 2) {
-      if (supportsV2) {
-        const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id);
+      const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id);
 
-        return { ...bucketEntry, shards: downloadLinks };
-      } else {
-        return { ...bucketEntry, frame: '', size: bucketEntry.size! };
-      }
+      return { ...bucketEntry, shards: downloadLinks };
     }
 
     if (!bucketEntry.frame) {
