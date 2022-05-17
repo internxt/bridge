@@ -85,7 +85,7 @@ export class BucketsUsecase {
     private contactsRepository: ContactsRepository
   ) {}
 
-  async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id']): Promise<
+  async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], supportsV2: boolean): Promise<
     Omit<BucketEntry, 'frame'> & { shards: any[] } | 
     BucketEntry & { frame: Frame['id'], size: Frame['size'] }
   > {
@@ -99,9 +99,13 @@ export class BucketsUsecase {
     }
 
     if (bucketEntry.version && bucketEntry.version === 2) {
-      const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id);
+      if (supportsV2) {
+        const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id);
 
-      return { ...bucketEntry, shards: downloadLinks };
+        return { ...bucketEntry, shards: downloadLinks };
+      } else {
+        return { ...bucketEntry, frame: '', size: bucketEntry.size! };
+      }
     }
 
     if (!bucketEntry.frame) {
