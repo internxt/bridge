@@ -32,6 +32,12 @@ export class MongoDBUsersRepository implements UsersRepository {
     return user;
   }
 
+  async findByIds(ids: string[]): Promise<User[]> {
+    const users = await this.userModel.findOne({ _id: { $in: ids } });
+    
+    return users.map((u: any) => u.toObject());
+  }
+
   async findOne(where: Partial<User>): Promise<BasicUser | null> {
     const user: DatabaseUser = await this.userModel.findOne(where);
 
