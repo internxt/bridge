@@ -62,6 +62,25 @@ export async function iterateOverCursor(cursor: any, onEveryEntry: Function) {
   }
 }
 
+export async function iterateOverCursorWithWindowOf(cursor: any, onEveryEntry: (entry: any) => Promise<void>, windowSize: number) {
+  let window = [];
+
+  for await (const doc of cursor) {
+    window.push(doc);
+
+    if (window.length >= windowSize) {
+      const promises = window.map(onEveryEntry);
+      await Promise.all(promises);
+      window = [];
+    }
+  }
+
+  if (window.length > 0) {
+    const promises = window.map(onEveryEntry);
+    await Promise.all(promises);
+  }
+}
+
 function queryPromise<T>(pool: Pool, query: string, args: any[]): Promise<T> {
   return new Promise((resolve, reject) => {
     pool.query(query, args, (err, results: T) => {
