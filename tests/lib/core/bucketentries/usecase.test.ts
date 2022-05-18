@@ -20,9 +20,10 @@ import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShar
 import { MongoDBBucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/MongoDBBucketEntryShardsRepository';
 import { MongoDBUsersRepository } from '../../../../lib/core/users';
 import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
-import { DELETING_FILE_MESSAGE } from '../../../../lib/server/queues/messageTypes';
 
-import fixtures from './fixtures';
+import fixtures from '../fixtures';
+import { BucketEntry } from '../../../../lib/core/bucketEntries/BucketEntry';
+import { Bucket } from '../../../../lib/core/buckets/Bucket';
 
 describe('BucketEntriesUsecase', function () {
   const bucketId =  'bucketIdSAMPLE';
@@ -427,6 +428,162 @@ describe('BucketEntriesUsecase', function () {
         expect(true).toBeFalsy();
       } catch (err) {
         expect(err).toBeInstanceOf(BucketEntryVersionNotFoundError);
+      }
+    });
+  });
+
+  describe('removeFiles()', () => {
+    it('Should try to find bucket entries always', async () => {
+      const fileIds: BucketEntry['id'][] = []
+      const findBucketEntriesByIds = stub(bucketEntriesRepository, 'findByIds').rejects(new Error());
+
+      try {
+        await bucketEntriesUsecase.removeFiles(fileIds);
+        expect(true).toBeFalsy();
+      } catch {
+        expect(findBucketEntriesByIds.calledOnce).toBeTruthy();
+        expect(findBucketEntriesByIds.firstCall.args).toStrictEqual([fileIds])
+      }
+    });
+
+    it('Should not try to remove any file if any file is found', async () => {
+      const nonExistentFileId = 'file-id';
+      const emptyResult: BucketEntry[] = [];
+
+      stub(bucketEntriesRepository, 'findByIds').resolves(emptyResult); 
+
+      const removeFilesV1Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV1');
+      const removeFilesV2Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV2');
+
+      await bucketEntriesUsecase.removeFiles([nonExistentFileId]);
+
+      expect(removeFilesV1Spy).not.toHaveBeenCalled();
+      expect(removeFilesV2Spy).not.toHaveBeenCalled();
+    });
+
+    describe('Should delete only v1 files that do exist', () => {
+      it('Should delete files without version (= version 1)', async () => {
+        const fileId = 'file-id';
+        const v1Files: BucketEntry[] = [fixtures.getBucketEntry({ id: fileId })];
+  
+        stub(bucketEntriesRepository, 'findByIds').resolves(v1Files); 
+  
+        const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1');
+        const removeFilesV2Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV2');
+  
+        await bucketEntriesUsecase.removeFiles([fileId]);
+  
+        expect(removeFilesV1Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV1Stub.firstCall.args).toStrictEqual([v1Files]);
+        expect(removeFilesV2Spy).not.toHaveBeenCalled();
+      });
+
+      it('Should delete files with version 1', async () => {
+        const fileId = 'file-id';
+        const v1Files: BucketEntry[] = [fixtures.getBucketEntry({ id: fileId, version: 1 })];
+  
+        stub(bucketEntriesRepository, 'findByIds').resolves(v1Files); 
+  
+        const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1');
+        const removeFilesV2Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV2');
+  
+        await bucketEntriesUsecase.removeFiles([fileId]);
+  
+        expect(removeFilesV1Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV1Stub.firstCall.args).toStrictEqual([v1Files]);
+        expect(removeFilesV2Spy).not.toHaveBeenCalled();
+      });
+    });
+
+    it('Should delete only v2 files that do exist', async () => {
+      const fileId = 'file-id';
+      const v2Files: BucketEntry[] = [fixtures.getBucketEntry({ id: fileId, version: 2 })];
+
+      stub(bucketEntriesRepository, 'findByIds').resolves(v2Files); 
+
+      const removeFilesV1Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV1');
+      const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').rejects(new Error());
+
+      try {
+        await bucketEntriesUsecase.removeFiles([fileId]);
+        expect(true).toBeFalsy();
+      } catch {
+        expect(removeFilesV1Spy).not.toHaveBeenCalled();
+        expect(removeFilesV2Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV2Stub.firstCall.args).toStrictEqual([v2Files]);
+      }
+    });
+
+    it('Should try to find the buckets of v2 files', async () => {
+      const v2Files: BucketEntry[] = [
+        fixtures.getBucketEntry({ version: 2 }),
+        fixtures.getBucketEntry({ version: 2 })
+      ];
+
+      stub(bucketEntriesRepository, 'findByIds').resolves(v2Files); 
+
+      const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+      const findBucketsStub = stub(bucketsRepository, 'findByIds').rejects(new Error());
+
+      try {
+        await bucketEntriesUsecase.removeFiles(v2Files.map(f => f.id));
+        expect(true).toBeFalsy();
+      } catch {
+        expect(removeFilesV2Stub.calledOnce).toBeTruthy();
+        expect(removeFilesV2Stub.firstCall.args).toStrictEqual([v2Files]);
+
+        expect(findBucketsStub.calledOnce).toBeTruthy();
+        expect(findBucketsStub.firstCall.args).toStrictEqual([v2Files.map(f => f.bucket)]);
+      }
+    });
+
+    it('Should try to adjust user usage properly for v2 files', async () => {
+      const firstUserEmail = 'x@y.com';
+      const firstUserBucket = fixtures.getBucket({ user: firstUserEmail });
+      const firstUserFiles = [
+        fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 50 }), 
+        fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 10 })
+      ];
+      
+      const secondUserEmail = 'y@z.com';
+      const secondUserBucket = fixtures.getBucket({ user: secondUserEmail });
+      const secondUserFile = fixtures.getBucketEntry({ bucket: secondUserBucket.id, version: 2, size: 2 });
+
+      const users = [firstUserEmail, secondUserEmail];
+      const files = [...firstUserFiles, secondUserFile];
+      const buckets = [firstUserBucket, secondUserBucket];
+
+      stub(bucketEntriesRepository, 'findByIds').resolves(files); 
+
+      const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+      const findBucketsStub = stub(bucketsRepository, 'findByIds').resolves(buckets);
+
+      const addTotalSpaceBytesStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
+
+      await bucketEntriesUsecase.removeFiles(files.map(f => f.id));
+
+      expect(removeFilesV2Stub.calledOnce).toBeTruthy();
+      expect(removeFilesV2Stub.firstCall.args).toStrictEqual([files]);
+
+      expect(findBucketsStub.calledOnce).toBeTruthy();
+      expect(findBucketsStub.firstCall.args).toStrictEqual([buckets.map(b => b.id)]);
+
+      expect(addTotalSpaceBytesStub.callCount).toBe(users.length);
+      expect(addTotalSpaceBytesStub.calledTwice).toBeTruthy();
+
+      for (let i = 0; i < users.length; i++) {
+        const filesFromUser = files.filter((f) => {
+          const bucket = buckets.find(b => b.user === users[i]) as Bucket;
+
+          return f.bucket === bucket.id
+        });
+
+        const totalSizeOfFilesToRemove = filesFromUser.reduce((acumm, f) => acumm + (f.size as number), 0);
+
+        expect(addTotalSpaceBytesStub.getCalls()[i].args).toStrictEqual([
+          users[i], 
+          -totalSizeOfFilesToRemove
+        ]);
       }
     });
   });

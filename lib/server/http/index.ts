@@ -26,6 +26,10 @@ import { ContactsRepository } from "../../core/contacts/Repository";
 import { MongoDBContactsRepository } from "../../core/contacts/MongoDBContactsRepository";
 import { ShardsRepository } from "../../core/shards/Repository";
 import { MongoDBShardsRepository } from "../../core/shards/MongoDBShardsRepository";
+import { BucketEntriesUsecase } from "../../core/bucketEntries/usecase";
+import { ShardsUsecase } from "../../core/shards/usecase";
+import { BucketEntryShardsRepository } from "../../core/bucketEntryShards/Repository";
+import { MongoDBBucketEntryShardsRepository } from "../../core/bucketEntryShards/MongoDBBucketEntryShardsRepository";
 
 const { authenticate } = require('storj-service-middleware');
 
@@ -38,6 +42,7 @@ interface Models {
   BucketEntry: any;
   Contact: any;
   Shard: any;
+  BucketEntryShard: any;
 }
 
 export function bindNewRoutes(
@@ -51,6 +56,7 @@ export function bindNewRoutes(
   const { models } = storage;
 
   const bucketEntriesRepository: BucketEntriesRepository = new MongoDBBucketEntriesRepository(models.BucketEntry);
+  const bucketEntryShardsRepository: BucketEntryShardsRepository = new MongoDBBucketEntryShardsRepository(models.BucketEntryShard);
   const bucketsRepository: BucketsRepository = new MongoDBBucketsRepository(models.Bucket);
   const usersRepository: UsersRepository = new MongoDBUsersRepository(models.User);
   const framesRepository: FramesRepository = new MongoDBFramesRepository(models.Frame);
@@ -81,12 +87,29 @@ export function bindNewRoutes(
     networkQueue
   );
 
+  const shardsUsecase = new ShardsUsecase(
+    mirrorsRepository,
+    networkQueue
+  );
+
+  const bucketEntriesUsecase = new BucketEntriesUsecase(
+    bucketEntriesRepository,
+    bucketsRepository,
+    framesRepository,
+    bucketEntryShardsRepository,
+    shardsRepository,
+    pointersRepository,
+    mirrorsRepository,
+    shardsUsecase,
+    usersRepository
+  );
+
   const basicAuthMiddleware = authenticate(storage);
   const secretToUtf8 = Buffer.from(getEnv().gateway.jwtSecret, 'base64').toString('utf8')
   const jwtMiddleware = buildJwtMiddleware(secretToUtf8, { algorithms: ['RS256'] });
 
   const usersController = new HTTPUsersController(usersUsecase, log);
-  const gatewayController = new HTTPGatewayController(gatewayUsecase, log);
+  const gatewayController = new HTTPGatewayController(gatewayUsecase, bucketEntriesUsecase, log);
 
   const usersRouter = createUsersHTTPRouter(usersController, basicAuthMiddleware);
   const gatewayRouter = createGatewayHTTPRouter(gatewayController, jwtMiddleware);

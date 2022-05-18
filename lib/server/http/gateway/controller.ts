@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
+import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
 
@@ -13,6 +14,7 @@ type DeleteFilesInBulkResponse = {
 export class HTTPGatewayController {
   constructor(
     private gatewayUsecase: GatewayUsecase, 
+    private bucketEntriesUsecase: BucketEntriesUsecase,
     private logger: Logger
   ) {}
 
@@ -32,7 +34,7 @@ export class HTTPGatewayController {
     }
 
     try {
-      const result = await this.gatewayUsecase.deleteFilesInBulk(files);
+      const result = await this.bucketEntriesUsecase.removeFiles(files);
 
       res.status(200).send({
         message: {
