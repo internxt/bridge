@@ -1,12 +1,13 @@
 import { v4 } from 'uuid';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
-import { BucketEntry, BucketEntryWithFrame } from "../../../../lib/core/bucketEntries/BucketEntry";
-import { Pointer } from "../../../../lib/core/pointers/Pointer";
-import { Frame } from '../../../../lib/core/frames/Frame';
-import { BucketEntryShard } from '../../../../lib/core/bucketEntryShards/BucketEntryShard';
-import { Bucket } from '../../../../lib/core/buckets/Bucket';
-import { User } from '../../../../lib/core/users/User';
+import { BucketEntry, BucketEntryWithFrame } from "../../../lib/core/bucketEntries/BucketEntry";
+import { Pointer } from "../../../lib/core/pointers/Pointer";
+import { Frame } from '../../../lib/core/frames/Frame';
+import { BucketEntryShard } from '../../../lib/core/bucketEntryShards/BucketEntryShard';
+import { Bucket } from '../../../lib/core/buckets/Bucket';
+import { User } from '../../../lib/core/users/User';
+import { Shard } from '../../../lib/core/shards/Shard';
 
 function getBucketEntriesWithFrames(fileIds?: string[]): BucketEntryWithFrame[] {
   const ids = fileIds ?? [v4()];
@@ -121,6 +122,20 @@ function getUser(customUser?: Partial<User>): User {
   return { ...defaultUser, ...customUser };
 }
 
+function getShard(custom?: Partial<Shard>): Shard {
+  const defaultShard: Shard = {
+    contracts: [],
+    hash: randomBytes(40).toString('hex'),
+    id: v4(),
+    size: 0,
+    uuid: v4()
+  }
+
+  return {
+    ...defaultShard, ...custom
+  };
+}
+
 export default {
   getBucketEntriesWithFrames,
   getBucketEntriesWithoutFrames,
@@ -129,5 +144,6 @@ export default {
   getFrame,
   getPointer,
   getBucket,
-  getUser
+  getUser,
+  getShard
 };

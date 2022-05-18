@@ -12,6 +12,12 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     return this.model.find(query);
   }
 
+  async findByIds(ids: string[]): Promise<Bucket[]> {
+    const buckets = await this.model.find({ _id: { $in: ids } });
+
+    return buckets.map((b: any) => b.toObject());
+  }
+
   async findOne(where: Partial<Bucket>): Promise<Bucket | null> {
     const query = where.id ? { ...where, _id: where.id } : where;
 

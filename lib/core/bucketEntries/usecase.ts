@@ -1,3 +1,5 @@
+import lodash from 'lodash';
+
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
 import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError } from '../buckets/usecase';
@@ -9,6 +11,7 @@ import { PointersRepository } from '../pointers/Repository';
 import { MirrorsRepository } from '../mirrors/Repository';
 import { BucketEntry } from './BucketEntry';
 import { UsersRepository } from '../users/Repository';
+import { User } from '../users/User';
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -82,6 +85,47 @@ export class BucketEntriesUsecase {
     }
   }
 
+  async removeFiles(fileIds: string[]) {
+    const bucketEntries = await this.bucketEntriesRepository.findByIds(fileIds);
+    const bucketEntriesV2 = bucketEntries.filter(b => b.version && b.version === 2);
+    const bucketEntriesV1 = bucketEntries.filter(b => !b.version || b.version === 1);
+   
+    if (bucketEntriesV1.length > 0) {
+      await this.removeFilesV1(bucketEntriesV1);
+    }
+
+    if (bucketEntriesV2.length > 0) {
+      await this.removeFilesV2(bucketEntriesV2);
+
+      const bucketEntriesGroupedByBucket = lodash.groupBy(bucketEntriesV2, (b) => b.bucket);
+      const buckets = await this.bucketsRepository.findByIds(Object.keys(bucketEntriesGroupedByBucket));
+
+      const bucketsGroupedByUsers = lodash.groupBy(buckets, (b) => b.user);
+      const storageToModifyPerUser: Record<User['id'], number> = {};
+
+      Object.keys(bucketsGroupedByUsers).map((userEmail) => {
+        storageToModifyPerUser[userEmail] = 0;
+      });
+      
+      Object.keys(bucketsGroupedByUsers).map((userEmail) => {
+        const buckets = bucketsGroupedByUsers[userEmail];
+
+        for (const bucket of buckets) {
+          const userBucketEntries = bucketEntriesGroupedByBucket[bucket.id.toString()];
+          storageToModifyPerUser[userEmail] += userBucketEntries.reduce((acumm, b) => b.size! + acumm, 0);
+        }
+      });
+
+      for (const user in storageToModifyPerUser) {
+        const storageToSubstract = -storageToModifyPerUser[user];
+
+        await this.usersRepository.addTotalUsedSpaceBytes(user, storageToSubstract);
+      }
+    }  
+    
+    return fileIds;
+  }
+
   async removeFilesV1(files: BucketEntry[]) {
     const frameIds = files.map((f) => f.frame as string);
     const frames = await this.framesRepository.findByIds(frameIds);
@@ -107,7 +151,7 @@ export class BucketEntriesUsecase {
     await this.bucketEntriesRepository.deleteByIds(files.map(f => f.id));
   }
 
-  async removeFilesV2(files: BucketEntry[]) {
+  async removeFilesV2(files: BucketEntry[]): Promise<void> {
     const fileIds = files.map(f => f.id);
     const bucketEntryShards = await this.bucketEntryShardsRepository.findByBucketEntries(fileIds);
     const bucketEntryShardsIds = bucketEntryShards.map(b => b.id);

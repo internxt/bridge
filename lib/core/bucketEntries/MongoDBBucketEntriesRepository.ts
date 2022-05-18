@@ -25,6 +25,12 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return bucketEntry ? { id: bucketEntry._id, ...bucketEntry.toObject() } : bucketEntry;    
   }
 
+  async findByIds(ids: string[]): Promise<BucketEntry[]> {
+    const bucketEntries = await this.model.find({ _id: { $in: ids } });
+
+    return bucketEntries.map((b: any) => b.toObject());
+  }
+
   async findOneWithFrame(
     where: Partial<BucketEntry>
   ): Promise<Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame } | null> {
