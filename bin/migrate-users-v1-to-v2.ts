@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { config as loadEnv } from 'dotenv';
 import axios from 'axios';
 import Config from '../lib/config';
-import { iterateOverCursor } from './cleaner/database';
+import { iterateOverCursor, iterateOverCursorWithWindowOf } from './cleaner/database';
 import { Stream } from 'stream';
 import { IncomingMessage } from 'http';
 
@@ -87,6 +87,7 @@ const {
   BucketEntry: BucketEntryModel,
   BucketEntryShard: BucketEntryShardModel,
   Mirror: MirrorModel,
+  Shard: ShardModel,
 } = storage.models;
 
 const logStatus = () => {
@@ -162,16 +163,31 @@ const migrateBucketEntry = async (bucketEntry: any) => {
     return bucketEntry.save();
   }
 
-  const shards = bucketEntry.frame.shards;
+  const pointers = bucketEntry.frame.shards;
 
-  if (!shards) {
+  if (!pointers) {
     bucketEntry.delete = true;
     return bucketEntry.save();
   }
 
-  const promises = shards.map((shard: any, index: number) =>
-    migrateShard(shard, index, bucketEntry)
-  );
+  const shardsHashes = pointers.map((p:any) => p.hash as string);
+
+  const shards = await ShardModel.find({ hash: { $in: shardsHashes } });
+
+  if(shards.length === 0){
+    bucketEntry.delete = true;
+    return bucketEntry.save();
+  }
+
+  const promises = shards.map(async (shard: any, index: number) => {
+    const shardsInXNODES = await MirrorModel.find({ 
+      shardHash: shard.hash,
+      contact: { $in: XNODES } 
+    });
+    if(shardsInXNODES.length > 0){
+      return migrateShard(shard, index, bucketEntry)
+    }
+  });
   await Promise.all(promises);
 
   bucketEntry.version = 2;
@@ -196,7 +212,8 @@ const migrateBucket = async (bucket: any): Promise<void> => {
     .sort({ _id: 1 })
     .cursor();
 
-  await iterateOverCursor(bucketEntries, migrateBucketEntry);
+  const windowSize = 5;
+  await iterateOverCursorWithWindowOf(bucketEntries, migrateBucketEntry, windowSize);
 };
 
 async function migrateUser(userEmail: string): Promise<void> {
@@ -204,7 +221,6 @@ async function migrateUser(userEmail: string): Promise<void> {
   const bucketsCursor = BucketModel.find({ user: userEmail })
     .sort({ _id: 1 })
     .cursor();
-
 
   await iterateOverCursor(bucketsCursor, migrateBucket);
 }
