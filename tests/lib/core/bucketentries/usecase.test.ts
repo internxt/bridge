@@ -260,20 +260,28 @@ describe('BucketEntriesUsecase', function () {
       expect(deleteBucketEntryShardsStub.calledWith(bucketEntryShards.map(b => b.id)));
     });
 
-    it('Should delete shards shards if they exist', async () => {
+    it('Should delete shards and mirrors if they exist', async () => {
+      const shards = [fixtures.getShard()];
       const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
-      const bucketEntryShards = bucketEntries.map(b => fixtures.getBucketEntryShard({ bucketEntry: b.id }))
 
-      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves(bucketEntryShards);
-      stub(shardsRepository, 'findByIds').resolves([]);
+      stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves([]);
       stub(bucketEntriesRepository, 'deleteByIds').resolves()
-      
-      const deleteBucketEntryShardsStub = stub(bucketEntryShardsRepository, 'deleteByIds');
+      stub(bucketEntryShardsRepository, 'deleteByIds');
+
+      const findShardsStub = stub(shardsRepository, 'findByIds').resolves(shards);
+      const deleteShardsStorageStub = stub(shardsUseCase, 'deleteShardsStorageByUuids').resolves();
+      const deleteShardsStub = stub(shardsRepository, 'deleteByIds').resolves();
 
       await bucketEntriesUsecase.removeFilesV2(bucketEntries);
 
-      expect(deleteBucketEntryShardsStub.calledOnce).toBeTruthy();
-      expect(deleteBucketEntryShardsStub.calledWith(bucketEntryShards.map(b => b.id)));
+      expect(findShardsStub.calledOnce).toBeTruthy();
+      expect(findShardsStub.calledWith(shards.map(b => b.id)));
+
+      expect(deleteShardsStorageStub.calledOnce).toBeTruthy();
+      expect(deleteShardsStorageStub.calledWith(shards.map(s => ({ hash: s.hash, uuid: (s.uuid as string) }))))
+
+      expect(deleteShardsStub.calledOnce).toBeTruthy();
+      expect(deleteShardsStub.calledWith(shards.map(s => s.id)));
     });
   });
 
