@@ -18,4 +18,14 @@ export class StorageGateway {
       return false;
     });
   }
+
+  static async getLinks(contact: Contact, objectKeys: string[]): Promise<string[]> {
+    const { address, port } = contact;
+  
+    const httpUrl = `http://${address}:${port}/v2/download/links?keys=${objectKeys.join(',')}`;
+
+    const res = await axios.get<string[]>(httpUrl);
+
+    return res.data;
+  }
 }
