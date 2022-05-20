@@ -132,9 +132,13 @@ export class BucketsUsecase {
       }
     }
 
-    const sortedFileLinks = fileIds.map((fId) => fileLinks.find(fL => fL.fileId === fId.toString()));
+    if (fileLinks.length > 0) {
+      const sortedFileLinks = fileIds.map((fId) => fileLinks.find(fL => fL.fileId === fId.toString()));
 
-    return sortedFileLinks;
+      return sortedFileLinks;
+    } else {
+      return fileLinks;
+    }
   }
 
   async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], supportsV2: boolean): Promise<
