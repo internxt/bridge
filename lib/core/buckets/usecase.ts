@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { v4 } from 'uuid';
+import lodash from 'lodash';
 
 import { Bucket } from './Bucket';
 import { Frame } from '../frames/Frame';
@@ -72,6 +73,8 @@ export class MaxSpaceUsedError extends Error {
 }
 
 export class BucketsUsecase {
+  private MAX_FILES_PER_RETRIEVAL = 20;
+
   constructor(
     private bucketEntryShardsRepository: BucketEntryShardsRepository,
     private bucketEntriesRepository: BucketEntriesRepository,
@@ -84,6 +87,59 @@ export class BucketsUsecase {
     private tokensRepository: TokensRepository,
     private contactsRepository: ContactsRepository
   ) {}
+
+  /**
+   * Retrieves file links in bulk.
+   * TODO: Add multishard support
+   */
+  async getFileLinks(fileIds: string[]) {
+    const chunksOf = this.MAX_FILES_PER_RETRIEVAL;
+
+    const fileLinks: { fileId: string, link: string, index: string }[] = [];
+
+    for (let i = 0; i < fileIds.length; i += chunksOf) {
+      const fileIdsToRetrieve = fileIds.slice(i, i+chunksOf);
+      const files = await this.bucketEntriesRepository.findByIds(fileIdsToRetrieve);
+
+      if (files.length === 0) continue;
+
+      const bucketEntryShards = await this.bucketEntryShardsRepository.findByBucketEntries(fileIdsToRetrieve);
+
+      if (bucketEntryShards.length === 0) continue;
+
+      const shards = await this.shardsRepository.findByIds(bucketEntryShards.map(b => b.shard));
+
+      if (shards.length === 0) continue;
+
+      const shardsGroupedByContact = lodash.groupBy(shards, (s) => s.contracts[0].nodeID);
+      const contacts = await this.contactsRepository.findByIds(Object.keys(shardsGroupedByContact));
+      
+      for (const contact of contacts) {
+        const objectsKeys = shardsGroupedByContact[contact.id].map(s => s.uuid!);
+
+        const links = await StorageGateway.getLinks(contact, objectsKeys);
+
+        objectsKeys.forEach((key, keyIndex) => {
+          const shard = shards.find(s => s.uuid === key) as Shard;
+          const bucketEntryShard = bucketEntryShards.find(b => b.shard.toString() === shard.id)!;
+          const fileId = bucketEntryShard.bucketEntry.toString();
+          const index = files.find(f => f.id === fileId)?.index as string;
+
+          fileLinks.push({
+            fileId, link: links[keyIndex], index
+          })
+        });
+      }
+    }
+
+    if (fileLinks.length > 0) {
+      const sortedFileLinks = fileIds.map((fId) => fileLinks.find(fL => fL.fileId === fId.toString()));
+
+      return sortedFileLinks;
+    } else {
+      return fileLinks;
+    }
+  }
 
   async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], supportsV2: boolean): Promise<
     Omit<BucketEntry, 'frame'> & { shards: any[] } | 

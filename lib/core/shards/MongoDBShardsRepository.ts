@@ -8,10 +8,9 @@ export class MongoDBShardsRepository implements ShardsRepository {
   findByIds(shardIds: Shard['id'][]): Promise<Shard[]> {
     return this.model.find({ _id: { $in: shardIds } }).then((shards: any) => {
       return shards.map((s: any) => {
-        return {
-          id: s._id,
-          ...s.toObject()
-        };
+        s.id = s._id
+
+        return s;
       });
     });
   }
