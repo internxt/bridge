@@ -8,6 +8,7 @@ import { BucketEntryShard } from '../../../lib/core/bucketEntryShards/BucketEntr
 import { Bucket } from '../../../lib/core/buckets/Bucket';
 import { User } from '../../../lib/core/users/User';
 import { Shard } from '../../../lib/core/shards/Shard';
+import { Contact } from '../../../lib/core/contacts/Contact';
 
 function getBucketEntriesWithFrames(fileIds?: string[]): BucketEntryWithFrame[] {
   const ids = fileIds ?? [v4()];
@@ -122,18 +123,51 @@ function getUser(customUser?: Partial<User>): User {
   return { ...defaultUser, ...customUser };
 }
 
-function getShard(custom?: Partial<Shard>): Shard {
+function getShard(custom?: Partial<Shard>, contactId?: Contact['id']): Shard {
+  const hash = randomBytes(40).toString('hex');
+  const nodeID = contactId ? contactId : `nodeID-${v4()}`;
+
   const defaultShard: Shard = {
-    contracts: [],
-    hash: randomBytes(40).toString('hex'),
-    id: v4(),
+    contracts: [
+      {
+        nodeID,
+        contract: {
+          data_hash: hash,
+          data_size: 0,
+          farmer_id: nodeID,
+          version: 1
+        }
+      }
+    ],
+    hash,
+    id: `shard-id-${v4()}`,
     size: 0,
-    uuid: v4()
+    uuid: `shard-uuid-${v4()}`
   }
 
   return {
     ...defaultShard, ...custom
   };
+}
+
+function getContact(custom?: Partial<Contact>): Contact {
+  const defaultContact: Contact = {
+    address: `http://${randomBytes(10).toString('hex')}.com`,
+    id: v4(),
+    ip: 'http://1.1.1.1',
+    lastSeen: new Date(),
+    lastTimeout: new Date(),
+    port: 3000,
+    protocol: '1.2.0-INXT',
+    reputation: 5000,
+    responseTime: 2,
+    spaceAvailable: true,
+    timeoutRate: 0,
+    userAgent: '',
+    objectCheckNotRequired: false
+  };
+
+  return { ...defaultContact, ...custom };
 }
 
 export default {
@@ -145,5 +179,6 @@ export default {
   getPointer,
   getBucket,
   getUser,
-  getShard
+  getShard,
+  getContact
 };
