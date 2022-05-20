@@ -19,6 +19,12 @@ export class MongoDBContactsRepository implements ContactsRepository {
   async findByIds(ids: string[]): Promise<Contact[]> {
     const rawContacts = await this.model.find({ _id: { $in: ids } });
 
-    return rawContacts.map((rawContact: any) => rawContact.toObject());
+    return rawContacts.map((rawContact: any) => {
+      const contact = rawContact.toObject();
+
+      contact.id = contact.nodeID;
+
+      return contact;
+    });
   }
 }
