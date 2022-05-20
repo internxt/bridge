@@ -299,10 +299,8 @@ export class BucketsUsecase {
 
     for (const contact of contacts) {
       if (contact.objectCheckNotRequired) {
-        console.log('skippping object check for contact', contact)
         contactsThatStoreTheShard.push(contact);
       } else {
-        console.log('doing object check for contact', contact);
         const storesObject = await StorageGateway.stores(contact, uuid);
 
         if (storesObject) {
