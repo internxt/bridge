@@ -6,7 +6,6 @@ Bridge
 
 
 ## Quick setup
----
 ### ubuntu/macOS:
 
 ```
@@ -19,7 +18,6 @@ yarn --ignore-engines
 ```
 
 ## Config
----
 When this project is run for the first time, the default configuration could be found at `~/.inxt-bridge/config/develop.json`.
 
 
