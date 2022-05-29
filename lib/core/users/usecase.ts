@@ -5,7 +5,7 @@ import { BucketsRepository } from '../buckets/Repository';
 import { MailUsecase } from '../mail/usecase';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { FramesRepository } from '../frames/Repository';
-import { BasicUser } from './User';
+import { BasicUser, User } from './User';
 
 const disposable = require('disposable-email');
 
@@ -101,6 +101,10 @@ export class UsersUsecase {
     this.eventBus.emit(EventBusEvents.UserCreationEnds, { uuid: user.uuid, email });
 
     return user;
+  }
+
+  async updateUserStorage(uuid: User['uuid'], bytes: User['maxSpaceBytes']): Promise<void> {
+    await this.usersRepository.updateByUuid(uuid, { maxSpaceBytes: bytes });
   }
 
   async requestPasswordReset(

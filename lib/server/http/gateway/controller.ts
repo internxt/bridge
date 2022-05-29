@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
+import { UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
@@ -15,6 +16,7 @@ export class HTTPGatewayController {
   constructor(
     private gatewayUsecase: GatewayUsecase, 
     private bucketEntriesUsecase: BucketEntriesUsecase,
+    private usersUsecase: UsersUsecase,
     private logger: Logger
   ) {}
 
@@ -47,5 +49,26 @@ export class HTTPGatewayController {
       
       res.status(500).send({ message: 'Internal Server Error' });
     }    
+  }
+
+  async changeStorage(
+    req: Request<{ uuid: string }, {}, { bytes?: string }, {}>, 
+    res: Response<{ message: string }>
+  ) {
+    if (!req.body.bytes) {
+      return res.status(400).send({ message: 'Missing required params' });
+    }
+    try {
+      const { uuid} = req.params;
+      const { bytes } = req.body;
+
+      await this.usersUsecase.updateUserStorage(uuid, parseInt(bytes));
+
+      res.status(200).send();
+    } catch (err) {
+      this.logger.error('GATEWAY: changeStorage error: %s. %s', (err as Error).message, (err as Error).stack || 'NO STACK');
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
   }
 }

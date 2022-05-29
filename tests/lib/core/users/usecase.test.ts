@@ -230,4 +230,17 @@ describe('Users usecases', () => {
       }
     });
   });
+
+  describe('updateUserStorage()', () => {
+    it('Should upgrade the user storage', async () => {
+      const uuid = fakeUser.uuid;
+      const bytes = fakeUser.maxSpaceBytes;
+      const updateByUuidSpy = jest.spyOn(usersRepository, 'updateByUuid').mockImplementation();
+
+      await usecase.updateUserStorage(uuid, bytes);
+
+      expect(updateByUuidSpy).toHaveBeenCalledTimes(1);
+      expect(updateByUuidSpy).toHaveBeenCalledWith(uuid, { maxSpaceBytes: bytes });
+    });
+  });
 });

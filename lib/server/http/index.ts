@@ -109,7 +109,12 @@ export function bindNewRoutes(
   const jwtMiddleware = buildJwtMiddleware(secretToUtf8, { algorithms: ['RS256'] });
 
   const usersController = new HTTPUsersController(usersUsecase, log);
-  const gatewayController = new HTTPGatewayController(gatewayUsecase, bucketEntriesUsecase, log);
+  const gatewayController = new HTTPGatewayController(
+    gatewayUsecase, 
+    bucketEntriesUsecase, 
+    usersUsecase,
+    log
+  );
 
   const usersRouter = createUsersHTTPRouter(usersController, basicAuthMiddleware);
   const gatewayRouter = createGatewayHTTPRouter(gatewayController, jwtMiddleware);
