@@ -80,6 +80,10 @@ export class MongoDBUsersRepository implements UsersRepository {
     return this.userModel.updateOne({ _id: id }, update);
   }
 
+  updateByUuid(uuid: string, update: Partial<User>) {
+    return this.userModel.updateOne({ uuid }, update);
+  }
+
   addTotalUsedSpaceBytes(id: string, totalUsedSpaceBytes: number): Promise<void> {
     return this.userModel.updateOne({ _id: id }, { $inc: { totalUsedSpaceBytes } });
   }
