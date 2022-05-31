@@ -1,8 +1,8 @@
-import { Contract, Shard } from "../shards/Shard";
+import { Contract, Shard } from '../shards/Shard';
 
 export interface Upload {
   id: string;
-  index: number;
+  index: string;
   uuid: Required<Shard>['uuid'];
   data_size: Contract['data_size'];
   contracts: {

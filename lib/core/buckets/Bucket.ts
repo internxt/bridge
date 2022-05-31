@@ -1,4 +1,4 @@
-import { User } from "../users/User";
+import { User } from '../users/User';
 
 export interface Bucket {
   id: string;
@@ -8,4 +8,8 @@ export interface Bucket {
   status: string;
   transfer: number;
   storage: number;
+  created?: Date;
+  maxFrameSize?: number;
+  publicPermissions?: string[];
+  pubkeys?: string[];
 }

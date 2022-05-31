@@ -1,15 +1,15 @@
 export interface Contact {
   id: string;
   address: string;
-  ip: string;
+  ip: string | null;
   port: number;
   protocol: string;
   reputation: number;
   responseTime: number;
   spaceAvailable: boolean;
-  userAgent: string;
+  userAgent?: string;
   lastSeen: Date;
-  lastTimeout: Date;
-  timeoutRate: number;
+  lastTimeout?: Date;
+  timeoutRate?: number;
   objectCheckNotRequired?: boolean;
 }
