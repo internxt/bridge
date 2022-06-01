@@ -1,6 +1,7 @@
 import { Frame } from '../frames/Frame';
 import { BucketEntry, BucketEntryWithFrame } from './BucketEntry';
 import { BucketEntriesRepository } from './Repository';
+import { ObjectId } from 'mongodb';
 
 interface BucketEntryModel extends Omit<BucketEntry, 'id'> {
   _id: string;
@@ -8,6 +9,50 @@ interface BucketEntryModel extends Omit<BucketEntry, 'id'> {
   renewal: Date;
   toObject(): Omit<BucketEntryModel, 'toObject'>;
 }
+
+export const formatFromMongoToBucketEntry = (
+  mongoBucketEntry: any
+): BucketEntry => {
+  const id = mongoBucketEntry._id.toString();
+  const bucketEntry = mongoBucketEntry.toObject();
+  delete bucketEntry._id;
+  if (bucketEntry.frame) {
+    bucketEntry.frame = bucketEntry.frame.toString();
+  }
+  return {
+    ...bucketEntry,
+    id,
+    bucket: bucketEntry.bucket.toString(),
+  };
+};
+
+const formatFromMongoToFrameLocally = (mongoFrame: any) => {
+  const id = mongoFrame.id.toString();
+  const shards = mongoFrame.shards.map((shardId: ObjectId) =>
+    shardId.toString()
+  );
+  return {
+    ...mongoFrame,
+    id,
+    shards,
+  };
+};
+
+export const formatFromMongoToBucketEntryWithFrame = (
+  mongoBucketEntry: any
+): BucketEntryWithFrame => {
+  const id = mongoBucketEntry._id.toString();
+  const bucketEntry = mongoBucketEntry.toObject();
+  delete bucketEntry._id;
+  if (bucketEntry.frame) {
+    bucketEntry.frame = formatFromMongoToFrameLocally(bucketEntry.frame);
+  }
+  return {
+    ...bucketEntry,
+    id,
+    bucket: bucketEntry.bucket.toString(),
+  };
+};
 
 export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
   constructor(private model: any) {}
@@ -28,19 +73,13 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
       return null;
     }
 
-    const plainObj: BucketEntry = {
-      ...bucketEntry.toObject(),
-      id: bucketEntry._id.toString(),
-      bucket: bucketEntry.bucket.toString(),
-    };
-
-    return plainObj;
+    return formatFromMongoToBucketEntry(bucketEntry);
   }
 
   async findByIds(ids: string[]): Promise<BucketEntry[]> {
     const bucketEntries = await this.model.find({ _id: { $in: ids } });
 
-    return bucketEntries.map((b: any) => b.toObject());
+    return bucketEntries.map(formatFromMongoToBucketEntry);
   }
 
   async findOneWithFrame(
@@ -62,12 +101,7 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
       | null = null;
 
     if (bucketEntry) {
-      result = {
-        ...bucketEntry.toObject(),
-        id: bucketEntry._id.toString(),
-        bucket: bucketEntry.bucket.toString(),
-        frame: bucketEntry.frame,
-      };
+      return formatFromMongoToBucketEntryWithFrame(bucketEntry);
     }
 
     return result;
@@ -83,11 +117,7 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
       .populate('frame')
       .exec();
 
-    return bucketEntriesModels.map((be) => ({
-      ...be.toObject(),
-      id: be.id.toString(),
-      bucket: be.bucket.toString(),
-    }));
+    return bucketEntriesModels.map(formatFromMongoToBucketEntryWithFrame);
   }
 
   async create(data: Omit<BucketEntry, 'id'>): Promise<BucketEntry> {
