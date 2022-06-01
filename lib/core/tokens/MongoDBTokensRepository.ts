@@ -1,5 +1,17 @@
-import { TokensRepository } from "./Repository";
-import { Token } from "./Token";
+import { TokensRepository } from './Repository';
+import { Token } from './Token';
+
+const formatFromMongoToToken = (mongoToken: any): Token => {
+  const id = mongoToken._id.toString();
+  const token = mongoToken.toObject();
+  delete token.token;
+  delete mongoToken._id;
+  return {
+    ...token,
+    bucket: token.bucket.toString(),
+    id,
+  };
+};
 
 export class MongoDBTokensRepository implements TokensRepository {
   constructor(private model: any) {}
@@ -11,6 +23,6 @@ export class MongoDBTokensRepository implements TokensRepository {
       return null;
     }
 
-    return tokenModel.toObject() as Token;
+    return formatFromMongoToToken(tokenModel);
   }
 }

@@ -1,5 +1,5 @@
-import { BucketEntry } from "../bucketEntries/BucketEntry";
-import { Shard } from "../shards/Shard";
+import { BucketEntry } from '../bucketEntries/BucketEntry';
+import { Shard } from '../shards/Shard';
 
 export interface BucketEntryShard {
   id: string;
