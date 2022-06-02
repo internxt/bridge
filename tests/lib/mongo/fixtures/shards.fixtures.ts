@@ -97,7 +97,7 @@ const shardsTest: MongoShardModel[] = [
   },
   {
     _id: new ObjectId('028d0178daeda9001f828b13'),
-    hash: 'eac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    hash: 'eec3fef365682d026fa7450cd7fe8d9a42d26a16',
     uuid: '4e17404f-c89a-4956-84eb-a9dd177d698f',
     size: 33333,
     meta: [],
