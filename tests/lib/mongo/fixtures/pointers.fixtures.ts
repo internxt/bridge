@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { Pointer } from '../../../../lib/core/pointers/Pointer';
-import { frames } from './frames.fixtures';
+import { frameIds, frames } from './frames.fixtures';
 import { shards } from './shards.fixtures';
 
 type MongoPointerModel = Required<Omit<Pointer, 'id' | 'frame'>> & {
@@ -33,7 +33,7 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: frames[0]._id,
+    frame: frameIds[0],
   },
   {
     _id: new ObjectId('6294dc3993fbb80008aa83e4'),
@@ -53,7 +53,7 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: frames[0]._id,
+    frame: frameIds[0],
   },
   {
     _id: new ObjectId('6294dc399a7a0b0007226831'),
@@ -73,7 +73,7 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: frames[0]._id,
+    frame: frameIds[0],
   },
   {
     _id: new ObjectId('6294dc39b225f500068d2da4'),
@@ -93,7 +93,7 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: frames[0]._id,
+    frame: frameIds[0],
   },
   {
     _id: new ObjectId('6294dc39b225f500068d2da5'),
@@ -113,7 +113,7 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: frames[1]._id,
+    frame: frameIds[1],
   },
 ];
 
