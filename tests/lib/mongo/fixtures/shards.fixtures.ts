@@ -95,6 +95,27 @@ const shardsTest: MongoShardModel[] = [
       },
     ],
   },
+  {
+    _id: new ObjectId('028d0178daeda9001f828b13'),
+    hash: 'eac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    uuid: '4e17404f-c89a-4956-84eb-a9dd177d698f',
+    size: 33333,
+    meta: [],
+    challenges: [],
+    trees: [],
+    contracts: [
+      {
+        nodeID: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
+        contract: {
+          data_hash: 'bac3fef365682d026fa7450cd7fe8d9a42d26a16',
+          store_begin: new Date('2022-05-24T16:01:58.717Z'),
+          data_size: 7298260,
+          farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
+          version: 1,
+        },
+      },
+    ],
+  },
 ];
 
 export const shards: MongoShardModel[] = shardsTest;

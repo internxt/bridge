@@ -1,5 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { BucketEntryShard } from '../../../../lib/core/bucketEntryShards/BucketEntryShard';
+import { bucketentries } from './bucketentries.fixtures';
+import { shards } from './shards.fixtures';
 
 type MongoBucketEntryShards = Required<
   Omit<BucketEntryShard, 'id' | 'bucketEntry' | 'shard'>
@@ -22,26 +24,26 @@ const formatBucketEntryShards = ({
 const userOneBucketEntryShards: MongoBucketEntryShards[] = [
   {
     _id: new ObjectId('628cedd1daeda9001f828b10'),
-    bucketEntry: new ObjectId('628cedd1daeda9001f828b0d'),
-    shard: new ObjectId('628d0178daeda9001f828b13'),
+    bucketEntry: bucketentries[0]._id,
+    shard: shards[0]._id,
     index: 2,
   },
   {
     _id: new ObjectId('728cedd1daeda9001f828b10'),
-    bucketEntry: new ObjectId('628cedd1daeda9001f828b0d'),
-    shard: new ObjectId('728d0178daeda9001f828b13'),
+    bucketEntry: bucketentries[0]._id,
+    shard: shards[1]._id,
     index: 1,
   },
   {
     _id: new ObjectId('828cedd1daeda9001f828b10'),
-    bucketEntry: new ObjectId('628cedd1daeda9001f828b0d'),
-    shard: new ObjectId('828d0178daeda9001f828b13'),
+    bucketEntry: bucketentries[0]._id,
+    shard: shards[2]._id,
     index: 0,
   },
   {
     _id: new ObjectId('828cedd1daeda9001f828b12'),
-    bucketEntry: new ObjectId('628cedd1daeda9001f828b0f'),
-    shard: new ObjectId('828d0178daeda9001f828b13'),
+    bucketEntry: bucketentries[1]._id,
+    shard: shards[2]._id,
     index: 0,
   },
 ];
