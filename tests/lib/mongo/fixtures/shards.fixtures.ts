@@ -1,8 +1,10 @@
 import { ObjectId } from 'mongodb';
 import { Shard } from '../../../../lib/core/shards/Shard';
 
-type MongoShardModel = Omit<Shard, 'id'> & {
+type MongoShardModel = Omit<Shard, 'id' | 'uuid' | 'hash'> & {
   _id: ObjectId;
+  hash: string;
+  uuid: string;
 };
 
 const formatShard = ({ _id, ...model }: MongoShardModel): Shard => ({
