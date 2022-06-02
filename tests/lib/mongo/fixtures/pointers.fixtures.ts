@@ -1,5 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { Pointer } from '../../../../lib/core/pointers/Pointer';
+import { frames } from './frames.fixtures';
+import { shards } from './shards.fixtures';
 
 type MongoPointerModel = Required<Omit<Pointer, 'id' | 'frame'>> & {
   _id: ObjectId;
@@ -16,7 +18,7 @@ const pointersTest: MongoPointerModel[] = [
   {
     _id: new ObjectId('6294dc394329da00076670d5'),
     index: 0,
-    hash: 'fac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    hash: shards[0].hash,
     size: 648778,
     challenges: [
       '3d4902d172e1a6252af6a41a19021dbbd46329afd2c1154276f3e531b7d8a990',
@@ -31,12 +33,12 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: new ObjectId('6294dc39d716b2000771e856'),
+    frame: frames[0]._id,
   },
   {
     _id: new ObjectId('6294dc3993fbb80008aa83e4'),
     index: 0,
-    hash: 'dac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    hash: shards[1].hash,
     size: 648778,
     challenges: [
       '3d4902d172e1a6252af6a41a19021dbbd46329afd2c1154276f3e531b7d8a990',
@@ -51,12 +53,12 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: new ObjectId('6294dc39d716b2000771e856'),
+    frame: frames[0]._id,
   },
   {
     _id: new ObjectId('6294dc399a7a0b0007226831'),
     index: 0,
-    hash: 'eac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    hash: shards[2].hash,
     size: 648778,
     challenges: [
       '3d4902d172e1a6252af6a41a19021dbbd46329afd2c1154276f3e531b7d8a990',
@@ -71,12 +73,12 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: new ObjectId('6294dc39d716b2000771e856'),
+    frame: frames[0]._id,
   },
   {
     _id: new ObjectId('6294dc39b225f500068d2da4'),
     index: 0,
-    hash: 'bac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    hash: shards[3].hash,
     size: 648778,
     challenges: [
       '3d4902d172e1a6252af6a41a19021dbbd46329afd2c1154276f3e531b7d8a990',
@@ -91,12 +93,12 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: new ObjectId('6294dc39d716b2000771e856'),
+    frame: frames[0]._id,
   },
   {
     _id: new ObjectId('6294dc39b225f500068d2da5'),
     index: 0,
-    hash: 'cac3fef365682d026fa7450cd7fe8d9a42d26a16',
+    hash: shards[4].hash,
     size: 448778,
     challenges: [
       '3d4902d172e1a6252af6a41a19021dbbd46329afd2c1154276f3e531b7d8a990',
@@ -111,7 +113,7 @@ const pointersTest: MongoPointerModel[] = [
       '20dbbdf80ba83dfb5ae65d55b1206d7919808e26',
     ],
     parity: false,
-    frame: new ObjectId('7294dc39d716b2000771e856'),
+    frame: frames[1]._id,
   },
 ];
 

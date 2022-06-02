@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { Upload } from '../../../../lib/core/uploads/Upload';
+import { shards } from './shards.fixtures';
 
 type MongoUploadModel = Required<Omit<Upload, 'id'>> & {
   _id: ObjectId;
@@ -13,7 +14,7 @@ const formatUpload = ({ _id, ...model }: MongoUploadModel): Upload => ({
 const uploadsTest: MongoUploadModel[] = [
   {
     _id: new ObjectId('628ced94daeda9001f828b0b'),
-    uuid: '6ff31709-8087-4549-b1a2-e3293df2c6b9',
+    uuid: shards[0].uuid,
     index: '0',
     data_size: 7298260,
     contracts: [
@@ -30,7 +31,7 @@ const uploadsTest: MongoUploadModel[] = [
   },
   {
     _id: new ObjectId('628ced94daeda9001f828b0c'),
-    uuid: '6ff31709-8087-4549-b1a2-e3293df2c6b8',
+    uuid: shards[1].uuid,
     index: '0',
     data_size: 7298260,
     contracts: [
