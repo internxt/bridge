@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { Frame } from '../../../../lib/core/frames/Frame';
+import { pointers } from './pointers.fixtures';
 
 type MongoFrameModel = Required<
   Omit<Frame, 'id' | 'shards' | 'bucketEntry'>
@@ -19,10 +20,10 @@ const framesTest: MongoFrameModel[] = [
     _id: new ObjectId('6294dc39d716b2000771e856'),
     user: 'user@user.com',
     shards: [
-      new ObjectId('6294dc394329da00076670d5'),
-      new ObjectId('6294dc3993fbb80008aa83e4'),
-      new ObjectId('6294dc399a7a0b0007226831'),
-      new ObjectId('6294dc39b225f500068d2da4'),
+      pointers[0]._id,
+      pointers[1]._id,
+      pointers[2]._id,
+      pointers[3]._id,
     ],
     storageSize: 6738906,
     size: 2544602,
@@ -32,7 +33,7 @@ const framesTest: MongoFrameModel[] = [
   {
     _id: new ObjectId('7294dc39d716b2000771e856'),
     user: 'user2@user.com',
-    shards: [new ObjectId('6294dc39b225f500068d2da5')],
+    shards: [pointers[4]._id],
     storageSize: 6738906,
     size: 2544602,
     locked: false,

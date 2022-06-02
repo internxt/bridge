@@ -1,5 +1,6 @@
 import { Bucket } from '../../../../lib/core/buckets/Bucket';
 import { ObjectId } from 'mongodb';
+import { users } from './users.fixtures';
 
 type MongoBucketModel = Required<Omit<Bucket, 'id'>> & {
   _id: ObjectId;
@@ -13,7 +14,7 @@ const formatBucket = ({ _id, ...model }: MongoBucketModel): Bucket => ({
 const userOneBuckets: MongoBucketModel[] = [
   {
     _id: new ObjectId('72b814bf3cde6dcc6f6c9a7b'),
-    user: 'user@user.com',
+    user: users[0]._id,
     encryptionKey: '',
     name: 'Bucket-914bfa',
     status: 'Active',
@@ -26,7 +27,7 @@ const userOneBuckets: MongoBucketModel[] = [
   },
   {
     _id: new ObjectId('aaaaaaaaaaaaaaaaaaaaaaac'),
-    user: 'user@user.com',
+    user: users[0]._id,
     encryptionKey: '',
     name: 'Bucket-914bfb',
     status: 'Active',
