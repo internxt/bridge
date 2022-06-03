@@ -1,22 +1,22 @@
 import { config } from 'dotenv';
-import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
-import { bucketsFixtures } from '../fixtures/buckets.fixtures';
+import { MongoDBUsersRepository } from '../../../../lib/core/users/MongoDBUsersRepository';
+import { userFixtures } from '../fixtures/users.fixtures';
 import { unloadLoadFixtures } from '../fixtures/init-fixtures';
 import { setupAndValidateStorageForFixtures } from './utils';
+import { BasicUser } from '../../../../lib/core/users/User';
 
 config();
 
 const { storage, uri, BRIDGE_TEST_DB_NAME } =
   setupAndValidateStorageForFixtures();
 
-let repository: MongoDBBucketsRepository = new MongoDBBucketsRepository(
+let repository: MongoDBUsersRepository = new MongoDBUsersRepository(
   storage.models.User
 );
 
-const [user1, user2] = bucketsFixtures;
+const [user1] = userFixtures;
 
 beforeEach((ready) => {
-  console.log(uri, BRIDGE_TEST_DB_NAME);
   unloadLoadFixtures(uri, BRIDGE_TEST_DB_NAME).then(() => {
     ready();
   });
@@ -29,50 +29,71 @@ afterAll((finish) => {
   });
 });
 
-describe('Buckets repository', () => {
+describe('User repository', () => {
+  it('findById()', async () => {
+    const user = await repository.findById(user1.id);
+
+    expect(user).toStrictEqual({ ...user1, email: user1.id });
+  });
+
   it('findOne()', async () => {
-    const bucket = await repository.findOne({
-      user: user2.user,
-      name: user2.name,
+    const expectedBasicUser: BasicUser = {
+      uuid: user1.uuid,
+      id: user1.id,
+      maxSpaceBytes: user1.maxSpaceBytes,
+    };
+
+    const user = await repository.findOne({
+      uuid: user1.uuid,
     });
 
-    expect(bucket).not.toBeNull();
-    expect(bucket).toStrictEqual(user2);
+    expect(user).toStrictEqual({ ...expectedBasicUser });
   });
 
   it('findOne() - not found', async () => {
-    const bucket = await repository.findOne({
-      user: 'doesntexist@user.com',
-      name: 'Bucket-914bfb',
+    const user = await repository.findOne({
+      uuid: 'non existing uuid',
     });
 
-    expect(bucket).toBeNull();
+    expect(user).toBeNull();
   });
 
   it('findByIds()', async () => {
-    const buckets = await repository.findByIds([user1.id, user2.id]);
+    const users = await repository.findByIds([user1.id]);
 
-    expect(buckets).toHaveLength(2);
-    expect(buckets[0]).toStrictEqual(user1);
-    expect(buckets[1]).toStrictEqual(user2);
+    expect(users).toHaveLength(1);
+    expect(users[0]).toStrictEqual({ ...user1, email: user1.id });
   });
 
-  it('find()', async () => {
-    const buckets = await repository.find({
-      user: user2.user,
+  it('create()', async () => {
+    const created = await repository.create({
+      ...user1,
+      email: 'otheremail@other.com',
+      password:
+        '427e170f76f81f7742e9da100d71346aa631acb3f9980a1a41680883c0654431',
     });
 
-    expect(buckets).toHaveLength(2);
+    expect(created).not.toBeNull();
   });
 
-  it('removeAll()', async () => {
-    await repository.removeAll({});
-    expect(repository.find({})).resolves.toHaveLength(0);
+  it('updateById()', async () => {
+    await repository.updateById(user1.id, { activated: false });
+    const updated = await repository.findById(user1.id);
+    expect(updated).not.toBeNull();
+    expect(updated?.activated).toEqual(false);
   });
 
-  it('removeAll() with filter', async () => {
-    // WILL NOT WORK WITH ID:
-    await repository.removeAll({ name: user1.name });
-    expect(repository.find({})).resolves.toHaveLength(1);
+  it('addTotalUsedSpaceBytes()', async () => {
+    await repository.addTotalUsedSpaceBytes(user1.id, 1000);
+
+    const updated = await repository.findById(user1.id);
+    expect(updated?.totalUsedSpaceBytes).toEqual(
+      user1.totalUsedSpaceBytes + 1000
+    );
+  });
+
+  it('removeById()', async () => {
+    await repository.removeById(user1.id);
+    expect(repository.findById(user1.id)).resolves.toBeNull();
   });
 });
