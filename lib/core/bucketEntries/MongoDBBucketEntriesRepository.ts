@@ -109,9 +109,7 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
 
   async findByIdsWithFrames(
     ids: BucketEntry['id'][]
-  ): Promise<
-    (Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame | undefined })[]
-  > {
+  ): Promise<(Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame })[]> {
     const bucketEntriesModels: any[] = await this.model
       .find({ _id: { $in: ids } })
       .populate('frame')
