@@ -31,15 +31,17 @@ afterAll((finish) => {
 });
 
 describe('Pointers repository', () => {
-  it('findByIds()', async () => {
-    const pointers = await repository.findByIds([pointer1.id, pointer2.id]);
-    expect(pointers).toHaveLength(2);
-    expect(pointers).toEqual(expect.arrayContaining([pointer1, pointer2]));
-  });
+  describe('findByIds', () => {
+    it('findByIds()', async () => {
+      const pointers = await repository.findByIds([pointer1.id, pointer2.id]);
+      expect(pointers).toHaveLength(2);
+      expect(pointers).toEqual(expect.arrayContaining([pointer1, pointer2]));
+    });
 
-  it('findByIds() - not found', async () => {
-    const nonExistingId = '6294dc394329da0007667aaa';
-    expect(repository.findByIds([nonExistingId])).resolves.toHaveLength(0);
+    it('findByIds() - not found', async () => {
+      const nonExistingId = '6294dc394329da0007667aaa';
+      expect(repository.findByIds([nonExistingId])).resolves.toHaveLength(0);
+    });
   });
 
   it('deleteByIds()', async () => {

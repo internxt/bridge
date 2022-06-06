@@ -29,16 +29,21 @@ afterAll((finish) => {
 });
 
 describe('Uploads repository', () => {
-  it('findByUuids()', async () => {
-    const uploads = await repository.findByUuids([upload1.uuid, upload2.uuid]);
+  describe('findByUuids', () => {
+    it('findByUuids()', async () => {
+      const uploads = await repository.findByUuids([
+        upload1.uuid,
+        upload2.uuid,
+      ]);
 
-    expect(uploads).toEqual(expect.arrayContaining([upload1, upload2]));
-  });
+      expect(uploads).toEqual(expect.arrayContaining([upload1, upload2]));
+    });
 
-  it('findByUuids() - not found', async () => {
-    const upload = await repository.findByUuids(['non-existing-uuid']);
+    it('findByUuids() - not found', async () => {
+      const upload = await repository.findByUuids(['non-existing-uuid']);
 
-    expect(upload).toHaveLength(0);
+      expect(upload).toHaveLength(0);
+    });
   });
 
   it('deleteManyByUuids()', async () => {

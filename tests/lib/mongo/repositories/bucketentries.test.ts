@@ -39,21 +39,23 @@ afterAll((finish) => {
 });
 
 describe('BucketEntry repository', () => {
-  it('findOne()', async () => {
-    const bucket = await repository.findOne({
-      bucket: bucketEntry2.bucket,
-      index: bucketEntry2.index,
+  describe('findOne', () => {
+    it('findOne()', async () => {
+      const bucket = await repository.findOne({
+        bucket: bucketEntry2.bucket,
+        index: bucketEntry2.index,
+      });
+
+      expect(bucket).toStrictEqual(bucketEntry2);
     });
 
-    expect(bucket).toStrictEqual(bucketEntry2);
-  });
+    it('findOne() - not found', async () => {
+      const bucket = await repository.findOne({
+        bucket: '33b814bf3cde6dcc6f6c9a7b',
+      });
 
-  it('findOne() - not found', async () => {
-    const bucket = await repository.findOne({
-      bucket: '33b814bf3cde6dcc6f6c9a7b',
+      expect(bucket).toBeNull();
     });
-
-    expect(bucket).toBeNull();
   });
 
   it('findByIds()', async () => {

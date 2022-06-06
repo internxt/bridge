@@ -29,18 +29,20 @@ afterAll((finish) => {
 });
 
 describe('Contacts repository', () => {
-  it('findById()', async () => {
-    const contact = await repository.findById(contact2.id);
+  describe('findById', () => {
+    it('findById()', async () => {
+      const contact = await repository.findById(contact2.id);
 
-    expect(contact).not.toBeNull();
-    expect(contact).toStrictEqual(contact2);
-  });
+      expect(contact).not.toBeNull();
+      expect(contact).toStrictEqual(contact2);
+    });
 
-  it('findById() - not found', async () => {
-    const nonExistentId = '233433';
-    const contact = await repository.findById(nonExistentId);
+    it('findById() - not found', async () => {
+      const nonExistentId = '233433';
+      const contact = await repository.findById(nonExistentId);
 
-    expect(contact).toBeNull();
+      expect(contact).toBeNull();
+    });
   });
 
   it('findByIds()', async () => {

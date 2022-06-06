@@ -36,26 +36,28 @@ describe('User repository', () => {
     expect(user).toStrictEqual({ ...user1, email: user1.id });
   });
 
-  it('findOne()', async () => {
-    const expectedBasicUser: BasicUser = {
-      uuid: user1.uuid,
-      id: user1.id,
-      maxSpaceBytes: user1.maxSpaceBytes,
-    };
+  describe('findOne', () => {
+    it('findOne()', async () => {
+      const expectedBasicUser: BasicUser = {
+        uuid: user1.uuid,
+        id: user1.id,
+        maxSpaceBytes: user1.maxSpaceBytes,
+      };
 
-    const user = await repository.findOne({
-      uuid: user1.uuid,
+      const user = await repository.findOne({
+        uuid: user1.uuid,
+      });
+
+      expect(user).toStrictEqual({ ...expectedBasicUser });
     });
 
-    expect(user).toStrictEqual({ ...expectedBasicUser });
-  });
+    it('findOne() - not found', async () => {
+      const user = await repository.findOne({
+        uuid: 'non existing uuid',
+      });
 
-  it('findOne() - not found', async () => {
-    const user = await repository.findOne({
-      uuid: 'non existing uuid',
+      expect(user).toBeNull();
     });
-
-    expect(user).toBeNull();
   });
 
   it('findByIds()', async () => {

@@ -29,14 +29,16 @@ afterAll((finish) => {
 });
 
 describe('Tokens repository', () => {
-  it('findOne()', async () => {
-    const token = await repository.findById(token1.id);
-    expect(token).toStrictEqual(token1);
-  });
+  describe('findOne', () => {
+    it('findOne()', async () => {
+      const token = await repository.findById(token1.id);
+      expect(token).toStrictEqual(token1);
+    });
 
-  it('findOne() - not found', async () => {
-    const token = await repository.findById('not-found');
+    it('findOne() - not found', async () => {
+      const token = await repository.findById('not-found');
 
-    expect(token).toBeNull();
+      expect(token).toBeNull();
+    });
   });
 });

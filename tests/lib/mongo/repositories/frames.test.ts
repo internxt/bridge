@@ -32,20 +32,22 @@ afterAll((finish) => {
 });
 
 describe('Frames repository', () => {
-  it('findOne()', async () => {
-    const frame = await repository.findOne({
-      user: frame2.user,
+  describe('findOne', () => {
+    it('findOne()', async () => {
+      const frame = await repository.findOne({
+        user: frame2.user,
+      });
+
+      expect(frame).toStrictEqual(frame2);
     });
 
-    expect(frame).toStrictEqual(frame2);
-  });
+    it('findOne() - not found', async () => {
+      const frame = await repository.findOne({
+        user: 'doesntexist@user.com',
+      });
 
-  it('findOne() - not found', async () => {
-    const frame = await repository.findOne({
-      user: 'doesntexist@user.com',
+      expect(frame).toBeNull();
     });
-
-    expect(frame).toBeNull();
   });
 
   it('findByIds()', async () => {

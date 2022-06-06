@@ -30,23 +30,25 @@ afterAll((finish) => {
 });
 
 describe('Buckets repository', () => {
-  it('findOne()', async () => {
-    const bucket = await repository.findOne({
-      user: bucket2.user,
-      name: bucket2.name,
+  describe('findOne', () => {
+    it('findOne()', async () => {
+      const bucket = await repository.findOne({
+        user: bucket2.user,
+        name: bucket2.name,
+      });
+
+      expect(bucket).not.toBeNull();
+      expect(bucket).toStrictEqual(bucket2);
     });
 
-    expect(bucket).not.toBeNull();
-    expect(bucket).toStrictEqual(bucket2);
-  });
+    it('findOne() - not found', async () => {
+      const bucket = await repository.findOne({
+        user: 'doesntexist@user.com',
+        name: 'Bucket-914bfb',
+      });
 
-  it('findOne() - not found', async () => {
-    const bucket = await repository.findOne({
-      user: 'doesntexist@user.com',
-      name: 'Bucket-914bfb',
+      expect(bucket).toBeNull();
     });
-
-    expect(bucket).toBeNull();
   });
 
   it('findByIds()', async () => {
