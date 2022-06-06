@@ -1,4 +1,12 @@
 import { ObjectId } from 'mongodb';
+
+export const pointerIds = [
+  new ObjectId('6294dc394329da00076670d5'),
+  new ObjectId('6294dc3993fbb80008aa83e4'),
+  new ObjectId('6294dc399a7a0b0007226831'),
+  new ObjectId('6294dc39b225f500068d2da4'),
+  new ObjectId('6294dc39b225f500068d2da5'),
+];
 import { Pointer } from '../../../../lib/core/pointers/Pointer';
 import { frameIds, frames } from './frames.fixtures';
 import { shards } from './shards.fixtures';
@@ -16,7 +24,7 @@ const formatPointer = ({ _id, ...model }: MongoPointerModel): Pointer => ({
 
 const pointersTest: MongoPointerModel[] = [
   {
-    _id: new ObjectId('6294dc394329da00076670d5'),
+    _id: pointerIds[0],
     index: 0,
     hash: shards[0].hash,
     size: 648778,
@@ -36,7 +44,7 @@ const pointersTest: MongoPointerModel[] = [
     frame: frameIds[0],
   },
   {
-    _id: new ObjectId('6294dc3993fbb80008aa83e4'),
+    _id: pointerIds[1],
     index: 0,
     hash: shards[1].hash,
     size: 648778,
@@ -56,7 +64,7 @@ const pointersTest: MongoPointerModel[] = [
     frame: frameIds[0],
   },
   {
-    _id: new ObjectId('6294dc399a7a0b0007226831'),
+    _id: pointerIds[2],
     index: 0,
     hash: shards[2].hash,
     size: 648778,
@@ -76,7 +84,7 @@ const pointersTest: MongoPointerModel[] = [
     frame: frameIds[0],
   },
   {
-    _id: new ObjectId('6294dc39b225f500068d2da4'),
+    _id: pointerIds[3],
     index: 0,
     hash: shards[3].hash,
     size: 648778,
@@ -96,7 +104,7 @@ const pointersTest: MongoPointerModel[] = [
     frame: frameIds[0],
   },
   {
-    _id: new ObjectId('6294dc39b225f500068d2da5'),
+    _id: pointerIds[4],
     index: 0,
     hash: shards[4].hash,
     size: 448778,
