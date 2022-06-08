@@ -247,7 +247,7 @@ export class BucketsUsecase {
   async startUpload(
     userId: string,
     bucketId: string,
-    cluster: any,
+    cluster: string[],
     uploads: { index: number; size: number }[],
     auth: { username: string; password: string },
     multiparts: number = 1
