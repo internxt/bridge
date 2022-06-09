@@ -333,13 +333,13 @@ export class BucketsUsecase {
       }
 
       if (multiparts > 1) {
-        const objectStorageUrls = await this.multiPartUpload(
+        const { UploadId, urls } = await this.multiPartUpload(
           contact,
           uuid,
           auth,
           multiparts
         );
-        return { index, uuid, url: null, urls: objectStorageUrls };
+        return { index, uuid, url: null, urls, UploadId };
       }
 
       const objectStorageUrl = await this.singlePartUpload(contact, uuid, auth);
@@ -353,7 +353,7 @@ export class BucketsUsecase {
     contact: Contact,
     uuid: string,
     auth: { username: string; password: string }
-  ) {
+  ): Promise<string[]> {
     const { address, port } = contact;
     const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
 
@@ -371,7 +371,7 @@ export class BucketsUsecase {
     uuid: string,
     auth: { username: string; password: string },
     parts: number
-  ): Promise<string[]> {
+  ): Promise<{ urls: string[]; UploadId: string }> {
     const { address, port } = contact;
     const farmerUrl = `http://${address}:${port}/v2/upload-multipart/link/${uuid}?parts=${parts}`;
 
@@ -379,9 +379,9 @@ export class BucketsUsecase {
     const farmerRes = await axios.get(farmerUrl, {
       auth: { username, password },
     });
-    const objectStorageUrls = farmerRes.data.result;
+    const { result: objectStorageUrls, UploadId } = farmerRes.data;
 
-    return objectStorageUrls;
+    return { urls: objectStorageUrls, UploadId };
   }
 
   async completeUpload(
