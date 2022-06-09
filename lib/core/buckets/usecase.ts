@@ -81,7 +81,7 @@ export class InvalidUploadIndexes extends Error {
 }
 export class InvalidMultiPartValue extends Error {
   constructor() {
-    super('Invalid multipart value');
+    super('Multipart is not allowed for files smaller than 500MB');
 
     Object.setPrototypeOf(this, InvalidMultiPartValue.prototype);
   }
@@ -269,14 +269,6 @@ export class BucketsUsecase {
       throw new BucketForbiddenError();
     }
 
-    if (!uploads) {
-      throw new MissingUploadsError();
-    }
-
-    if (!Array.isArray(uploads)) {
-      throw new InvalidUploadsError();
-    }
-
     const uploadIndexesWithoutDuplicates = new Set(
       uploads.map((upload) => upload.index)
     );
@@ -285,14 +277,11 @@ export class BucketsUsecase {
       throw new InvalidUploadIndexes();
     }
 
-    if (!Number.isInteger(multiparts) || multiparts < 1) {
+    const bucketEntrySize = uploads.reduce((acc, { size }) => size + acc, 0);
+    const MB500 = 500 * 1024 * 1024;
+    if (bucketEntrySize < MB500 && multiparts > 1) {
       throw new InvalidMultiPartValue();
     }
-
-    const bucketEntrySize = uploads.reduce(
-      (acumm, upload) => upload.size + acumm,
-      0
-    );
 
     if (user.migrated) {
       if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
