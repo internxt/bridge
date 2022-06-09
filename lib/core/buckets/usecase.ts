@@ -79,11 +79,11 @@ export class InvalidUploadIndexes extends Error {
     Object.setPrototypeOf(this, InvalidUploadIndexes.prototype);
   }
 }
-export class InvalidMultiPartValue extends Error {
+export class InvalidMultiPartValueError extends Error {
   constructor() {
     super('Multipart is not allowed for files smaller than 500MB');
 
-    Object.setPrototypeOf(this, InvalidMultiPartValue.prototype);
+    Object.setPrototypeOf(this, InvalidMultiPartValueError.prototype);
   }
 }
 
@@ -280,7 +280,7 @@ export class BucketsUsecase {
     const bucketEntrySize = uploads.reduce((acc, { size }) => size + acc, 0);
     const MB500 = 500 * 1024 * 1024;
     if (bucketEntrySize < MB500 && multiparts > 1) {
-      throw new InvalidMultiPartValue();
+      throw new InvalidMultiPartValueError();
     }
 
     if (user.migrated) {
