@@ -23,6 +23,7 @@ import { ContactsRepository } from '../contacts/Repository';
 import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
+import _ from 'lodash';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
@@ -100,6 +101,14 @@ export class MaxSpaceUsedError extends Error {
     super('Max space used');
 
     Object.setPrototypeOf(this, MaxSpaceUsedError.prototype);
+  }
+}
+
+export class NoNodeFoundError extends Error {
+  constructor() {
+    super('No nodeID found');
+
+    Object.setPrototypeOf(this, NoNodeFoundError.prototype);
   }
 }
 
@@ -301,8 +310,11 @@ export class BucketsUsecase {
     const uploadPromises = uploads.map(async (upload) => {
       const { index, size } = upload;
 
-      const randomPositionOfNode = Math.floor(Math.random() * cluster.length);
-      const nodeID = cluster[randomPositionOfNode];
+      const nodeID = _.sample(cluster);
+
+      if (!nodeID) {
+        throw new NoNodeFoundError();
+      }
 
       const contracts = [
         {
