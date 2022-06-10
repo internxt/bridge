@@ -1,5 +1,6 @@
-import { UploadsRepository } from "./Repository";
-import { Upload } from "./Upload";
+import { UploadsRepository } from './Repository';
+import { Upload } from './Upload';
+import { ObjectId } from 'mongodb';
 
 export class MongoDBUploadsRepository implements UploadsRepository {
   constructor(private model: any) {}
@@ -12,5 +13,9 @@ export class MongoDBUploadsRepository implements UploadsRepository {
 
   async deleteManyByUuids(uuids: Upload['uuid'][]): Promise<void> {
     await this.model.deleteMany({ uuid: { $in: uuids } });
+  }
+
+  create(upload: Omit<Upload, 'id'>) {
+    return new this.model(upload).save();
   }
 }

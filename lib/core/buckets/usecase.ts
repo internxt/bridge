@@ -23,6 +23,7 @@ import { ContactsRepository } from '../contacts/Repository';
 import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
+import _ from 'lodash';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
@@ -64,11 +65,50 @@ export class MissingUploadsError extends Error {
   }
 }
 
+export class InvalidUploadsError extends Error {
+  constructor() {
+    super('Uploads is not in an array format');
+
+    Object.setPrototypeOf(this, InvalidUploadsError.prototype);
+  }
+}
+
+export class InvalidUploadIndexes extends Error {
+  constructor() {
+    super('Invalid upload indexes');
+
+    Object.setPrototypeOf(this, InvalidUploadIndexes.prototype);
+  }
+}
+export class InvalidMultiPartValueError extends Error {
+  constructor() {
+    super('Multipart is not allowed for files smaller than 500MB');
+
+    Object.setPrototypeOf(this, InvalidMultiPartValueError.prototype);
+  }
+}
+
+export class ContactNotFound extends Error {
+  constructor() {
+    super('Contact not found');
+
+    Object.setPrototypeOf(this, ContactNotFound.prototype);
+  }
+}
+
 export class MaxSpaceUsedError extends Error {
   constructor() {
     super('Max space used');
 
     Object.setPrototypeOf(this, MaxSpaceUsedError.prototype);
+  }
+}
+
+export class NoNodeFoundError extends Error {
+  constructor() {
+    super('No nodeID found');
+
+    Object.setPrototypeOf(this, NoNodeFoundError.prototype);
   }
 }
 
@@ -212,6 +252,149 @@ export class BucketsUsecase {
 
     return (usage && usage.total) || 0;
   } 
+
+  async startUpload(
+    userId: string,
+    bucketId: string,
+    cluster: string[],
+    uploads: { index: number; size: number }[],
+    auth: { username: string; password: string },
+    multiparts = 1
+  ) {
+    const [bucket, user] = await Promise.all([
+      this.bucketsRepository.findOne({ id: bucketId }),
+      this.usersRepository.findById(userId),
+    ]);
+
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (!bucket) {
+      throw new BucketNotFoundError();
+    }
+
+    if (bucket.user !== userId) {
+      throw new BucketForbiddenError();
+    }
+
+    const uploadIndexesWithoutDuplicates = new Set(
+      uploads.map((upload) => upload.index)
+    );
+
+    if (uploadIndexesWithoutDuplicates.size < uploads.length) {
+      throw new InvalidUploadIndexes();
+    }
+
+    const bucketEntrySize = uploads.reduce((acc, { size }) => size + acc, 0);
+    const MB500 = 500 * 1024 * 1024;
+    if (bucketEntrySize < MB500 && multiparts > 1) {
+      throw new InvalidMultiPartValueError();
+    }
+
+    if (user.migrated) {
+      if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+        throw new MaxSpaceUsedError();
+      }
+    } else {
+      const usedSpaceBytes = await this.getUserUsage(user.id);
+
+      if (
+        user.maxSpaceBytes <
+        user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize
+      ) {
+        throw new MaxSpaceUsedError();
+      }
+    }
+
+    const uploadPromises = uploads.map(async (upload) => {
+      const { index, size } = upload;
+
+      const nodeID = _.sample(cluster);
+
+      if (!nodeID) {
+        throw new NoNodeFoundError();
+      }
+
+      const contracts = [
+        {
+          nodeID,
+          contract: {
+            version: 1,
+            store_begin: Date.now(),
+            farmer_id: nodeID,
+            data_size: size,
+          },
+        },
+      ];
+
+      const uuid = v4();
+
+      const [contact] = await Promise.all([
+        this.contactsRepository.findById(nodeID),
+        this.uploadsRepository.create({
+          uuid,
+          index,
+          contracts,
+          data_size: size,
+        }),
+      ]);
+
+      if (!contact) {
+        throw new ContactNotFound();
+      }
+
+      if (multiparts > 1) {
+        const { UploadId, urls } = await this.multiPartUpload(
+          contact,
+          uuid,
+          auth,
+          multiparts
+        );
+        return { index, uuid, url: null, urls, UploadId };
+      }
+
+      const objectStorageUrl = await this.singlePartUpload(contact, uuid, auth);
+      return { index, uuid, url: objectStorageUrl, urls: null };
+    });
+
+    return Promise.all(uploadPromises);
+  }
+
+  async singlePartUpload(
+    contact: Contact,
+    uuid: string,
+    auth: { username: string; password: string }
+  ): Promise<string> {
+    const { address, port } = contact;
+    const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
+
+    const { username, password } = auth;
+    const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
+      auth: { username, password },
+    });
+    const objectStorageUrl = farmerRes.data.result;
+
+    return objectStorageUrl;
+  }
+
+  async multiPartUpload(
+    contact: Contact,
+    uuid: string,
+    auth: { username: string; password: string },
+    parts: number
+  ): Promise<{ urls: string[]; UploadId: string }> {
+    const { address, port } = contact;
+    const farmerUrl = `http://${address}:${port}/v2/upload-multipart/link/${uuid}?parts=${parts}`;
+
+    const { username, password } = auth;
+    const farmerRes = await axios.get<{ result: string[], UploadId: string }>(farmerUrl, {
+      auth: { username, password },
+    });
+    const { result: objectStorageUrls, UploadId } = farmerRes.data;
+
+    return { urls: objectStorageUrls, UploadId };
+  }
 
   async completeUpload(
     userId: string, 
