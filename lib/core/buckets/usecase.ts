@@ -259,7 +259,7 @@ export class BucketsUsecase {
     cluster: string[],
     uploads: { index: number; size: number }[],
     auth: { username: string; password: string },
-    multiparts: number = 1
+    multiparts = 1
   ) {
     const [bucket, user] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
@@ -365,12 +365,12 @@ export class BucketsUsecase {
     contact: Contact,
     uuid: string,
     auth: { username: string; password: string }
-  ): Promise<string[]> {
+  ): Promise<string> {
     const { address, port } = contact;
     const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
 
     const { username, password } = auth;
-    const farmerRes = await axios.get(farmerUrl, {
+    const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
       auth: { username, password },
     });
     const objectStorageUrl = farmerRes.data.result;
@@ -388,7 +388,7 @@ export class BucketsUsecase {
     const farmerUrl = `http://${address}:${port}/v2/upload-multipart/link/${uuid}?parts=${parts}`;
 
     const { username, password } = auth;
-    const farmerRes = await axios.get(farmerUrl, {
+    const farmerRes = await axios.get<{ result: string[], UploadId: string }>(farmerUrl, {
       auth: { username, password },
     });
     const { result: objectStorageUrls, UploadId } = farmerRes.data;
