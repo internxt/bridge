@@ -496,6 +496,36 @@ export class BucketsUsecase {
       });
     }
   }
+
+  async abortMultiPartUpload(
+    shards: ShardWithMultiUpload[],
+    uploads: Upload[],
+    auth: { username: string; password: string }
+  ): Promise<void> {
+    const abortPromises = uploads.map(async (upload) => {
+      const shard = shards.find(
+        (s) => s.uuid === upload.uuid
+      ) as ShardWithMultiUpload;
+
+      const { contracts } = upload;
+
+      const contactsThatStoreTheShard = await this.contactsRepository.findByIds(
+        contracts.map((c) => c.nodeID)
+      );
+
+      for (const contact of contactsThatStoreTheShard) {
+        const { address, port } = contact;
+        const farmerUrl = `http://${address}:${port}/v2/upload-multipart-abort/link/${shard.uuid}`;
+
+        const { username, password } = auth;
+        await axios.post(farmerUrl, shard, {
+          auth: { username, password },
+        });
+      }
+    });
+    await Promise.all(abortPromises);
+  }
+
   async createShardAndMirrors(
     upload: Upload,
     shard: ShardWithPossibleMultiUpload,
