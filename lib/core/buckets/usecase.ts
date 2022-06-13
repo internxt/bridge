@@ -404,12 +404,13 @@ export class BucketsUsecase {
     userId: string, 
     bucketId: string, 
     fileIndex: string, 
-    shards: Pick<Required<Shard>, 'hash' | 'uuid'>[]
+    shards: ShardWithPossibleMultiUpload[],
+    auth: { username: string; password: string }
   ): Promise<BucketEntry> {
     const [bucket, user, uploads] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
       this.usersRepository.findById(userId),
-      this.uploadsRepository.findByUuids(shards.map(s => s.uuid))
+      this.uploadsRepository.findByUuids(shards.map((s) => s.uuid)),
     ]);
 
     if (!user) {
@@ -428,24 +429,48 @@ export class BucketsUsecase {
       throw new MissingUploadsError();
     }
 
-    const bucketEntrySize = uploads.reduce((acumm, upload) => upload.data_size + acumm, 0);
+    const bucketEntrySize = uploads.reduce(
+      (acumm, { data_size }) => data_size + acumm,
+      0
+    );
+
+    const isMultipartUpload = shards.some((shard) => shard.UploadId);
 
     if (user.migrated) {
       if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+        if (isMultipartUpload) {
+          await this.abortMultiPartUpload(
+            shards as ShardWithMultiUpload[],
+            uploads,
+            auth
+          );
+        }
         throw new MaxSpaceUsedError();
       }
     } else {
       const usedSpaceBytes = await this.getUserUsage(user.id);
 
-      if (user.maxSpaceBytes < (user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize)) {
+      if (
+        user.maxSpaceBytes <
+        user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize
+      ) {
+        if (isMultipartUpload) {
+          await this.abortMultiPartUpload(
+            shards as ShardWithMultiUpload[],
+            uploads,
+            auth
+          );
+        }
         throw new MaxSpaceUsedError();
       }
     }
 
     const shardAndMirrorsCreationPromises = uploads.map((upload) => {
-      const shard = shards.find(s => s.uuid === upload.uuid) as Pick<Shard, 'hash' | 'uuid'>;
+      const shard = shards.find(
+        (s) => s.uuid === upload.uuid
+      ) as ShardWithPossibleMultiUpload;
 
-      return this.createShardAndMirrors(upload, shard);
+      return this.createShardAndMirrors(upload, shard, auth, isMultipartUpload);
     });
 
     const bucketEntryCreation = this.bucketEntriesRepository.create({
@@ -453,12 +478,12 @@ export class BucketsUsecase {
       bucket: bucketId,
       index: fileIndex,
       version: 2,
-      size: bucketEntrySize
+      size: bucketEntrySize,
     });
 
     const [newBucketEntry, ...newShards] = await Promise.all([
       bucketEntryCreation,
-      ...shardAndMirrorsCreationPromises
+      ...shardAndMirrorsCreationPromises,
     ]);
 
     const bucketEntryShards: Omit<BucketEntryShard, 'id'>[] = [];
@@ -467,15 +492,21 @@ export class BucketsUsecase {
       bucketEntryShards.push({
         bucketEntry: newBucketEntry.id,
         shard: shard.id,
-        index
+        index,
       });
     });
 
     await this.bucketEntryShardsRepository.insertMany(bucketEntryShards);
     await this.usersRepository.addTotalUsedSpaceBytes(userId, bucketEntrySize);
-    this.uploadsRepository.deleteManyByUuids(uploads.map(u => u.uuid)).catch((err) => {
+    this.uploadsRepository
+      .deleteManyByUuids(uploads.map((u) => u.uuid))
+      .catch((err) => {
       // TODO: Move to EventBus
-      console.log('completeUpload/uploads-deletion: Failed due to %s. %s', err.message, err.stack);
+        console.log(
+          'completeUpload/uploads-deletion: Failed due to %s. %s',
+          err.message,
+          err.stack
+        );
     });
 
     return newBucketEntry;
