@@ -496,10 +496,17 @@ export class BucketsUsecase {
       });
     }
   }
-  async createShardAndMirrors(upload: Upload, shard: Pick<Shard, 'hash' | 'uuid'>): Promise<Shard> {
+  async createShardAndMirrors(
+    upload: Upload,
+    shard: ShardWithPossibleMultiUpload,
+    auth: { username: string; password: string },
+    isMultipartUpload: boolean = false
+  ): Promise<Shard> {
     const { uuid, contracts, data_size } = upload;
 
-    const contacts = await this.contactsRepository.findByIds(contracts.map(c => c.nodeID));
+    const contacts = await this.contactsRepository.findByIds(
+      contracts.map((c) => c.nodeID)
+    );
   
     const contactsThatStoreTheShard: Contact[] = [];
 
@@ -555,7 +562,22 @@ export class BucketsUsecase {
       }))
     });
 
-    const [newShard] = await Promise.all([shardCreation, mirrorsCreation]);
+    let otherPromises = [];
+    if (isMultipartUpload) {
+      otherPromises.push(
+        this.notifyUploadComplete(
+          contactsThatStoreTheShard,
+          auth,
+          shard as ShardWithMultiUpload
+        )
+      );
+    }
+
+    const [newShard] = await Promise.all([
+      shardCreation,
+      mirrorsCreation,
+      ...otherPromises,
+    ]);
 
     return newShard;
   } 
