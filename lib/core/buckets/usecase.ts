@@ -4,7 +4,11 @@ import lodash from 'lodash';
 
 import { Bucket } from './Bucket';
 import { Frame } from '../frames/Frame';
-import { Shard } from '../shards/Shard';
+import {
+  Shard,
+  ShardWithMultiUpload,
+  ShardWithPossibleMultiUpload,
+} from '../shards/Shard';
 import { BucketEntry } from '../bucketEntries/BucketEntry';
 import { BucketEntryShard } from '../bucketEntryShards/BucketEntryShard';
 
@@ -477,6 +481,21 @@ export class BucketsUsecase {
     return newBucketEntry;
   }
 
+  async notifyUploadComplete(
+    contactsThatStoreTheShard: Contact[],
+    auth: { username: string; password: string },
+    shard: ShardWithMultiUpload
+  ): Promise<void> {
+    for (const contact of contactsThatStoreTheShard) {
+      const { address, port } = contact;
+      const farmerUrl = `http://${address}:${port}/v2/upload-multipart-complete/link/${shard.uuid}`;
+
+      const { username, password } = auth;
+      await axios.post(farmerUrl, shard, {
+        auth: { username, password },
+      });
+    }
+  }
   async createShardAndMirrors(upload: Upload, shard: Pick<Shard, 'hash' | 'uuid'>): Promise<Shard> {
     const { uuid, contracts, data_size } = upload;
 
