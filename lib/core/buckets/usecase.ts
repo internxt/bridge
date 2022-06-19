@@ -513,11 +513,10 @@ export class BucketsUsecase {
   }
 
   async notifyUploadComplete(
-    contactsThatStoreTheShard: Contact[],
+    contact: Contact,
     auth: { username: string; password: string },
     shard: ShardWithMultiUpload
   ): Promise<void> {
-    for (const contact of contactsThatStoreTheShard) {
       const { address, port } = contact;
       const farmerUrl = `http://${address}:${port}/v2/upload-multipart-complete/link/${shard.uuid}`;
 
@@ -525,7 +524,6 @@ export class BucketsUsecase {
       await axios.post(farmerUrl, shard, {
         auth: { username, password },
       });
-    }
   }
 
   async abortMultiPartUpload(
@@ -575,6 +573,13 @@ export class BucketsUsecase {
       if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
       } else {
+        if (isMultipartUpload) {
+          await this.notifyUploadComplete(
+            contact,
+            auth,
+            shard as ShardWithMultiUpload
+          );
+        }
         const storesObject = await StorageGateway.stores(contact, uuid);
 
         if (storesObject) {
@@ -623,22 +628,7 @@ export class BucketsUsecase {
       }))
     });
 
-    let otherPromises = [];
-    if (isMultipartUpload) {
-      otherPromises.push(
-        this.notifyUploadComplete(
-          contactsThatStoreTheShard,
-          auth,
-          shard as ShardWithMultiUpload
-        )
-      );
-    }
-
-    const [newShard] = await Promise.all([
-      shardCreation,
-      mirrorsCreation,
-      ...otherPromises,
-    ]);
+    const [newShard] = await Promise.all([shardCreation, mirrorsCreation]);
 
     return newShard;
   } 
