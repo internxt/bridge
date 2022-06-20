@@ -12,6 +12,16 @@ export interface Shard {
   size: number;
   contracts: {
     nodeID: Contract['farmer_id'];
-    contract: Contract
-  }[]
+    contract: Contract;
+  }[];
 }
+
+export type ShardWithPossibleMultiUpload = Pick<
+  Required<Shard>,
+  'hash' | 'uuid'
+> & {
+  UploadId?: string;
+  parts?: { PartNumber: number; ETag: string }[];
+};
+
+export type ShardWithMultiUpload = Required<ShardWithPossibleMultiUpload>;
