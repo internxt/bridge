@@ -291,8 +291,8 @@ export class BucketsUsecase {
     }
 
     const bucketEntrySize = uploads.reduce((acc, { size }) => size + acc, 0);
-    const MB500 = 500 * 1024 * 1024;
-    if (bucketEntrySize < MB500 && multiparts > 1) {
+    const MB100 = 100 * 1024 * 1024;
+    if (bucketEntrySize < MB100 && multiparts > 1) {
       throw new InvalidMultiPartValueError();
     }
 
@@ -570,16 +570,17 @@ export class BucketsUsecase {
     const contactsThatStoreTheShard: Contact[] = [];
 
     for (const contact of contacts) {
+      if (isMultipartUpload) {
+        await this.notifyUploadComplete(
+          contact,
+          auth,
+          shard as ShardWithMultiUpload
+        );
+      }
+
       if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
       } else {
-        if (isMultipartUpload) {
-          await this.notifyUploadComplete(
-            contact,
-            auth,
-            shard as ShardWithMultiUpload
-          );
-        }
         const storesObject = await StorageGateway.stores(contact, uuid);
 
         if (storesObject) {
