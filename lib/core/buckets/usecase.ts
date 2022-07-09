@@ -86,7 +86,7 @@ export class InvalidUploadIndexes extends Error {
 }
 export class InvalidMultiPartValueError extends Error {
   constructor() {
-    super('Multipart is not allowed for files smaller than 500MB');
+    super('Multipart is not allowed for small files');
 
     Object.setPrototypeOf(this, InvalidMultiPartValueError.prototype);
   }
