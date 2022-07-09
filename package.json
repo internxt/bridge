@@ -28,7 +28,8 @@
     "publish-docs": "gh-pages -d jsdoc --repo git@github.com:internxt/bridge.git",
     "build": "tsc",
     "test-mongo-init": "DATABASE_URI=mongodb://admin:password@localhost:27017/bridge-test ts-node ./tests/lib/mongo/init",
-    "test-mongo": "DATABASE_URI=mongodb://admin:password@localhost:27017/bridge-test jest ./tests/lib/mongo --testTimeout 30000 --runInBand"
+    "test-mongo": "DATABASE_URI=mongodb://admin:password@localhost:27017/bridge-test jest ./tests/lib/mongo --testTimeout 30000 --runInBand",
+    "test:e2e": "NODE_ENV=test jest --config ./tests/lib/e2e/jest-e2e.json"
   },
   "repository": {
     "type": "git",
@@ -59,6 +60,7 @@
     "@types/node": "^17.0.23",
     "@types/node-mongodb-fixtures": "^3.2.3",
     "@types/sinon": "^10.0.11",
+    "@types/supertest": "^2.0.12",
     "@types/uuid": "^8.3.4",
     "chai": "^4.2.0",
     "coveralls": "^2.11.6",
@@ -83,6 +85,7 @@
     "redis-mock": "^0.16.0",
     "rimraf": "^2.6.3",
     "sinon": "^13.0.1",
+    "supertest": "^6.2.4",
     "ts-jest": "^27.1.4",
     "ts-node": "^10.7.0"
   },
