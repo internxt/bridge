@@ -23,4 +23,8 @@ export class MongoDBUploadsRepository implements UploadsRepository {
   async deleteManyByUuids(uuids: Upload['uuid'][]): Promise<void> {
     await this.model.deleteMany({ uuid: { $in: uuids } });
   }
+
+  create(upload: Omit<Upload, 'id'>) {
+    return new this.model(upload).save();
+  }
 }
