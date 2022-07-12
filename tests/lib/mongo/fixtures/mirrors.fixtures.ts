@@ -19,7 +19,7 @@ const mirrorsTest: MongoMirrorModel[] = [
     contact: contactDocuments[0]._id,
     contract: {
       data_hash: 'c84794b3f43a457c645fd3e5963ed9a49f5fe382',
-      store_begin: new Date('2022-05-24T16:01:58.717Z'),
+      store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
       data_size: 7298260,
       farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
       version: 1,
@@ -34,7 +34,7 @@ const mirrorsTest: MongoMirrorModel[] = [
     contact: contactDocuments[1]._id,
     contract: {
       data_hash: 'b84794b3f43a457c645fd3e5963ed9a49f5fe382',
-      store_begin: new Date('2022-05-24T16:01:58.717Z'),
+      store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
       data_size: 8298260,
       farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
       version: 1,

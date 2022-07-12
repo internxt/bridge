@@ -15,7 +15,7 @@ const uploadsTest: MongoUploadModel[] = [
   {
     _id: new ObjectId('628ced94daeda9001f828b0b'),
     uuid: shards[0].uuid,
-    index: '0',
+    index: 0,
     data_size: 7298260,
     contracts: [
       {
@@ -24,7 +24,7 @@ const uploadsTest: MongoUploadModel[] = [
           version: 1,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           data_size: 7298260,
-          store_begin: new Date('2022-05-24T14:37:08.215Z'),
+          store_begin: new Date('2022-05-24T14:37:08.215Z').valueOf(),
         },
       },
     ],
@@ -32,7 +32,7 @@ const uploadsTest: MongoUploadModel[] = [
   {
     _id: new ObjectId('628ced94daeda9001f828b0c'),
     uuid: shards[1].uuid,
-    index: '0',
+    index: 1,
     data_size: 7298260,
     contracts: [
       {
@@ -41,7 +41,7 @@ const uploadsTest: MongoUploadModel[] = [
           version: 1,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           data_size: 7298260,
-          store_begin: new Date('2022-05-24T14:37:08.215Z'),
+          store_begin: new Date('2022-05-24T14:37:08.215Z').valueOf(),
         },
       },
     ],
