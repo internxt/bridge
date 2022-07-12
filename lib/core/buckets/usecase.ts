@@ -4,7 +4,11 @@ import lodash from 'lodash';
 
 import { Bucket } from './Bucket';
 import { Frame } from '../frames/Frame';
-import { Shard } from '../shards/Shard';
+import {
+  Shard,
+  ShardWithMultiUpload,
+  ShardWithPossibleMultiUpload,
+} from '../shards/Shard';
 import { BucketEntry } from '../bucketEntries/BucketEntry';
 import { BucketEntryShard } from '../bucketEntryShards/BucketEntryShard';
 
@@ -23,6 +27,7 @@ import { ContactsRepository } from '../contacts/Repository';
 import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
+import _ from 'lodash';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
@@ -64,11 +69,50 @@ export class MissingUploadsError extends Error {
   }
 }
 
+export class InvalidUploadsError extends Error {
+  constructor() {
+    super('Uploads is not in an array format');
+
+    Object.setPrototypeOf(this, InvalidUploadsError.prototype);
+  }
+}
+
+export class InvalidUploadIndexes extends Error {
+  constructor() {
+    super('Invalid upload indexes');
+
+    Object.setPrototypeOf(this, InvalidUploadIndexes.prototype);
+  }
+}
+export class InvalidMultiPartValueError extends Error {
+  constructor() {
+    super('Multipart is not allowed for files smaller than 500MB');
+
+    Object.setPrototypeOf(this, InvalidMultiPartValueError.prototype);
+  }
+}
+
+export class ContactNotFound extends Error {
+  constructor() {
+    super('Contact not found');
+
+    Object.setPrototypeOf(this, ContactNotFound.prototype);
+  }
+}
+
 export class MaxSpaceUsedError extends Error {
   constructor() {
     super('Max space used');
 
     Object.setPrototypeOf(this, MaxSpaceUsedError.prototype);
+  }
+}
+
+export class NoNodeFoundError extends Error {
+  constructor() {
+    super('No nodeID found');
+
+    Object.setPrototypeOf(this, NoNodeFoundError.prototype);
   }
 }
 
@@ -213,16 +257,160 @@ export class BucketsUsecase {
     return (usage && usage.total) || 0;
   } 
 
+  async startUpload(
+    userId: string,
+    bucketId: string,
+    cluster: string[],
+    uploads: { index: number; size: number }[],
+    auth: { username: string; password: string },
+    multiparts = 1
+  ) {
+    const [bucket, user] = await Promise.all([
+      this.bucketsRepository.findOne({ id: bucketId }),
+      this.usersRepository.findById(userId),
+    ]);
+
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (!bucket) {
+      throw new BucketNotFoundError();
+    }
+
+    if (bucket.user !== userId) {
+      throw new BucketForbiddenError();
+    }
+
+    const uploadIndexesWithoutDuplicates = new Set(
+      uploads.map((upload) => upload.index)
+    );
+
+    if (uploadIndexesWithoutDuplicates.size < uploads.length) {
+      throw new InvalidUploadIndexes();
+    }
+
+    const bucketEntrySize = uploads.reduce((acc, { size }) => size + acc, 0);
+    const MB100 = 100 * 1024 * 1024;
+    if (bucketEntrySize < MB100 && multiparts > 1) {
+      throw new InvalidMultiPartValueError();
+    }
+
+    if (user.migrated) {
+      if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+        throw new MaxSpaceUsedError();
+      }
+    } else {
+      const usedSpaceBytes = await this.getUserUsage(user.id);
+
+      if (
+        user.maxSpaceBytes <
+        user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize
+      ) {
+        throw new MaxSpaceUsedError();
+      }
+    }
+
+    const uploadPromises = uploads.map(async (upload) => {
+      const { index, size } = upload;
+
+      const nodeID = _.sample(cluster);
+
+      if (!nodeID) {
+        throw new NoNodeFoundError();
+      }
+
+      const contracts = [
+        {
+          nodeID,
+          contract: {
+            version: 1,
+            store_begin: Date.now(),
+            farmer_id: nodeID,
+            data_size: size,
+          },
+        },
+      ];
+
+      const uuid = v4();
+
+      const [contact] = await Promise.all([
+        this.contactsRepository.findById(nodeID),
+        this.uploadsRepository.create({
+          uuid,
+          index,
+          contracts,
+          data_size: size,
+        }),
+      ]);
+
+      if (!contact) {
+        throw new ContactNotFound();
+      }
+
+      if (multiparts > 1) {
+        const { UploadId, urls } = await this.multiPartUpload(
+          contact,
+          uuid,
+          auth,
+          multiparts
+        );
+        return { index, uuid, url: null, urls, UploadId };
+      }
+
+      const objectStorageUrl = await this.singlePartUpload(contact, uuid, auth);
+      return { index, uuid, url: objectStorageUrl, urls: null };
+    });
+
+    return Promise.all(uploadPromises);
+  }
+
+  async singlePartUpload(
+    contact: Contact,
+    uuid: string,
+    auth: { username: string; password: string }
+  ): Promise<string> {
+    const { address, port } = contact;
+    const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
+
+    const { username, password } = auth;
+    const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
+      auth: { username, password },
+    });
+    const objectStorageUrl = farmerRes.data.result;
+
+    return objectStorageUrl;
+  }
+
+  async multiPartUpload(
+    contact: Contact,
+    uuid: string,
+    auth: { username: string; password: string },
+    parts: number
+  ): Promise<{ urls: string[]; UploadId: string }> {
+    const { address, port } = contact;
+    const farmerUrl = `http://${address}:${port}/v2/upload-multipart/link/${uuid}?parts=${parts}`;
+
+    const { username, password } = auth;
+    const farmerRes = await axios.get<{ result: string[], UploadId: string }>(farmerUrl, {
+      auth: { username, password },
+    });
+    const { result: objectStorageUrls, UploadId } = farmerRes.data;
+
+    return { urls: objectStorageUrls, UploadId };
+  }
+
   async completeUpload(
     userId: string, 
     bucketId: string, 
     fileIndex: string, 
-    shards: Pick<Required<Shard>, 'hash' | 'uuid'>[]
+    shards: ShardWithPossibleMultiUpload[],
+    auth: { username: string; password: string }
   ): Promise<BucketEntry> {
     const [bucket, user, uploads] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
       this.usersRepository.findById(userId),
-      this.uploadsRepository.findByUuids(shards.map(s => s.uuid))
+      this.uploadsRepository.findByUuids(shards.map((s) => s.uuid)),
     ]);
 
     if (!user) {
@@ -241,24 +429,48 @@ export class BucketsUsecase {
       throw new MissingUploadsError();
     }
 
-    const bucketEntrySize = uploads.reduce((acumm, upload) => upload.data_size + acumm, 0);
+    const bucketEntrySize = uploads.reduce(
+      (acumm, { data_size }) => data_size + acumm,
+      0
+    );
+
+    const isMultipartUpload = shards.some((shard) => shard.UploadId);
 
     if (user.migrated) {
       if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+        if (isMultipartUpload) {
+          await this.abortMultiPartUpload(
+            shards as ShardWithMultiUpload[],
+            uploads,
+            auth
+          );
+        }
         throw new MaxSpaceUsedError();
       }
     } else {
       const usedSpaceBytes = await this.getUserUsage(user.id);
 
-      if (user.maxSpaceBytes < (user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize)) {
+      if (
+        user.maxSpaceBytes <
+        user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize
+      ) {
+        if (isMultipartUpload) {
+          await this.abortMultiPartUpload(
+            shards as ShardWithMultiUpload[],
+            uploads,
+            auth
+          );
+        }
         throw new MaxSpaceUsedError();
       }
     }
 
     const shardAndMirrorsCreationPromises = uploads.map((upload) => {
-      const shard = shards.find(s => s.uuid === upload.uuid) as Pick<Shard, 'hash' | 'uuid'>;
+      const shard = shards.find(
+        (s) => s.uuid === upload.uuid
+      ) as ShardWithPossibleMultiUpload;
 
-      return this.createShardAndMirrors(upload, shard);
+      return this.createShardAndMirrors(upload, shard, auth, isMultipartUpload);
     });
 
     const bucketEntryCreation = this.bucketEntriesRepository.create({
@@ -266,12 +478,12 @@ export class BucketsUsecase {
       bucket: bucketId,
       index: fileIndex,
       version: 2,
-      size: bucketEntrySize
+      size: bucketEntrySize,
     });
 
     const [newBucketEntry, ...newShards] = await Promise.all([
       bucketEntryCreation,
-      ...shardAndMirrorsCreationPromises
+      ...shardAndMirrorsCreationPromises,
     ]);
 
     const bucketEntryShards: Omit<BucketEntryShard, 'id'>[] = [];
@@ -280,28 +492,92 @@ export class BucketsUsecase {
       bucketEntryShards.push({
         bucketEntry: newBucketEntry.id,
         shard: shard.id,
-        index
+        index,
       });
     });
 
     await this.bucketEntryShardsRepository.insertMany(bucketEntryShards);
     await this.usersRepository.addTotalUsedSpaceBytes(userId, bucketEntrySize);
-    this.uploadsRepository.deleteManyByUuids(uploads.map(u => u.uuid)).catch((err) => {
+    this.uploadsRepository
+      .deleteManyByUuids(uploads.map((u) => u.uuid))
+      .catch((err) => {
       // TODO: Move to EventBus
-      console.log('completeUpload/uploads-deletion: Failed due to %s. %s', err.message, err.stack);
+        console.log(
+          'completeUpload/uploads-deletion: Failed due to %s. %s',
+          err.message,
+          err.stack
+        );
     });
 
     return newBucketEntry;
   }
 
-  async createShardAndMirrors(upload: Upload, shard: Pick<Shard, 'hash' | 'uuid'>): Promise<Shard> {
+  async notifyUploadComplete(
+    contact: Contact,
+    auth: { username: string; password: string },
+    shard: ShardWithMultiUpload
+  ): Promise<void> {
+      const { address, port } = contact;
+      const farmerUrl = `http://${address}:${port}/v2/upload-multipart-complete/link/${shard.uuid}`;
+
+      const { username, password } = auth;
+      await axios.post(farmerUrl, shard, {
+        auth: { username, password },
+      });
+  }
+
+  async abortMultiPartUpload(
+    shards: ShardWithMultiUpload[],
+    uploads: Upload[],
+    auth: { username: string; password: string }
+  ): Promise<void> {
+    const abortPromises = uploads.map(async (upload) => {
+      const shard = shards.find(
+        (s) => s.uuid === upload.uuid
+      ) as ShardWithMultiUpload;
+
+      const { contracts } = upload;
+
+      const contactsThatStoreTheShard = await this.contactsRepository.findByIds(
+        contracts.map((c) => c.nodeID)
+      );
+
+      for (const contact of contactsThatStoreTheShard) {
+        const { address, port } = contact;
+        const farmerUrl = `http://${address}:${port}/v2/upload-multipart-abort/link/${shard.uuid}`;
+
+        const { username, password } = auth;
+        await axios.post(farmerUrl, shard, {
+          auth: { username, password },
+        });
+      }
+    });
+    await Promise.all(abortPromises);
+  }
+
+  async createShardAndMirrors(
+    upload: Upload,
+    shard: ShardWithPossibleMultiUpload,
+    auth: { username: string; password: string },
+    isMultipartUpload: boolean = false
+  ): Promise<Shard> {
     const { uuid, contracts, data_size } = upload;
 
-    const contacts = await this.contactsRepository.findByIds(contracts.map(c => c.nodeID));
+    const contacts = await this.contactsRepository.findByIds(
+      contracts.map((c) => c.nodeID)
+    );
   
     const contactsThatStoreTheShard: Contact[] = [];
 
     for (const contact of contacts) {
+      if (isMultipartUpload) {
+        await this.notifyUploadComplete(
+          contact,
+          auth,
+          shard as ShardWithMultiUpload
+        );
+      }
+
       if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
       } else {

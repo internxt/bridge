@@ -19,3 +19,13 @@ export interface Shard {
     contract: Contract;
   }[];
 }
+
+export type ShardWithPossibleMultiUpload = Pick<
+  Required<Shard>,
+  'hash' | 'uuid'
+> & {
+  UploadId?: string;
+  parts?: { PartNumber: number; ETag: string }[];
+};
+
+export type ShardWithMultiUpload = Required<ShardWithPossibleMultiUpload>;
