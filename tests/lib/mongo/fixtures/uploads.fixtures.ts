@@ -15,7 +15,7 @@ const uploadsTest: MongoUploadModel[] = [
   {
     _id: new ObjectId('628ced94daeda9001f828b0b'),
     uuid: shards[0].uuid,
-    index: '0',
+    index: 0,
     data_size: 7298260,
     contracts: [
       {
@@ -32,7 +32,7 @@ const uploadsTest: MongoUploadModel[] = [
   {
     _id: new ObjectId('628ced94daeda9001f828b0c'),
     uuid: shards[1].uuid,
-    index: '0',
+    index: 1,
     data_size: 7298260,
     contracts: [
       {
