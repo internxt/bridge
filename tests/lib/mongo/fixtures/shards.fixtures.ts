@@ -26,7 +26,7 @@ const shardsTest: MongoShardModel[] = [
         nodeID: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
         contract: {
           data_hash: 'fac3fef365682d026fa7450cd7fe8d9a42d26a16',
-          store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
+          store_begin: new Date('2022-05-24T16:01:58.717Z'),
           data_size: 7298260,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           version: 1,
@@ -47,7 +47,7 @@ const shardsTest: MongoShardModel[] = [
         nodeID: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
         contract: {
           data_hash: 'dac3fef365682d026fa7450cd7fe8d9a42d26a16',
-          store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
+          store_begin: new Date('2022-05-24T16:01:58.717Z'),
           data_size: 7298260,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           version: 1,
@@ -68,7 +68,7 @@ const shardsTest: MongoShardModel[] = [
         nodeID: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
         contract: {
           data_hash: 'eac3fef365682d026fa7450cd7fe8d9a42d26a16',
-          store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
+          store_begin: new Date('2022-05-24T16:01:58.717Z'),
           data_size: 7298260,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           version: 1,
@@ -89,7 +89,7 @@ const shardsTest: MongoShardModel[] = [
         nodeID: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
         contract: {
           data_hash: 'bac3fef365682d026fa7450cd7fe8d9a42d26a16',
-          store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
+          store_begin: new Date('2022-05-24T16:01:58.717Z'),
           data_size: 7298260,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           version: 1,
@@ -110,7 +110,7 @@ const shardsTest: MongoShardModel[] = [
         nodeID: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
         contract: {
           data_hash: 'bac3fef365682d026fa7450cd7fe8d9a42d26a16',
-          store_begin: new Date('2022-05-24T16:01:58.717Z').valueOf(),
+          store_begin: new Date('2022-05-24T16:01:58.717Z'),
           data_size: 7298260,
           farmer_id: '9a1c78a507689f6f54b847ad1cef1e614ee23f1e',
           version: 1,
