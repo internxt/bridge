@@ -1,5 +1,7 @@
 import { v4 as uuidv4, v3 as uuidv3 } from 'uuid';
 import { startUploadEndpoint } from './startUpload.e2e-spec.test';
+import crypto from 'crypto';
+import axios from 'axios';
 import {
   api,
   AuthorizationHeader,
@@ -257,25 +259,80 @@ describe('Finish Upload v2', () => {
 
         const { uploads } = startUploadResponse.body;
 
+        const index = crypto.randomBytes(32).toString('hex');
         const response = await api
           .post(FINISH_UPLOAD_PATH)
           .send({
-            index:
-              '0c34695282e2fc4bf58833d9fc607c61da69b5b5c74e6224ec30f559c9a27043',
+            index,
             shards: [
               {
                 hash: 'ba20c3927245283f1fddaf94be044227724600df',
                 uuid: uploads[0].uuid,
               },
+              {
+                hash: 'ca20c3927245283f1fddaf94be044227724600df',
+                // Fake uuid:
+                uuid: uuidv4(),
+              },
             ],
           })
           .set(AuthorizationHeader);
 
-        expect(response.status).toBe(404);
+        expect(response.status).toBe(409);
         expect(response.body.error).toBe(
           'Missing uploads to complete the upload'
         );
       });
+    });
+
+    it('Uploads and finishes correctly', async () => {
+      const startUploadResponse = await api
+        .post(startUploadEndpoint(bucketId))
+        .send({
+          uploads: [
+            {
+              index: 0,
+              size: 1000,
+            },
+            {
+              index: 1,
+              size: 10000,
+            },
+          ],
+        })
+        .set(AuthorizationHeader);
+
+      const { uploads } = startUploadResponse.body;
+
+      for (const upload of uploads) {
+        const { url } = upload;
+        const file = crypto.randomBytes(50).toString('hex');
+        const response = await axios.put(url, file, {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+          },
+        });
+      }
+
+      const index = crypto.randomBytes(32).toString('hex');
+      const response = await api
+        .post(FINISH_UPLOAD_PATH)
+        .send({
+          index,
+          shards: [
+            {
+              hash: crypto.randomBytes(20).toString('hex'),
+              uuid: uploads[0].uuid,
+            },
+            {
+              hash: crypto.randomBytes(20).toString('hex'),
+              uuid: uploads[1].uuid,
+            },
+          ],
+        })
+        .set(AuthorizationHeader);
+
+      expect(response.status).toBe(200);
     });
 
     describe('Multipart', () => {
