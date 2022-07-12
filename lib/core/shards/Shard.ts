@@ -3,7 +3,7 @@ export interface Contract {
   farmer_id: string;
   data_size: number;
   data_hash: Shard['hash'];
-  store_begin: number;
+  store_begin: Date;
 }
 
 export interface Shard {
