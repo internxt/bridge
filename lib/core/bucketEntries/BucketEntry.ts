@@ -3,10 +3,10 @@ import { Frame } from '../frames/Frame';
 
 export interface BucketEntry {
   id: string;
-  // Check if frame can be id or frame itself:
   frame?: Frame['id'];
-  // INCONGRUENCE HERE (filename & name): storj retrieves bucketentry and assigns name to filename (in model)
+  // name is deprecated
   name?: string;
+  // filename is deprecated
   filename?: string;
   index: string;
   bucket: Bucket['id'];
