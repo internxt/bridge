@@ -137,7 +137,7 @@ function getShard(custom?: Partial<Shard>, contactId?: Contact['id']): Shard {
           data_size: 0,
           farmer_id: nodeID,
           version: 1,
-          store_begin: Date.now(),
+          store_begin: new Date(),
         }
       }
     ],
