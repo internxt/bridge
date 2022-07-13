@@ -5,11 +5,30 @@ import { Shard } from './Shard';
 const formatFromMongoToShard = (mongoShard: any): Shard => {
   const id = mongoShard._id.toString();
   const shard = mongoShard.toObject();
-  delete shard._id;
-  return {
+  const contracts: any[] = [];
+  mongoShard.contracts.forEach((c: any) => {
+    contracts.push({
+      contract: shard.contracts[c.nodeID],
+      nodeID: c.nodeID,
+    });
+  });
+  const formattedShard = {
     ...shard,
+    contracts,
     id,
   };
+
+  if (shard.trees) {
+    formattedShard.trees = Object.values(shard.trees);
+  }
+  if (shard.meta) {
+    formattedShard.meta = Object.values(shard.meta);
+  }
+  if (shard.challenges) {
+    formattedShard.challenges = Object.values(shard.challenges);
+  }
+
+  return formattedShard;
 };
 export class MongoDBShardsRepository implements ShardsRepository {
   constructor(private model: any) {}
