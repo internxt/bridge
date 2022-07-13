@@ -31,10 +31,12 @@ beforeEach((ready) => {
 });
 
 afterAll((finish) => {
-  unloadLoadFixtures(uri, BRIDGE_TEST_DB_NAME).then(() => {
-    storage.connection.close();
-    finish();
-  });
+  unloadLoadFixtures(uri, BRIDGE_TEST_DB_NAME)
+    .then(async () => {
+      await storage.connection.close();
+      finish();
+    })
+    .catch(finish);
 });
 
 describe('Mirrors repository', () => {
