@@ -304,10 +304,15 @@ describe('Finish Upload v2', () => {
 
       const { uploads } = startUploadResponse.body;
 
-      for (const upload of uploads) {
-        const { url } = upload;
+      for (const [i, upload] of uploads.entries()) {
+        const { url, urls, index, uuid } = upload;
+        expect(url).toBeDefined();
+        expect(url).toContain('http');
+        expect(urls).toBeNull();
+        expect(index).toEqual(i);
+        expect(uuid).toBeDefined();
         const file = crypto.randomBytes(50).toString('hex');
-        const response = await axios.put(url, file, {
+        await axios.put(url, file, {
           headers: {
             'Content-Type': 'application/octet-stream',
           },
@@ -315,7 +320,7 @@ describe('Finish Upload v2', () => {
       }
 
       const index = crypto.randomBytes(32).toString('hex');
-      const response = await api
+      const responseComplete = await api
         .post(FINISH_UPLOAD_PATH)
         .send({
           index,
@@ -332,11 +337,133 @@ describe('Finish Upload v2', () => {
         })
         .set(AuthorizationHeader);
 
-      expect(response.status).toBe(200);
+      expect(responseComplete.status).toBe(200);
+
+      const {
+        bucket,
+        created,
+        filename,
+        id,
+        index: indexResponse,
+        mimetype,
+        renewal,
+        size,
+        version,
+      } = responseComplete.body;
+
+      expect(bucket).toEqual(bucketId);
+      expect(created).toBeDefined();
+      expect(filename).toBeDefined();
+      expect(id).toBeDefined();
+      expect(indexResponse).toEqual(index);
+      expect(mimetype).toBeDefined();
+      expect(renewal).toBeDefined();
+      expect(size).toBeGreaterThan(0);
+      expect(typeof size).toBe('number');
+      expect(version).toBe(2);
     });
 
     describe('Multipart', () => {
-      it('', async () => {});
+      it('Uploads multipart starts and finishes correctly', async () => {
+        const startUploadResponse = await api
+          .post(`${startUploadEndpoint(bucketId)}?multiparts=3`)
+          .send({
+            uploads: [
+              {
+                index: 0,
+                size: 200 * 1024 * 1024,
+              },
+              {
+                index: 1,
+                size: 200 * 1024 * 1024,
+              },
+            ],
+          })
+          .set(AuthorizationHeader);
+
+        const { uploads } = startUploadResponse.body;
+        const uploadParts: { ETag: string; PartNumber: number }[][] = [];
+        for (const upload of uploads) {
+          // console.log(i);
+          const { url, urls, index, uuid, UploadId } = upload;
+          expect(url).toBeNull();
+          expect(urls).toBeDefined();
+          expect(urls.length).toEqual(3);
+          // expect(index).toEqual(i);
+          expect(uuid).toBeDefined();
+          expect(UploadId).toBeDefined();
+          const parts: { ETag: string; PartNumber: number }[] = [];
+          let PartNumber = 1;
+          for (const urlToUpload of urls) {
+            expect(urlToUpload).toContain('http');
+            const file = crypto.randomBytes(50).toString('hex');
+            try {
+              const responseUpload = await axios.put(urlToUpload, file, {
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                },
+              });
+            } catch (err) {
+              console.log(err);
+            }
+            // responseUpload.headers.Etag;
+            // parts.push({
+            //   ETag: responseUpload.headers.Etag,
+            //   PartNumber,
+            // });
+            // PartNumber += 1;
+            // expect(responseUpload.status).toEqual(200);
+          }
+          uploadParts.push(parts);
+        }
+
+        const index = crypto.randomBytes(32).toString('hex');
+        const responseComplete = await api
+          .post(FINISH_UPLOAD_PATH)
+          .send({
+            index,
+            shards: [
+              {
+                UploadId: uploads[0].UploadId,
+                parts: uploadParts[0],
+                hash: crypto.randomBytes(20).toString('hex'),
+                uuid: uploads[0].uuid,
+              },
+              {
+                UploadId: uploads[1].UploadId,
+                parts: uploadParts[1],
+                hash: crypto.randomBytes(20).toString('hex'),
+                uuid: uploads[1].uuid,
+              },
+            ],
+          })
+          .set(AuthorizationHeader);
+
+        expect(responseComplete.status).toBe(200);
+
+        const {
+          bucket,
+          created,
+          filename,
+          id,
+          index: indexResponse,
+          mimetype,
+          renewal,
+          size,
+          version,
+        } = responseComplete.body;
+
+        expect(bucket).toEqual(bucketId);
+        expect(created).toBeDefined();
+        expect(filename).toBeDefined();
+        expect(id).toBeDefined();
+        expect(indexResponse).toEqual(index);
+        expect(mimetype).toBeDefined();
+        expect(renewal).toBeDefined();
+        expect(size).toBeGreaterThan(0);
+        expect(typeof size).toBe('number');
+        expect(version).toBe(2);
+      });
     });
   });
 });
