@@ -15,22 +15,21 @@ export interface User {
     isSubscribed?: boolean;
   };
   referralPartner?: string | null;
+  bytesDownloaded?: {
+    lastMonthBytes: number;
+    lastDayBytes: number;
+    lastHourBytes: number;
+  };
+  bytesUploaded?: {
+    lastMonthBytes: number;
+    lastDayBytes: number;
+    lastHourBytes: number;
+  };
   preferences?: {
     dnt: boolean;
   };
   created?: Date;
-  // Following attributes are deleted in toObject() from  storj-service-storage-models:
-  // pendingHashPass?: string | null;
-  // bytesDownloaded?: {
-  //   lastMonthBytes: number;
-  //   lastDayBytes: number;
-  //   lastHourBytes: number;
-  // };
-  // bytesUploaded?: {
-  //   lastMonthBytes: number;
-  //   lastDayBytes: number;
-  //   lastHourBytes: number;
-  // };
+  pendingHashPass?: string | null;
 }
 
 export type CreateUserData = Pick<

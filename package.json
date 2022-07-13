@@ -21,14 +21,14 @@
     "integration": "NODE_ENV=test _mocha --recursive test-integration/**",
     "linter": "eslint ./lib ./index.js ./bin ./config",
     "lint:fix": "npm run linter -- --fix",
+    "test": "jest",
     "dev": "NODE_ENV=development nodemon bin/storj-bridge.ts",
     "debug": "NODE_ENV=development nodemon --watch 'lib/**' --watch 'bin/**' --ext 'js,ts,json' --exec \"node --inspect=0.0.0.0:9229 --require ts-node/register bin/storj-bridge.ts\"",
     "make-docs": "./node_modules/.bin/jsdoc index.js lib -r -R README.md -u ./doc -c .jsdoc.json --verbose -d ./jsdoc",
     "publish-docs": "gh-pages -d jsdoc --repo git@github.com:internxt/bridge.git",
     "build": "tsc",
-    "test": "jest --testPathIgnorePatterns ./tests/lib/mongo",
-    "test-mongo-init": "ts-node ./tests/lib/mongo/init",
-    "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand"
+    "test-mongo-init": "DATABASE_URI=mongodb://admin:password@localhost:27017/bridge-test ts-node ./tests/lib/mongo/init",
+    "test-mongo": "DATABASE_URI=mongodb://admin:password@localhost:27017/bridge-test jest ./tests/lib/mongo --testTimeout 30000 --runInBand"
   },
   "repository": {
     "type": "git",
