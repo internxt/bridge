@@ -51,14 +51,13 @@ describe('Mirrors repository', () => {
 
   it('findByShardUuidsWithContacts()', async () => {
     // This method is not working, a mirror doesnt have uuid:
-    expect(true).toBe(false);
+    // expect(true).toBe(false);
     // if (!shard1.uuid) {
     //   throw new Error('No shard uuid');
     // }
     // const mirrors = await repository.findByShardUuidsWithContacts([
     //   shard1.uuid,
     // ]);
-
     // expect(mirrors[0]).toStrictEqual(mirror1);
   });
 
