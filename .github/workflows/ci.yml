@@ -9,24 +9,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
     strategy:
       matrix:
         node-version: [14.x]
-    env:
-      DATABASE_URI: ${{ secrets.DATABASE_URI }}
     steps:
-      - name: Start MongoDB
-        run: docker run -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=bridge-test -d mongo
-
       - uses: actions/checkout@v2
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
 
       - run: yarn --ignore-engines
       - run: yarn run test
-      - run: yarn run test-mongo-init
-      - run: yarn run test-mongo
-      
