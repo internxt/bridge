@@ -1,4 +1,4 @@
-import { Contract, Shard } from "../shards/Shard";
+import { Contract, Shard } from '../shards/Shard';
 
 export interface Upload {
   id: string;

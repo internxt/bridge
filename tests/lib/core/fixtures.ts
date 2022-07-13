@@ -83,7 +83,8 @@ function getFrame(customFrame?: Partial<Frame>): Frame {
     shards: [],
     size: 0,
     storageSize: 0,
-    user: ''
+    user: '',
+    created: new Date(),
   };
 
   return { ...defaultFrame, ...customFrame };
@@ -135,7 +136,8 @@ function getShard(custom?: Partial<Shard>, contactId?: Contact['id']): Shard {
           data_hash: hash,
           data_size: 0,
           farmer_id: nodeID,
-          version: 1
+          version: 1,
+          store_begin: new Date(),
         }
       }
     ],

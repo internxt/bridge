@@ -1,47 +1,69 @@
-import { BucketEntry } from "../bucketEntries/BucketEntry";
-import { BucketEntryShard } from "./BucketEntryShard";
-import { BucketEntryShardsRepository } from "./Repository";
+import { BucketEntry } from '../bucketEntries/BucketEntry';
+import { BucketEntryShard } from './BucketEntryShard';
+import { BucketEntryShardsRepository } from './Repository';
 
-export class MongoDBBucketEntryShardsRepository implements BucketEntryShardsRepository {
+const formatFromMongoToBucketEntryShard = (
+  mongoBucketEntryShard: any
+): BucketEntryShard => {
+  const id = mongoBucketEntryShard._id.toString();
+  const bucketEntryShard = mongoBucketEntryShard.toObject();
+  delete bucketEntryShard._id;
+  return {
+    ...bucketEntryShard,
+    id: id,
+    bucketEntry: mongoBucketEntryShard.bucketEntry.toString(),
+    shard: mongoBucketEntryShard.shard.toString(),
+  };
+};
+export class MongoDBBucketEntryShardsRepository
+  implements BucketEntryShardsRepository
+{
   constructor(private model: any) {}
-  
-  find(where: Partial<BucketEntryShard>): Promise<BucketEntryShard[]> {
-    return this.model.find(where);
+
+  async find(where: Partial<BucketEntryShard>): Promise<BucketEntryShard[]> {
+    return this.model.find(where).map(formatFromMongoToBucketEntryShard);
   }
 
-  findByBucketEntry(bucketEntryId: BucketEntry['id']): Promise<BucketEntryShard[] & { sort: (...x: any) => any; }> {
-    return this.model.find({ bucketEntry: bucketEntryId });
+  async findByBucketEntry(
+    bucketEntryId: BucketEntry['id']
+  ): Promise<BucketEntryShard[] & { sort: (...x: any) => any }> {
+    const results = await this.model.find({ bucketEntry: bucketEntryId });
+
+    return results.map(formatFromMongoToBucketEntryShard);
   }
 
-  async findByBucketEntries(bucketEntries: string[]): Promise<BucketEntryShard[]> {
-    const bucketEntryShards = await this.model.find({ bucketEntry: { $in: bucketEntries } });
-
-    return bucketEntryShards.map((b: any) => ({ id: b._id, ...b.toObject() }));
-  }
-
-  findByBucketEntrySortedByIndex(bucketEntryId: BucketEntry['id']): Promise<BucketEntryShard[]> {
-    return this.model.find({ bucketEntry: bucketEntryId }).sort({ index: 1 }).exec().then((res: any) => {
-      return res.map((r: any) => {
-        return {
-          id: r._id,
-          ...r.toObject()
-        }
-      });
+  async findByBucketEntries(
+    bucketEntries: string[]
+  ): Promise<BucketEntryShard[]> {
+    const bucketEntryShards = await this.model.find({
+      bucketEntry: { $in: bucketEntries },
     });
+
+    return bucketEntryShards.map(formatFromMongoToBucketEntryShard);
   }
 
-  async create(data: Omit<BucketEntryShard, "id">): Promise<BucketEntryShard> {
-    const rawModel = await new this.model(data).save();  
-    const plainObj = rawModel.toObject();
+  findByBucketEntrySortedByIndex(
+    bucketEntryId: BucketEntry['id']
+  ): Promise<BucketEntryShard[]> {
+    return this.model
+      .find({ bucketEntry: bucketEntryId })
+      .sort({ index: 1 })
+      .exec()
+      .then((res: any) => {
+        return res.map(formatFromMongoToBucketEntryShard);
+      });
+  }
 
-    return { id: plainObj._id, ...plainObj };
+  async create(data: Omit<BucketEntryShard, 'id'>): Promise<BucketEntryShard> {
+    const rawModel = await new this.model(data).save();
+    return formatFromMongoToBucketEntryShard(rawModel);
   }
 
   deleteByIds(ids: string[]): Promise<void> {
     return this.model.deleteMany({ _id: { $in: ids } }).exec();
   }
 
-  async insertMany(data: Omit<BucketEntryShard, "id">[]): Promise<void> {
+  async insertMany(data: Omit<BucketEntryShard, 'id'>[]): Promise<void> {
     await this.model.insertMany(data);
   }
 }

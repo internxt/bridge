@@ -1,21 +1,31 @@
-import { Bucket } from "./Bucket";
-import { BucketsRepository } from "./Repository";
+import { Bucket } from './Bucket';
+import { BucketsRepository } from './Repository';
 
+export const formatFromMongoToBucket = (mongoBucket: any): Bucket => {
+  const id = mongoBucket._id.toString();
+  const bucket = mongoBucket.toObject();
+  delete bucket._id;
+  return {
+    ...bucket,
+    id,
+  };
+};
 export class MongoDBBucketsRepository implements BucketsRepository {
   constructor(private model: any) {}
 
-  find(where: Partial<Bucket>): Promise<void> {
+  async find(where: Partial<Bucket>): Promise<Bucket[]> {
     const query = where.id ? { ...where, _id: where.id } : where;
 
     delete query.id;
 
-    return this.model.find(query);
+    const buckets = await this.model.find(query);
+    return buckets.map(formatFromMongoToBucket);
   }
 
   async findByIds(ids: string[]): Promise<Bucket[]> {
     const buckets = await this.model.find({ _id: { $in: ids } });
 
-    return buckets.map((b: any) => b.toObject());
+    return buckets.map(formatFromMongoToBucket);
   }
 
   async findOne(where: Partial<Bucket>): Promise<Bucket | null> {
@@ -24,9 +34,12 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     delete query.id;
 
     const rawModel = await this.model.findOne(query);
-    const plainObj = rawModel.toObject();
 
-    return plainObj;
+    if (rawModel === null) {
+      return null;
+    }
+
+    return formatFromMongoToBucket(rawModel);
   }
 
   removeAll(where: Partial<Bucket>): Promise<void> {

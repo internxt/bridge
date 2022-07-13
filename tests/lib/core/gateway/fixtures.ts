@@ -53,7 +53,8 @@ export function getFrame(customFrame?: Partial<Frame>): Frame {
     shards: [],
     size: 0,
     storageSize: 0,
-    user: ''
+    user: '',
+    created: new Date(),
   };
 
   return { ...defaultFrame, ...customFrame };

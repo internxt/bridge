@@ -325,7 +325,7 @@ export class BucketsUsecase {
           nodeID,
           contract: {
             version: 1,
-            store_begin: Date.now(),
+            store_begin: new Date(),
             farmer_id: nodeID,
             data_size: size,
           },
