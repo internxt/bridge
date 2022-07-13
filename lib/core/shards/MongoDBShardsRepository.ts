@@ -6,8 +6,16 @@ const formatFromMongoToShard = (mongoShard: any): Shard => {
   const id = mongoShard._id.toString();
   const shard = mongoShard.toObject();
   delete shard._id;
+  const contracts: any[] = [];
+  mongoShard.contracts.forEach((c: any) => {
+    contracts.push({
+      ...shard.contracts[c.nodeID],
+      nodeID: c.nodeID
+    })
+  });
   return {
     ...shard,
+    contracts,
     id,
   };
 };
