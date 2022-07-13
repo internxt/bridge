@@ -3,7 +3,6 @@ import { Frame } from '../frames/Frame';
 
 export interface BucketEntry {
   id: string;
-  // Check if frame can be id or frame itself:
   frame?: Frame['id'];
   // name is deprecated
   name?: string;

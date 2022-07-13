@@ -35,17 +35,6 @@ const usersTest: MongoUserModel[] = [
     uuid: '569983d6-9ec5-43ae-ad87-fb3c1307d938',
     password: 'xxxxx',
     migrated: false,
-    // pendingHashPass: null,
-    // bytesDownloaded: {
-    //   lastMonthBytes: 0,
-    //   lastDayBytes: 0,
-    //   lastHourBytes: 0,
-    // },
-    // bytesUploaded: {
-    //   lastMonthBytes: 0,
-    //   lastDayBytes: 0,
-    //   lastHourBytes: 0,
-    // },
   },
 ];
 
