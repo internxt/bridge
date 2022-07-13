@@ -5,8 +5,8 @@ import { Shard } from './Shard';
 const formatFromMongoToShard = (mongoShard: any): Shard => {
   const id = mongoShard._id.toString();
   const shard = mongoShard.toObject();
-  const contracts: any[] = [];
   delete shard._id;
+  const contracts: any[] = [];
   mongoShard.contracts.forEach((c: any) => {
     contracts.push({
       contract: shard.contracts[c.nodeID],
