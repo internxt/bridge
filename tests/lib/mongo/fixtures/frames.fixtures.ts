@@ -5,7 +5,7 @@ export const frameIds = [
   new ObjectId('6294dc39d716b2000771e856'),
   new ObjectId('7294dc39d716b2000771e856'),
 ];
-import { pointers } from './pointers.fixtures';
+import { pointerIds, pointers } from './pointers.fixtures';
 
 type MongoFrameModel = Required<
   Omit<Frame, 'id' | 'shards' | 'bucketEntry'>
@@ -24,12 +24,7 @@ const framesTest: MongoFrameModel[] = [
   {
     _id: frameIds[0],
     user: 'user@user.com',
-    shards: [
-      pointers[0]._id,
-      pointers[1]._id,
-      pointers[2]._id,
-      pointers[3]._id,
-    ],
+    shards: [pointerIds[0], pointerIds[1], pointerIds[2], pointerIds[3]],
     storageSize: 6738906,
     size: 2544602,
     locked: false,
@@ -38,7 +33,7 @@ const framesTest: MongoFrameModel[] = [
   {
     _id: frameIds[1],
     user: 'user2@user.com',
-    shards: [pointers[4]._id],
+    shards: [pointerIds[4]],
     storageSize: 6738906,
     size: 2544602,
     locked: false,
