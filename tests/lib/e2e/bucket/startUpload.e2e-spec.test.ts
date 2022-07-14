@@ -10,6 +10,18 @@ export const startUploadEndpoint = (bucketId: string) =>
 let bucketId: string;
 let START_UPLOAD_PATH: string;
 
+export const startsCorrectly = async (
+  bucketId: string,
+  payload: { uploads: { index: number; size: number }[] },
+  multiparts?: number
+) => {
+  let endpoint = startUploadEndpoint(bucketId);
+  if (multiparts) {
+    endpoint = `${endpoint}?multiparts=${multiparts}`;
+  }
+  return api.post(endpoint).send(payload).set(AuthorizationHeader);
+};
+
 describe('Start Upload v2 Validation', () => {
   beforeAll(async () => {
     bucketId = await registerSampleUserAndGetBucketId();
