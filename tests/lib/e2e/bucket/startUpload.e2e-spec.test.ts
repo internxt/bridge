@@ -239,6 +239,34 @@ describe('Start Upload v2 Validation', () => {
         expect(response.status).toBe(420);
         expect(response.body.error).toBe('Max space used');
       });
+
+      it('startUpload works correctly', async () => {
+        const startUploadResponse = await startsCorrectly(bucketId, {
+          uploads: [
+            {
+              index: 0,
+              size: 1000,
+            },
+            {
+              index: 1,
+              size: 10000,
+            },
+          ],
+        });
+
+        const { uploads } = startUploadResponse.body;
+
+        let indexCounter = 0;
+        for (const upload of uploads) {
+          const { url, urls, index, uuid } = upload;
+          expect(url).toBeDefined();
+          expect(url).toContain('http');
+          expect(urls).toBeNull();
+          expect(index).toEqual(indexCounter);
+          indexCounter += 1;
+          expect(uuid).toBeDefined();
+        }
+      });
     });
 
     describe('Multipart', () => {
@@ -259,6 +287,43 @@ describe('Start Upload v2 Validation', () => {
         expect(response.body.error).toBe(
           'Multipart is not allowed for small files'
         );
+      });
+
+      it('Multipart startUpload works correctly', async () => {
+        const multiparts = 3;
+        const startUploadResponse = await startsCorrectly(
+          bucketId,
+          {
+            uploads: [
+              {
+                index: 0,
+                size: 100 * 1024 * 1024,
+              },
+              {
+                index: 1,
+                size: 100 * 1024 * 1024,
+              },
+            ],
+          },
+          multiparts
+        );
+
+        const { uploads } = startUploadResponse.body;
+
+        let indexCounter = 0;
+        for (const upload of uploads) {
+          const { url, urls, index, uuid, UploadId } = upload;
+          expect(url).toBeNull();
+          expect(urls).toBeDefined();
+          expect(urls.length).toEqual(3);
+          expect(uuid).toBeDefined();
+          expect(UploadId).toBeDefined();
+          expect(index).toBe(indexCounter);
+          indexCounter += 1;
+          for (const urlToUpload of urls) {
+            expect(urlToUpload).toContain('http');
+          }
+        }
       });
     });
   });
