@@ -41,7 +41,7 @@ export class MongoDBUsersRepository implements UsersRepository {
   }
 
   async findByIds(ids: string[]): Promise<User[]> {
-    const users = await this.userModel.findOne({ _id: { $in: ids } });
+    const users = await this.userModel.find({ _id: { $in: ids } });
 
     return users.map(formatFromMongoToUser);
   }
@@ -91,9 +91,9 @@ export class MongoDBUsersRepository implements UsersRepository {
     return user;
   }
 
-  async updateById(id: string, update: any) {
-    const updated = await this.userModel.updateOne({ _id: id }, update);
-    return formatFromMongoToUser(updated);
+  async updateById(id: string, update: any): Promise<User | null> {
+    await this.userModel.updateOne({ _id: id }, update);
+    return this.findById(id);
   }
 
   async updateByUuid(uuid: string, update: Partial<User>) {
