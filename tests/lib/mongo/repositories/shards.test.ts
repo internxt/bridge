@@ -33,32 +33,14 @@ afterAll((finish) => {
 describe('Shards repository', () => {
   it('findByHashes()', async () => {
     const shards = await repository.findByHashes([shard1.hash, shard2.hash]);
-    expect(shards).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: shard1.id,
-        }),
-        expect.objectContaining({
-          id: shard2.id,
-        }),
-      ])
-    );
+    expect(shards).toEqual(expect.arrayContaining([shard1, shard2]));
   });
 
   it('findByIds()', async () => {
     const shards = await repository.findByIds([shard1.id, shard2.id]);
 
     expect(shards).toHaveLength(2);
-    expect(shards).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: shard1.id,
-        }),
-        expect.objectContaining({
-          id: shard2.id,
-        }),
-      ])
-    );
+    expect(shards).toEqual(expect.arrayContaining([shard1, shard2]));
   });
 
   it('create()', async () => {});
