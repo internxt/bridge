@@ -9,7 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: ubuntu
     permissions:
       contents: read
       packages: read
@@ -19,7 +18,7 @@ jobs:
     services:
       mongo:
         image: mongo:latest
-        environment:
+        env:
           MONGO_INITDB_ROOT_USERNAME: admin
           MONGO_INITDB_ROOT_PASSWORD: password
           MONGO_INITDB_DATABASE: bridge-test
@@ -33,6 +32,46 @@ jobs:
     env:
       DATABASE_URI: ${{ secrets.DATABASE_URI }}
       NODE_ENV: development
+      inxtbridge_storage__mongoUrl: mongodb://admin:password@localhost:27017/bridge-test
+      inxtbridge_redis__host: localhost
+      inxtbridge_storage__mongoOpts__dbName: bridge-test
+
+      inxtbridge_api_keys__segment_test: WDeJ6fM5C79J7xikZOAiQYHwmUhFGOc3
+      inxtbridge_application__CLUSTER__0: 9a1c78a507689f6f54b847ad1cef1e614ee23f1e
+      inxtbridge_logger__level: 5
+      inxtbridge_storage__mongoOpts__authSource: admin
+      inxtbridge_stripe__PK_LIVE: pk_live_api_key
+      inxtbridge_api_keys__segment: segment_key
+      inxtbridge_stripe__SK_LIVE: sk_live_stripe_key
+      inxtbridge_storage__mongoOpts__pass: password
+      inxtbridge_redis__port: 6379
+      inxtbridge_server__ssl__redirect: 443
+      inxtbridge_redis__password:
+      inxtbridge_complex__rpcUser: networkuser
+      inxtbridge_stripe__SIG_TEST: stripe_sig_test
+      inxtbridge_gateway__username: user
+      inxtbridge_mailer__auth__pass: mailerpass
+      inxtbridge_storage__mongoOpts__user: admin
+      inxtbridge_stripe__PK_TEST: pk_test_vpHlkSQ7DhmzSW4EbmfT1lIJ
+      #inxtbridge_storage__mongoOpts__replicaSet: internxt-net
+      inxtbridge_complex__rpcPassword: networkpass
+      inxtbridge_mailer__host: smtp.sendgrid.net
+      inxtbridge_server__public__host: drive-server
+      inxtbridge_stripe__SK_TEST: sk_test_stripe_key
+      inxtbridge_complex__rpcUrl: http://landlord:8080
+      inxtbridge_mailer__auth__user: internxt
+      inxtbridge_mailer__sendgrid__api_key: APIKEY
+      inxtbridge_storage__mongoOpts__server__poolSize: 100
+      inxtbridge_stripe__SIG: whsec_otra_clave_de_stripe
+      inxtbridge_drive__api: http://drive-server:8000
+      inxtbridge_server__public__port: 443
+      inxtbridge_mailer__port: 465
+      inxtbridge_gateway__password: gatewaypass
+      inxtbridge_gateway__JWT_SECRET: asecret
+      inxtbridge_QUEUE_HOST: 100.100.100.100
+      inxtbridge_QUEUE_USERNAME: username
+      inxtbridge_QUEUE_PASSWORD: password
+
     steps:
       - uses: actions/checkout@v2
       - name: Use Node.js ${{ matrix.node-version }}
@@ -42,8 +81,4 @@ jobs:
       - run: yarn run test
       - run: yarn run test-mongo-init
       - run: yarn run test-mongo
-
-      - name: build Bridge
-        run: docker build . -t bridge
-      - name: run bridge
-        run: docker run -p 6382:6382 -e NODE_ENV=development -e inxtbridge_storage__mongoUrl=mongodb://admin:password@localhost:27017/bridge-test -e inxtbridge_redis__host=redis -d bridge
+      - run: yarn run dev & yarn run test:e2e

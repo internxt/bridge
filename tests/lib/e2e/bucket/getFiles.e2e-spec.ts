@@ -1,4 +1,5 @@
 import { uploadRandomFile } from './setup';
+import { waitForBridgeToBeUp } from '../setup';
 import {
   api,
   AuthorizationHeader,
@@ -13,14 +14,17 @@ export const getFilesEndpoint = (bucketId: string) =>
 
 let fileIds: string[] = [];
 
+const longTimeout = 50_000;
+
 describe('Finish Upload v2', () => {
   beforeAll(async () => {
+    await waitForBridgeToBeUp();
     bucketId = await registerSampleUserAndGetBucketId();
     GET_FILES_PATH = getFilesEndpoint(bucketId);
 
     const uploadFileResponse = await uploadRandomFile(bucketId);
     fileIds.push(uploadFileResponse.body.id);
-  });
+  }, longTimeout);
 
   describe('Validation Get Files', () => {
     it('No fileids', async () => {

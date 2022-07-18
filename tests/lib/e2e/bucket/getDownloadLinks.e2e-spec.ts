@@ -2,6 +2,7 @@ import {
   api,
   AuthorizationHeader,
   registerSampleUserAndGetBucketId,
+  waitForBridgeToBeUp,
 } from '../setup';
 
 let bucketId: string;
@@ -10,12 +11,15 @@ let GET_DOWNLOAD_LINKS_PATH_V2: string;
 
 const fakeFileId = '62c2e18219e09f00511aded9';
 
+const longTimeout = 50_000;
+
 describe('Get Download Links', () => {
   beforeAll(async () => {
+    await waitForBridgeToBeUp();
     bucketId = await registerSampleUserAndGetBucketId();
     GET_DOWNLOAD_LINKS_PATH = `/buckets/${bucketId}/files/${fakeFileId}/info`;
     GET_DOWNLOAD_LINKS_PATH_V2 = `/v2/buckets/${bucketId}/files/${fakeFileId}/mirrors`;
-  });
+  }, longTimeout);
 
   describe('Get Download links V1 - Validation', () => {
     it('Malformed bucketId', async () => {

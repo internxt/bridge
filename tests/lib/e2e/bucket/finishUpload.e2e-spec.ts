@@ -5,6 +5,7 @@ import {
 } from './startUpload.e2e-spec.test';
 import crypto from 'crypto';
 import axios from 'axios';
+import { waitForBridgeToBeUp } from '../setup';
 import {
   api,
   AuthorizationHeader,
@@ -47,11 +48,14 @@ export const finishesCorrectlyMultiparts = async (
   return api.post(endpoint).send(payload).set(AuthorizationHeader);
 };
 
+const longTimeout = 50_000;
+
 describe('Finish Upload v2', () => {
   beforeAll(async () => {
+    await waitForBridgeToBeUp();
     bucketId = await registerSampleUserAndGetBucketId();
     FINISH_UPLOAD_PATH = finishUploadEndpoint(bucketId);
-  });
+  }, longTimeout);
 
   describe('Validation Finish Upload (non-multipart)', () => {
     it('Mising body', async () => {

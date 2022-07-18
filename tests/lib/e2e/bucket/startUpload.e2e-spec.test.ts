@@ -2,6 +2,7 @@ import {
   api,
   AuthorizationHeader,
   registerSampleUserAndGetBucketId,
+  waitForBridgeToBeUp,
 } from '../setup';
 
 export const startUploadEndpoint = (bucketId: string) =>
@@ -22,11 +23,14 @@ export const startsCorrectly = async (
   return api.post(endpoint).send(payload).set(AuthorizationHeader);
 };
 
+const longTimeout = 50_000;
+
 describe('Start Upload v2 Validation', () => {
   beforeAll(async () => {
+    await waitForBridgeToBeUp();
     bucketId = await registerSampleUserAndGetBucketId();
     START_UPLOAD_PATH = startUploadEndpoint(bucketId);
-  });
+  }, longTimeout);
 
   describe('Validation Start Upload (non-multipart)', () => {
     it('Non existing uploads array', async () => {
