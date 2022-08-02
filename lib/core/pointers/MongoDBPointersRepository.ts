@@ -8,7 +8,7 @@ export const formatFromMongoToPointer = (mongoPointer: any): Pointer => {
   return {
     ...pointer,
     id,
-    frame: pointer.frame.toString(),
+    frame: pointer.frame ? pointer.frame.toString() : null,
   };
 };
 export class MongoDBPointersRepository implements PointersRepository {
