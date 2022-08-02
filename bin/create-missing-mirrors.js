@@ -7,6 +7,7 @@ const Storage = require('storj-service-storage-models');
 const mongoose = require('mongoose');
 const { eachLimit } = require('async');
 const Config = require('../lib/config');
+const { ObjectId } = require('mongodb');
 
 program
   .version('0.0.1')
@@ -62,13 +63,12 @@ const logStatus = () => {
 const loggerInterval = setInterval(logStatus, 4000);
 
 const checkShard = (shard, onCreated, cb) => {
-  const { shardHash } = shard;
-
-  if (!shardHash) {
+  const { hash } = shard;
+  if (!hash) {
     return cb();
   }
 
-  Mirror.findOne({ hash: shardHash }, (err, mirror) => {
+  Mirror.findOne({ shardHash: hash }, (err, mirror) => {
     if (err) {
       return cb(err);
     }
@@ -79,6 +79,8 @@ const checkShard = (shard, onCreated, cb) => {
       if (shard.contracts?.length > 0) {
         contract = shard.contracts[0].contract;
         nodeID = shard.contracts[0].nodeID;
+      } else {
+        return cb();
       }
 
       const newMirror = new Mirror({
@@ -108,7 +110,7 @@ const processShardChunks = (shards, cb) => {
 
   eachLimit(
     shards,
-    1,
+    1000,
     (shard, next) => {
       idShardBeingChecked = shard._id;
       checkedCount += 1;
@@ -134,17 +136,17 @@ const processShardChunks = (shards, cb) => {
 
 function createMissingMirrors(cb) {
   let chunkOfShards = [];
-  const chunkSize = 5;
+  const chunkSize = 20000;
 
   const filter = {};
 
   if (lastShard) {
-    filter.id = { $gt: lastShard };
+    filter._id = { $lt: new ObjectId(lastShard) };
   }
 
   const cursor = Shard.find(filter)
     .sort({
-      _id: 1,
+      _id: -1,
     })
     .cursor();
 
@@ -172,8 +174,8 @@ function createMissingMirrors(cb) {
     });
   });
 
-  cursor.on('data', (mirror) => {
-    chunkOfShards.push(mirror);
+  cursor.on('data', (shard) => {
+    chunkOfShards.push(shard);
     if (chunkOfShards.length === chunkSize) {
       cursor.pause();
     }
