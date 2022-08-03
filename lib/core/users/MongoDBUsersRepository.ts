@@ -97,8 +97,11 @@ export class MongoDBUsersRepository implements UsersRepository {
   }
 
   async updateByUuid(uuid: string, update: Partial<User>) {
-    const updated = await this.userModel.updateOne({ uuid }, update);
-    return formatFromMongoToUser(updated);
+    const result = await this.userModel.updateOne({ uuid }, update);
+    if (result.n === 0) {
+      throw new Error('User not found');
+    }
+    return this.findOne({ uuid });
   }
 
   addTotalUsedSpaceBytes(

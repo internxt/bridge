@@ -87,6 +87,15 @@ describe('User repository', () => {
     expect(updated?.activated).toEqual(false);
   });
 
+  it('updateByUuId()', async () => {
+    const result = await repository.updateByUuid(user1.uuid, {
+      activated: true,
+    });
+    const updated = await repository.findById(user1.id);
+    expect(updated).not.toBeNull();
+    expect(updated?.activated).toEqual(true);
+  });
+
   it('addTotalUsedSpaceBytes()', async () => {
     await repository.addTotalUsedSpaceBytes(user1.id, 1000);
 

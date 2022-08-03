@@ -7,6 +7,6 @@ export interface UsersRepository {
   create(data: CreateUserData): Promise<BasicUser>;
   addTotalUsedSpaceBytes(id: User['id'], totalUsedSpaceBytes: number): Promise<void>;
   updateById(id: User['id'], update: Partial<User>): any;
-  updateByUuid(uuid: User['uuid'], update: Partial<User>): any;
+  updateByUuid(uuid: User['uuid'], update: Partial<User>): Promise<BasicUser | null>;
   removeById(id: User['id']): Promise<void>;
 }
