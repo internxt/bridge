@@ -4,6 +4,7 @@ import { UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
+import { EventBus, EventBusEvents, UserStorageChangedPayload } from '../../eventBus';
 
 type DeleteFilesInBulkResponse = {
   message: {
@@ -17,7 +18,8 @@ export class HTTPGatewayController {
     private gatewayUsecase: GatewayUsecase, 
     private bucketEntriesUsecase: BucketEntriesUsecase,
     private usersUsecase: UsersUsecase,
-    private logger: Logger
+    private logger: Logger,
+    private eventBus: EventBus
   ) {}
 
   async deleteFilesInBulk(
@@ -63,6 +65,9 @@ export class HTTPGatewayController {
       const { bytes } = req.body;
 
       await this.usersUsecase.updateUserStorage(uuid, parseInt(bytes));
+
+      const eventPayload: UserStorageChangedPayload = { idUser: uuid, limit: parseInt(bytes) };
+      this.eventBus.emit(EventBusEvents.UserStorageChanged, eventPayload);
 
       res.status(200).send();
     } catch (err) {
