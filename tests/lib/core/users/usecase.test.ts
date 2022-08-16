@@ -19,6 +19,7 @@ import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { createLogger } from 'winston';
 import { createHash, randomBytes } from 'crypto';
 import { User } from '../../../../lib/core/users/User';
+import { Notifications } from '../../../../lib/server/notifications';
 
 let usersRepository: UsersRepository;
 let framesRepository: FramesRepository;
@@ -26,6 +27,7 @@ let bucketsRepository: BucketsRepository;
 let usecase: UsersUsecase;
 let mailUsecase: MailUsecase;
 let eventBus: EventBus;
+let notifications: Notifications;
 
 beforeEach(() => {
   usersRepository = new MongoDBUsersRepository({});
@@ -35,7 +37,8 @@ beforeEach(() => {
     host: '',
     protocol: 'http:',
   });
-  eventBus = new EventBus(createLogger(), mailUsecase);
+  notifications = new Notifications('','');
+  eventBus = new EventBus(createLogger(), mailUsecase, notifications);
   eventBus.removeAllListeners();
   usecase = new UsersUsecase(
     usersRepository, 

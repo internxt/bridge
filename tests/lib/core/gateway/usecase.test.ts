@@ -25,6 +25,7 @@ import { ShardsRepository } from '../../../../lib/core/shards/Repository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
 import { ContactsRepository } from '../../../../lib/core/contacts/Repository';
 import { MongoDBContactsRepository } from '../../../../lib/core/contacts/MongoDBContactsRepository'; 
+import { Notifications } from '../../../../lib/server/notifications';
 
 let framesRepository: FramesRepository = new MongoDBFramesRepository({});
 let bucketEntriesRepository: BucketEntriesRepository = new MongoDBBucketEntriesRepository({});
@@ -41,7 +42,10 @@ let mailUsecase: MailUsecase = new SendGridMailUsecase({} as Mailer, {
 let logger = createLogger({
   silent: true
 });
-let eventBus = new EventBus(logger, mailUsecase);
+
+let notifications = new Notifications('','');
+
+let eventBus = new EventBus(logger, mailUsecase, notifications);
 
 let usecase = new GatewayUsecase(
   bucketEntriesRepository, 
@@ -61,7 +65,7 @@ beforeEach(() => {
   mirrorsRepository = new MongoDBMirrorsRepository({});
   shardsRepository = new MongoDBShardsRepository({});
   contactsRepository = new MongoDBContactsRepository({});
-  eventBus = new EventBus(logger, mailUsecase);
+  eventBus = new EventBus(logger, mailUsecase, notifications);
 
   usecase = new GatewayUsecase(
     bucketEntriesRepository, 

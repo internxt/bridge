@@ -30,6 +30,7 @@ import { BucketEntriesUsecase } from "../../core/bucketEntries/usecase";
 import { ShardsUsecase } from "../../core/shards/usecase";
 import { BucketEntryShardsRepository } from "../../core/bucketEntryShards/Repository";
 import { MongoDBBucketEntryShardsRepository } from "../../core/bucketEntryShards/MongoDBBucketEntryShardsRepository";
+import { Notifications } from "../notifications";
 
 const { authenticate } = require('storj-service-middleware');
 
@@ -52,6 +53,7 @@ export function bindNewRoutes(
   profile: Profile,
   log: Logger,
   networkQueue: any,
+  notifications: Notifications
 ): void {
   const { models } = storage;
 
@@ -66,7 +68,7 @@ export function bindNewRoutes(
   const shardsRepository: ShardsRepository = new MongoDBShardsRepository(models.Shard);
 
   const mailUsecase: MailUsecase = new SendGridMailUsecase(mailer, profile);
-  const eventBus = new EventBus(log, mailUsecase);
+  const eventBus = new EventBus(log, mailUsecase, notifications);
 
   const usersUsecase = new UsersUsecase(
     usersRepository, 
@@ -113,7 +115,8 @@ export function bindNewRoutes(
     gatewayUsecase, 
     bucketEntriesUsecase, 
     usersUsecase,
-    log
+    log,
+    eventBus
   );
 
   const usersRouter = createUsersHTTPRouter(usersController, basicAuthMiddleware);
