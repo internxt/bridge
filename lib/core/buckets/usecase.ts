@@ -116,6 +116,14 @@ export class NoNodeFoundError extends Error {
   }
 }
 
+export class EmptyMirrorsError extends Error {
+  constructor() {
+    super('Empty mirrors error');
+
+    Object.setPrototypeOf(this, EmptyMirrorsError.prototype);
+  }
+}
+
 export class BucketsUsecase {
   private MAX_FILES_PER_RETRIEVAL = 20;
 
@@ -227,6 +235,10 @@ export class BucketsUsecase {
       hash: Shard['hash'],
       url: string
     }[] = [];
+
+    if (mirrors.length === 0) {
+      throw new EmptyMirrorsError();
+    }
 
     for (const { contact, shardHash } of mirrors) {
       const { address, port } = contact;
