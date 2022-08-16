@@ -118,7 +118,7 @@ export class NoNodeFoundError extends Error {
 
 export class EmptyMirrorsError extends Error {
   constructor() {
-    super('Empty mirrors error');
+    super('Empty mirrors');
 
     Object.setPrototypeOf(this, EmptyMirrorsError.prototype);
   }
