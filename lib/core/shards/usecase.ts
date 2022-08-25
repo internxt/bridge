@@ -1,6 +1,7 @@
 import { MirrorsRepository } from '../mirrors/Repository';
 import NetworkMessageQueue from "../../server/queues/networkQueue";
 import { DELETING_FILE_MESSAGE } from "../../server/queues/messageTypes";
+import log from '../../logger';
 
 export class ShardsUsecase {
   constructor(
@@ -35,6 +36,8 @@ export class ShardsUsecase {
     }
 
     if (stillExistentMirrors.length > 0) {
+      log.info('Deleting still existent mirrors (by uuids): %s from hashes: %s', stillExistentMirrors.map(m => m.id).toString(), shards.toString());
+
       await this.mirrorsRepository.deleteByIds(stillExistentMirrors.map(m => m.id));
     }
   }
@@ -65,6 +68,12 @@ export class ShardsUsecase {
     }
 
     if (stillExistentMirrors.length > 0) {
+      log.info(
+        'Deleting still existent mirrors (by hashes): %s Shard hashes: ',
+        stillExistentMirrors.map((m) => m.id).toString(),
+        hashes.toString()
+      );
+
       await this.mirrorsRepository.deleteByIds(stillExistentMirrors.map(m => m.id));
     }
   }
