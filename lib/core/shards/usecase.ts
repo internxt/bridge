@@ -69,7 +69,7 @@ export class ShardsUsecase {
 
     if (stillExistentMirrors.length > 0) {
       log.info(
-        'Deleting still existent mirrors (by hashes): %s Shard hashes: ',
+        'Deleting still existent mirrors (by hashes): %s Shard hashes: %s',
         stillExistentMirrors.map((m) => m.id).toString(),
         hashes.toString()
       );
