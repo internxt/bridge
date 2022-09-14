@@ -1,6 +1,7 @@
 import { Mirror, MirrorWithContact } from './Mirror';
 import { MirrorsRepository } from './Repository';
 import { Contact } from '../contacts/Contact';
+import { Contract, Shard } from '../shards/Shard';
 
 const formatFromMongoToMirror = (mongoMirror: any): Mirror => {
   const id = mongoMirror._id.toString();
@@ -65,6 +66,32 @@ export class MongoDBMirrorsRepository implements MirrorsRepository {
     }).save();
 
     return formatFromMongoToMirror(rawModel);
+  }
+
+  async getOrCreateMirrorsForShards(
+    shards: Shard[]
+  ): Promise<MirrorWithContact[]> {
+    for (const shard of shards) {
+      const shardHash = shard.hash;
+      const mirror = await this.model.find({ shardHash });
+      if (mirror.length === 0) {
+        let contract = {};
+        let nodeID = '';
+        if (shard.contracts.length > 0) {
+          contract = shard.contracts[0].contract;
+          nodeID = shard.contracts[0].nodeID;
+        }
+
+        await this.create({
+          isEstablished: true,
+          shardHash,
+          contact: nodeID,
+          contract: { ...contract, data_hash: shardHash } as Contract,
+          token: '',
+        });
+      }
+    }
+    return this.findByShardHashesWithContacts(shards.map((s) => s.hash));
   }
 
   deleteByIds(ids: string[]): Promise<void> {
