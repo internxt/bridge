@@ -227,7 +227,7 @@ export class BucketsUsecase {
   }[]> {  
     const bucketEntryShards = await this.bucketEntryShardsRepository.findByBucketEntrySortedByIndex(bucketEntryId);
     const shards = await this.shardsRepository.findByIds(bucketEntryShards.map(b => b.shard));
-    const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shards.map(s => s.hash));
+    let mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shards.map(s => s.hash));
 
     const response: {
       index: BucketEntryShard['index'],
@@ -237,7 +237,14 @@ export class BucketsUsecase {
     }[] = [];
 
     if (mirrors.length === 0) {
-      throw new EmptyMirrorsError();
+      // NOTE: This is a patch while we find out what is deleting the mirrors:
+      mirrors = await this.mirrorsRepository.getOrCreateMirrorsForShards(
+        shards
+      );
+      if(mirrors.length === 0){
+        // If for some reason mirrors are still 0: 
+        throw new EmptyMirrorsError();
+      }
     }
 
     for (const { contact, shardHash } of mirrors) {
