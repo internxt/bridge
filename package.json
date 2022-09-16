@@ -28,7 +28,8 @@
     "build": "tsc",
     "test": "jest --testPathIgnorePatterns ./tests/lib/mongo",
     "test-mongo-init": "ts-node ./tests/lib/mongo/init",
-    "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand"
+    "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -49,6 +50,8 @@
   },
   "homepage": "https://github.com/internxt/bridge#readme",
   "devDependencies": {
+    "@internxt/eslint-config-internxt": "^1.0.8",
+    "@internxt/prettier-config": "^1.0.2",
     "@types/async": "^3.2.13",
     "@types/express": "^4.17.13",
     "@types/jest": "^27.4.1",
@@ -60,12 +63,14 @@
     "@types/node-mongodb-fixtures": "^3.2.3",
     "@types/sinon": "^10.0.11",
     "@types/uuid": "^8.3.4",
+    "@typescript-eslint/parser": "^5.37.0",
     "chai": "^4.2.0",
     "coveralls": "^2.11.6",
     "dotenv": "^16.0.0",
     "eslint": "^7.10.0",
     "eslint-plugin-sonarjs": "^0.6.0",
     "gh-pages": "^2.1.1",
+    "husky": "^8.0.0",
     "ink-docstrap": "github:boshevski/docstrap",
     "istanbul": "^0.4.1",
     "jest": "^27.5.1",
@@ -79,6 +84,8 @@
     "node-mongodb-fixtures": "^3.2.9",
     "nodemon": "^2.0.15",
     "noisegen": "^1.0.0",
+    "prettier": "^2.7.1",
+    "pretty-quick": "^3.1.3",
     "proxyquire": "^1.7.10",
     "redis-mock": "^0.16.0",
     "rimraf": "^2.6.3",
