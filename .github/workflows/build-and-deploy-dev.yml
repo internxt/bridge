@@ -1,7 +1,7 @@
-name: build & deploy
+name: build & deploy in dev
 on:
   push:
-    branches: ["develop"]
+    branches: ["develop", "master"]
 jobs:
   build:
     runs-on: ubuntu-latest
