@@ -102,6 +102,7 @@
     "hat": "0.0.3",
     "helmet": "^3.20.0",
     "inxt-service-mailer": "internxt/mailer",
+    "@sendgrid/mail": "^7.2.1",
     "is-ip": "^2.0.0",
     "jsonwebtoken": "^8.5.1",
     "knuth-shuffle": "^1.0.1",
