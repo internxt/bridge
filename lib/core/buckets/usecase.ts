@@ -29,6 +29,13 @@ import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
 import _ from 'lodash';
 
+import { sign as signJwt } from 'jsonwebtoken';
+import { getEnv } from '../../server/env';
+
+function signTokenWithSize(size: number) {
+  return signJwt({ payload: { size } }, getEnv().storage.jwtSecret);
+}
+
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
     super(`Bucket entry ${bucketEntryId || ''} not found`);
@@ -374,11 +381,23 @@ export class BucketsUsecase {
           auth,
           multiparts
         );
-        return { index, uuid, url: null, urls, UploadId };
+
+        return { 
+          index, 
+          uuid, 
+          url: null, 
+          urls: urls.map((url) => url + '&token=' + signTokenWithSize(size)),
+          UploadId 
+        };
       }
 
       const objectStorageUrl = await this.singlePartUpload(contact, uuid, auth);
-      return { index, uuid, url: objectStorageUrl, urls: null };
+      return { 
+        index, 
+        uuid, 
+        url: objectStorageUrl + '&token=' + signTokenWithSize(size), 
+        urls: null 
+      };
     });
 
     return Promise.all(uploadPromises);
