@@ -32,8 +32,8 @@ import _ from 'lodash';
 import { sign as signJwt } from 'jsonwebtoken';
 import { getEnv } from '../../server/env';
 
-function signTokenWithSize(size: number) {
-  return signJwt({ payload: { size } }, getEnv().storage.jwtSecret);
+function signTokenWith(payload: Record<string, unknown>) {
+  return signJwt({ payload }, getEnv().storage.jwtSecret, { expiresIn: '30d' });
 }
 
 export class BucketEntryNotFoundError extends Error {
@@ -289,7 +289,8 @@ export class BucketsUsecase {
     cluster: string[],
     uploads: { index: number; size: number }[],
     auth: { username: string; password: string },
-    multiparts = 1
+    multiparts = 1,
+    withToken = true
   ) {
     const [bucket, user] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
@@ -386,7 +387,9 @@ export class BucketsUsecase {
           index, 
           uuid, 
           url: null, 
-          urls: urls.map((url) => url + '&token=' + signTokenWithSize(size)),
+          urls: withToken ? urls.map((url) => url + '?token=' + signTokenWith({
+            size, uuid
+          })) : urls,
           UploadId 
         };
       }
@@ -395,7 +398,9 @@ export class BucketsUsecase {
       return { 
         index, 
         uuid, 
-        url: objectStorageUrl + '&token=' + signTokenWithSize(size), 
+        url: withToken ? objectStorageUrl + '?token=' + signTokenWith({
+          size, uuid
+        }): objectStorageUrl, 
         urls: null 
       };
     });
@@ -409,13 +414,13 @@ export class BucketsUsecase {
     auth: { username: string; password: string }
   ): Promise<string> {
     const { address, port } = contact;
-    const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
+    const objectStorageUrl = `http://${address}:${port}/v2/upload/${uuid}`;
 
-    const { username, password } = auth;
-    const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
-      auth: { username, password },
-    });
-    const objectStorageUrl = farmerRes.data.result;
+    // const { username, password } = auth;
+    // const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
+    //   auth: { username, password },
+    // });
+    // const objectStorageUrl = farmerRes.data.result;
 
     return objectStorageUrl;
   }
