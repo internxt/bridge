@@ -7,12 +7,8 @@
   "host": "api.internxt.com",
   "basePath": "/",
   "schemes": ["https"],
-  "consumes": [
-    "application/json"
-  ],
-  "produces": [
-    "application/json"
-  ],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
   "securityDefinitions": {
     "basic": {
       "type": "basic",
@@ -125,7 +121,7 @@
                   },
                   "protocol": {
                     "description": "Protocol version this contact is running",
-                    "type" : "string",
+                    "type": "string",
                     "example": "0.7.0"
                   }
                 }
@@ -176,7 +172,7 @@
                 },
                 "protocol": {
                   "description": "Protocol version this contact is running",
-                  "type" : "string",
+                  "type": "string",
                   "example": "0.7.0"
                 }
               }
@@ -242,58 +238,6 @@
       }
     },
     "/users/{email}": {
-      "patch": {
-        "tags": ["users"],
-        "summary": "Requests the reset of the account password",
-        "parameters": [
-          {
-            "name": "email",
-            "in": "path",
-            "type": "string",
-            "description": "The email address of the account for password reset (yours)",
-            "required": true
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "properties": {
-                "password": {
-                  "type": "string",
-                  "description": "Hex encoded SHA-256 hash of the desired password"
-                },
-                "redirect": {
-                  "type": "string",
-                  "description": "Optional redirect URL for successful deletion"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Account password reset email sent",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "email": {
-                  "type": "string",
-                  "example": "hello@internxt.com"
-                },
-                "created": {
-                  "type": "string",
-                  "example": "2016-03-04T17:01:02.629Z"
-                },
-                "activated": {
-                  "type": "boolean",
-                  "example": true
-                }
-              }
-            }
-          }
-        }
-      },
       "delete": {
         "tags": ["users"],
         "summary": "Requests the deletion of the account",
@@ -391,7 +335,7 @@
       "post": {
         "tags": ["users"],
         "summary": "Sends the user an activation email for reactivating a disabled account",
-         "parameters": [
+        "parameters": [
           {
             "name": "token",
             "in": "path",
@@ -1159,7 +1103,7 @@
             "schema": {
               "type": "object",
               "properties": {
-               "pubkeys": {
+                "pubkeys": {
                   "type": "array",
                   "items": {
                     "type": "string",
