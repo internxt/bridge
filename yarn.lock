@@ -641,7 +641,7 @@
   dependencies:
     deepmerge "^4.2.2"
 
-"@sendgrid/mail@^7.3.0":
+"@sendgrid/mail@^7.2.1", "@sendgrid/mail@^7.3.0":
   version "7.7.0"
   resolved "https://registry.yarnpkg.com/@sendgrid/mail/-/mail-7.7.0.tgz#aba09f5ce2e9d8ceee92284c3ea8b4a90b0e38fe"
   integrity sha512-5+nApPE9wINBvHSUxwOxkkQqM/IAAaBYoP9hw7WwgDNQPxraruVqHizeTitVtKGiqWCKm2mnjh4XGN3fvFLqaw==
@@ -7584,7 +7584,7 @@ storj-analytics@internxt/inxt-analytics:
 
 "storj-service-storage-models@github:internxt/service-storage-models#v10.6.2":
   version "10.6.2"
-  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/40dc7547bdaa4d7eda2ae780b73bff0fc66926bd"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/27a8bcb87f0750e0774b788f7bd41c24eeec9763"
   dependencies:
     bluebird "^3.4.7"
     coinpayments "^2.1.1"
