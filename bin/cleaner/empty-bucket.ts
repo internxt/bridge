@@ -35,7 +35,7 @@ console.log('Bucket to clean', program.bucket);
 const config = new Config(process.env.NODE_ENV || 'develop', program.config, program.datadir);
 const storage = new StorjStorage(config.storage.mongoUrl, config.storage.mongoOpts, { logger: log });
 
-const lastFileId = "b422e6c2cf49279d10f877a9";
+const lastFileId = "d3e3aa1f5e966017c98f1f1d";
 const {
   BucketEntry,
   BucketEntryShard,
@@ -92,7 +92,7 @@ const bucketEntriesUsecase = new BucketEntriesUsecase(
 function getBucketEntriesIterator(bucket?: string) {
     const where =
       lastFileId ?
-        { _id: { $gte: lastFileId }, bucket } :
+        { _id: { $gte: lastFileId }, bucket, created: { $lte: new Date('2022-12-22 00:00:00.000Z') } } :
         { bucket };
 
     return BucketEntry.find(where).cursor();
