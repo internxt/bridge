@@ -89,7 +89,7 @@ The project is a WIP in the sense that is being rethinked in layers and the actu
 As the word 'domain' is being used, we have agreed to use any entity as a domain (which is not correct) as a temporal convention, therefore, any explanation about how to define this layers is provided here. Each entity has maybe a controller, usecase and repo, that is the unique guideline for now. 
   
 ## API documentation
-We do not provide API documentation currently. We have a plan to do it in the future.
+We do not provide API documentation currently. We plan to do it in the future.
 
 ## License
 This project is based on GNU License. You can show it in the [License](LICENSE) file.
