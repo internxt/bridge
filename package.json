@@ -28,7 +28,8 @@
     "build": "tsc",
     "test": "jest --testPathIgnorePatterns ./tests/lib/mongo",
     "test-mongo-init": "ts-node ./tests/lib/mongo/init",
-    "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand"
+    "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand",
+    "clean": "ts-node ./bin/delete-objects.ts"
   },
   "repository": {
     "type": "git",
