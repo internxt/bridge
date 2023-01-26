@@ -29,7 +29,7 @@ jobs:
       name: production
     steps:
       - uses: actions/checkout@master
-      - name: Updates drive cluster image
+      - name: Updates drive cluster network image
         uses: steebchen/kubectl@v2.0.0
         with: # defaults to latest kubectl binary version
           config: ${{ secrets.KUBE_CONFIG_DATA }}
@@ -42,7 +42,7 @@ jobs:
           command: rollout status deployment/bridge-api-dp
 
       - uses: actions/checkout@master
-      - name: Update photos cluster image
+      - name: Update photos cluster network image
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PHOTOS }}
