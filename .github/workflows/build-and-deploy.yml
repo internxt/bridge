@@ -39,7 +39,7 @@ jobs:
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
           version: v1.20.2 # specify kubectl binary version explicitly
-          command: rollout status deployment/bridge-api-dp
+          command: rollout status deployment/bridge-api-dp -n bridge-api-ns
 
       - uses: actions/checkout@master
       - name: Update photos cluster network image
