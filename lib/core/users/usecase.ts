@@ -64,6 +64,16 @@ export class UsersUsecase {
     private eventBus: EventBus
   ) {}
 
+  async findOrCreateUser(email: string, password: string): Promise<BasicUser> {
+    const user = await this.usersRepository.findById(email);
+
+    if (user) {
+      return user;
+    }
+
+    return this.createUser(email, password);
+  }
+
   async createUser(email: string, password: string) {
     this.eventBus.emit(EventBusEvents.UserCreationStarts, { email });
 
