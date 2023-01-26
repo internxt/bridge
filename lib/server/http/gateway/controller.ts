@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
-import { UsersUsecase } from '../../../core';
+import { InvalidDataFormatError, UserAlreadyExistsError, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
@@ -21,6 +21,28 @@ export class HTTPGatewayController {
     private logger: Logger,
     private eventBus: EventBus
   ) {}
+
+  async findOrCreateUser(req: Request<{}, {}, { email?: string, password?: string }, {}>, res: Response) {
+    if (!req.body || !req.body.email || !req.body.password) {
+      return res.status(400).send();
+    }
+
+    const { email, password } = req.body;
+
+    try {
+      const user = await this.usersUsecase.findOrCreateUser(email.toLowerCase().trim(), password);
+
+      res.status(200).send(user);
+    } catch (err) {
+      if (err instanceof UserAlreadyExistsError || err instanceof InvalidDataFormatError) {
+        res.status(400).send({ message: err.message });
+      } else {
+        this.logger.error('[GATEWAY/USER] Error for user %s: %s. %s', email, (err as Error).message, (err as Error).stack);
+      
+        res.status(500).send({ message: 'Internal Server Error' });
+      }
+    }
+  }
 
   async deleteFilesInBulk(
     req: Request<{}, {}, { files?: unknown | string[] }, {}>, 
