@@ -33,7 +33,7 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with: # defaults to latest kubectl binary version
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          command: set image --record deployment/bridge-api-dp bridge-api=${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }}
+          command: set image --record deployment/bridge-api-dp bridge-api=${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }} -n bridge-api-ns
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
