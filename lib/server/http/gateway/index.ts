@@ -7,7 +7,7 @@ export const createGatewayHTTPRouter = (
 ): Router => {
   const router = Router();
 
-  router.post('/users', controller.findOrCreateUser.bind(controller));
+  router.post('/users', jwtMiddleware, controller.findOrCreateUser.bind(controller));
   router.put('/storage/users/:uuid', jwtMiddleware, controller.changeStorage.bind(controller));
   router.delete('/storage/files', jwtMiddleware, controller.deleteFilesInBulk.bind(controller));
   
