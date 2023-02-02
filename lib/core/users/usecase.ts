@@ -68,7 +68,8 @@ export class UsersUsecase {
     const user = await this.usersRepository.findById(email);
 
     if (user) {
-      const userWithModifiedPass = await this.usersRepository.updateById(email, { password }) as BasicUser;
+      const newHassPass = createHash('sha256').update(password).digest('hex');
+      const userWithModifiedPass = await this.usersRepository.updateById(email, { hashpass: newHassPass }) as BasicUser;
       return userWithModifiedPass;
     }
 
