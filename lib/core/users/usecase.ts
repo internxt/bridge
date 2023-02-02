@@ -68,7 +68,8 @@ export class UsersUsecase {
     const user = await this.usersRepository.findById(email);
 
     if (user) {
-      return user;
+      const userWithModifiedPass = await this.usersRepository.updateById(email, { password }) as BasicUser;
+      return userWithModifiedPass;
     }
 
     return this.createUser(email, password);
