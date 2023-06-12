@@ -2,10 +2,8 @@ db.createUser({
   user: 'admin',
   pwd: 'password',
   roles: [
-    {
-      role: 'readWrite',
-      db: '__inxt-network',
-    },
+    { role: 'readWrite', db: '__inxt-network' },
+    { role: 'readAnyDatabase', db: 'admin' }
   ],
 });
 
