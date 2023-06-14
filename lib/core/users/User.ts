@@ -1,3 +1,5 @@
+import { Bucket } from "../buckets/Bucket";
+
 export interface User {
   id: string;
   resetter: string | null;
@@ -31,6 +33,32 @@ export interface User {
   //   lastDayBytes: number;
   //   lastHourBytes: number;
   // };
+}
+
+export class UserDom {
+  constructor(private readonly attributes: User) {}
+
+  get<K extends keyof User>(key: K): User[K] {
+    if (key in this.attributes) {
+      throw new Error(`${key} not in user`);
+    }
+    return this.attributes[key];
+  }
+
+  owns(bucket: Bucket): boolean {
+    return bucket.user === this.attributes.id;
+  }
+
+  hasSpaceFor(size: number): boolean {
+    const spaceLimit = this.attributes.maxSpaceBytes;
+    const usedSpace = this.attributes.totalUsedSpaceBytes;
+
+    return spaceLimit < usedSpace + size;
+  }
+
+  get onlyUsesV2Api(): boolean {
+    return this.attributes.migrated || false;
+  }
 }
 
 export type CreateUserData = Pick<
