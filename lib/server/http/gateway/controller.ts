@@ -44,6 +44,27 @@ export class HTTPGatewayController {
     }
   }
 
+  async updateUser(req: Request<{ uuid: string }, {}, { email?: string; }, {}>, res: Response) {
+    if (!req.body || !req.body.email) {
+      return res.status(400).send();
+    } 
+
+    const { email } = req.body;
+    const { uuid } = req.params;
+
+    try {
+      await this.usersUsecase.updateUser(uuid, {
+        id: email.toLowerCase().trim()
+      }); 
+
+      res.status(200).send();
+    } catch (err) {
+      this.logger.error('[USERS/UPDATE]: Error updating user %s: %s. %s', uuid, (err as Error).message, (err as Error).stack);
+
+      res.status(500).send({ message: 'Internal Server Error' });
+    }
+  }
+
   async deleteFilesInBulk(
     req: Request<{}, {}, { files?: unknown | string[] }, {}>, 
     res: Response<DeleteFilesInBulkResponse>
