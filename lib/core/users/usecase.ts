@@ -115,6 +115,10 @@ export class UsersUsecase {
     return user;
   }
 
+  async updateUser(userUuid: User['uuid'], update: Pick<User, 'id'>): Promise<void> {
+    await this.usersRepository.updateByUuid(userUuid, { id: update.id });
+  }
+
   async updateUserStorage(uuid: User['uuid'], bytes: User['maxSpaceBytes']): Promise<void> {
     await this.usersRepository.updateByUuid(uuid, { maxSpaceBytes: bytes });
   }
