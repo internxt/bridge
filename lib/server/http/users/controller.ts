@@ -31,8 +31,7 @@ export class HTTPUsersController {
       if (err instanceof UserAlreadyExistsError || err instanceof InvalidDataFormatError) {
         res.status(400).send({ message: err.message });
       } else {
-        // TODO: Global middleware for 500
-        this.logger.error('Error creating user %s: %s. %s', email, (err as Error).message, (err as Error).stack);
+        this.logger.error('[USERS/CREATE]: Error creating user %s: %s. %s', email, (err as Error).message, (err as Error).stack);
       
         res.status(500).send({ message: 'Internal Server Error' });
       }
