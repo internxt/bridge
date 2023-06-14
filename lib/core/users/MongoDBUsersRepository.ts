@@ -1,5 +1,5 @@
 import { UsersRepository } from './Repository';
-import { CreateUserData, User, BasicUser } from './User';
+import { CreateUserData, User, BasicUser, UserDom } from './User';
 
 type DatabaseUser = {
   id: string;
@@ -30,6 +30,12 @@ export const formatFromMongoToUser = (mongoUser: any): User => {
 
 export class MongoDBUsersRepository implements UsersRepository {
   constructor(private userModel: any) {}
+
+  async findByUuid(uuid: User['uuid']): Promise<User | null> {
+    const user = await this.userModel.findOne({ uuid });
+
+    return user ? formatFromMongoToUser(user) : null;
+  }
 
   async findById(id: string): Promise<User | null> {
     const user = await this.userModel.findOne({ _id: id });
@@ -112,6 +118,13 @@ export class MongoDBUsersRepository implements UsersRepository {
       { _id: id },
       { $inc: { totalUsedSpaceBytes } }
     );
+  }
+
+  incrementTotalUsedSpaceBytes(user: UserDom, totalUsedSpaceBytes: number): Promise<void> {
+    return this.userModel.updateOne(
+      { uuid: user.get('uuid') },
+      { $inc: { totalUsedSpaceBytes } }
+    )
   }
 
   removeById(id: User['id']) {
