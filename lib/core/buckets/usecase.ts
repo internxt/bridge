@@ -22,7 +22,7 @@ import { UploadsRepository } from '../uploads/Repository';
 import { UsersRepository } from '../users/Repository';
 import { UserNotFoundError } from '../users';
 import { TokensRepository } from '../tokens/Repository';
-import { User } from '../users/User';
+import { User, UserDom } from '../users/User';
 import { ContactsRepository } from '../contacts/Repository';
 import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
@@ -277,17 +277,19 @@ export class BucketsUsecase {
   } 
 
   async startUpload(
-    userId: string,
-    bucketId: string,
+    userUuid: User['uuid'],
+    bucketId: Bucket['id'],
     cluster: string[],
     uploads: { index: number; size: number }[],
     auth: { username: string; password: string },
     multiparts = 1
   ) {
-    const [bucket, user] = await Promise.all([
+    const [bucket, userAttributes] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
-      this.usersRepository.findById(userId),
+      this.usersRepository.findByUuid(userUuid),
     ]);
+
+    const user = userAttributes ? new UserDom(userAttributes) : null;
 
     if (!user) {
       throw new UserNotFoundError();
@@ -297,7 +299,7 @@ export class BucketsUsecase {
       throw new BucketNotFoundError();
     }
 
-    if (bucket.user !== userId) {
+    if (!user.owns(bucket)) {
       throw new BucketForbiddenError();
     }
 
@@ -315,17 +317,14 @@ export class BucketsUsecase {
       throw new InvalidMultiPartValueError();
     }
 
-    if (user.migrated) {
-      if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+    if (user.onlyUsesV2Api) {
+      if (!user.hasSpaceFor(bucketEntrySize)) {
         throw new MaxSpaceUsedError();
       }
     } else {
-      const usedSpaceBytes = await this.getUserUsage(user.id);
+      const usedSpaceBytes = await this.getUserUsage(user.get('id'));
 
-      if (
-        user.maxSpaceBytes <
-        user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize
-      ) {
+      if (!user.hasSpaceFor(usedSpaceBytes + bucketEntrySize)) {
         throw new MaxSpaceUsedError();
       }
     }
@@ -420,18 +419,20 @@ export class BucketsUsecase {
   }
 
   async completeUpload(
-    userId: string, 
+    userUuid: User['uuid'], 
     bucketId: string, 
     fileIndex: string, 
     shards: ShardWithPossibleMultiUpload[],
     auth: { username: string; password: string }
   ): Promise<BucketEntry> {
-    const [bucket, user, uploads] = await Promise.all([
+    const [bucket, userAttributes, uploads] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
-      this.usersRepository.findById(userId),
+      this.usersRepository.findByUuid(userUuid),
       this.uploadsRepository.findByUuids(shards.map((s) => s.uuid)),
     ]);
 
+    const user = userAttributes ? new UserDom(userAttributes) : null;
+    
     if (!user) {
       throw new UserNotFoundError();
     }
@@ -440,7 +441,7 @@ export class BucketsUsecase {
       throw new BucketNotFoundError();
     }
 
-    if (bucket.user !== userId) {
+    if (!user.owns(bucket)) {
       throw new BucketForbiddenError();
     }
 
@@ -455,8 +456,8 @@ export class BucketsUsecase {
 
     const isMultipartUpload = shards.some((shard) => shard.UploadId);
 
-    if (user.migrated) {
-      if (user.maxSpaceBytes < user.totalUsedSpaceBytes + bucketEntrySize) {
+    if (user.onlyUsesV2Api) {
+      if (!user.hasSpaceFor(bucketEntrySize)) {
         if (isMultipartUpload) {
           await this.abortMultiPartUpload(
             shards as ShardWithMultiUpload[],
@@ -467,12 +468,9 @@ export class BucketsUsecase {
         throw new MaxSpaceUsedError();
       }
     } else {
-      const usedSpaceBytes = await this.getUserUsage(user.id);
+      const usedSpaceBytes = await this.getUserUsage(user.get('id'));
 
-      if (
-        user.maxSpaceBytes <
-        user.totalUsedSpaceBytes + usedSpaceBytes + bucketEntrySize
-      ) {
+      if (!user.hasSpaceFor(usedSpaceBytes + bucketEntrySize)) {
         if (isMultipartUpload) {
           await this.abortMultiPartUpload(
             shards as ShardWithMultiUpload[],
@@ -516,7 +514,7 @@ export class BucketsUsecase {
     });
 
     await this.bucketEntryShardsRepository.insertMany(bucketEntryShards);
-    await this.usersRepository.addTotalUsedSpaceBytes(userId, bucketEntrySize);
+    await this.usersRepository.incrementTotalUsedSpaceBytes(user, bucketEntrySize);
     this.uploadsRepository
       .deleteManyByUuids(uploads.map((u) => u.uuid))
       .catch((err) => {
