@@ -1,7 +1,9 @@
 import { User } from '../users/User';
 
+export type BucketId = string;
+
 export interface Bucket {
-  id: string;
+  id: BucketId;
   user: User['id'];
   encryptionKey: string;
   name: string;
