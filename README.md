@@ -1,10 +1,10 @@
-Bridge
+Network
 =
 [![ci](https://github.com/internxt/bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/internxt/bridge/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/internxt/bridge/branch/master/graph/badge.svg?token=5D9UW1HSCK)](https://codecov.io/gh/internxt/bridge)
 [![node](https://img.shields.io/badge/node-14.18-brightgreen)](https://nodejs.org/download/release/latest-fermium/)
 
-This project is an API to provide storage based on Node.js+Express.
+The Internxt's Storage API.
 
 ## Config
 
