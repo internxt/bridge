@@ -54,7 +54,7 @@ When this project is run for the first time, the default configuration can be fo
 
 ## Start app
 
-Run `yarn run dev` start the server with hot-reloading.
+Run `yarn run dev` to start the server with hot-reloading.
 
 ### Running in docker:
 
@@ -72,21 +72,21 @@ yarn run test
 ```
 
 ## Project guideline
-This project currently divides the server in 3 layers: 
+This project currently divides the server into 3 layers: 
 - Use cases (```lib/core/${domain}/usecase.ts``` or if not still migrated: ```lib/server/routes/${domain}.js```)
 - Persistence (```lib/core/${domain}/repository.ts``` or if not still migrated: ```lib/server/routes/${domain}.js```)
 - Controllers (```lib/server/http/${domain}/controller.ts``` or if not still migrated: ```lib/server/routes/${domain}.js```)
 
 The project has these main folders
 - ```/lib```
-  - ```/core```: where new structure with 2 of the 3 layers is being used (usecase, persistence)
+  - ```/core```: where a new structure with 2 of the 3 layers is being used (use case, persistence)
   - ```/server```:
     - ```/routes```: where old structure with one layer (controller+usecase+persistence) is being used.
     - ```/http/${domain}```: where controller layer for the HTTP protocol resides. 
 
-The project is a WIP in the sense that is being rethinked in layers and the actual 3 layers are a matter of convenience that provides better maintainability that the old solution of using one layer with everything mixed.
+The project is a WIP in the sense that is being rethought in layers and the actual 3 layers are a matter of convenience that provides better maintainability that the old solution of using one layer with everything mixed.
 
-As the word 'domain' is being used, we have agreed to use any entity as a domain (which is not correct) as a temporal convention, therefore, any explanation about how to define this layers is provided here. Each entity has maybe a controller, usecase and repo, that is the unique guideline for now. 
+As the word 'domain' is being used, we have agreed to use any entity as a domain (which is not correct) as a temporal convention, therefore, any explanation about how to define this layers is provided here. Each entity has maybe a controller, use case, and repo, that is the unique guideline for now. 
   
 ## API documentation
 We do not provide API documentation currently. We plan to do it in the future.
