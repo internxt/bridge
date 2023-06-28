@@ -22,6 +22,12 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     return buckets.map(formatFromMongoToBucket);
   }
 
+  async findByUser(userId: string, limit: number, skip: number): Promise<Bucket[]> {
+    const buckets = await this.model.find({ user: userId }).skip(skip).limit(limit).exec();
+
+    return buckets;
+  }
+
   async findByIds(ids: string[]): Promise<Bucket[]> {
     const buckets = await this.model.find({ _id: { $in: ids } });
 
@@ -40,6 +46,12 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     }
 
     return formatFromMongoToBucket(rawModel);
+  }
+
+  destroyByUser(userId: string): Promise<void> {
+    return this.model.deleteMany({
+      user: userId,
+    });
   }
 
   removeAll(where: Partial<Bucket>): Promise<void> {
