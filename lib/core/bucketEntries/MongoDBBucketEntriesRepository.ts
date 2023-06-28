@@ -57,6 +57,10 @@ export const formatFromMongoToBucketEntryWithFrame = (
 export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
   constructor(private model: any) {}
 
+  count(where: Partial<BucketEntry>): Promise<number> {
+    return this.model.find(where).count();
+  }
+
   async findOne(where: Partial<BucketEntry>): Promise<BucketEntry | null> {
     let query: Partial<BucketEntry> & { _id?: string } = where;
 
@@ -74,6 +78,16 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     }
 
     return formatFromMongoToBucketEntry(bucketEntry);
+  }
+
+  async findByBucket(
+    bucketId: string,
+    limit = 20,
+    skip = 0
+  ): Promise<BucketEntry[]> {
+    const bucketEntries = await this.model.find({ bucket: bucketId }).skip(skip).limit(limit).exec();
+
+    return bucketEntries;
   }
 
   async findByIds(ids: string[]): Promise<BucketEntry[]> {

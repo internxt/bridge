@@ -652,4 +652,14 @@ export class BucketsUsecase {
 
     return newShard;
   } 
+
+  async listByUserId(userId: User['id'], limit: number, offset: number): Promise<Bucket[]> {
+    const buckets = await this.bucketsRepository.findByUser(userId, limit, offset);
+
+    return buckets;
+  }
+
+  async destroyByUser(userId: User['id']) {
+    await this.bucketsRepository.destroyByUser(userId);
+  }
 }

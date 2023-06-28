@@ -12,6 +12,7 @@ import { MirrorsRepository } from '../mirrors/Repository';
 import { BucketEntry } from './BucketEntry';
 import { UsersRepository } from '../users/Repository';
 import { User } from '../users/User';
+import { Bucket } from '../buckets/Bucket';
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -33,6 +34,18 @@ export class BucketEntriesUsecase {
     private shardsUsecase: ShardsUsecase,
     private usersRepository: UsersRepository
   ) { }
+
+  async listByBucket(bucketId: Bucket['id'], limit=20, offset=0): Promise<BucketEntry[]> {
+    const bucketEntries = await this.bucketEntriesRepository.findByBucket(bucketId, limit, offset);
+
+    return bucketEntries;
+  }
+
+  async countByBucket(bucketId: Bucket['id']): Promise<number> {
+    const count = await this.bucketEntriesRepository.count({ bucket: bucketId });
+
+    return count;
+  }
 
   async removeFileFromUser(bucketId: string, fileId: string, userId: string) {
     const bucket = await this.bucketsRepository.findOne({ id: bucketId });
