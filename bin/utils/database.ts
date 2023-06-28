@@ -15,7 +15,10 @@ export interface Models {
     Mirror: any,
     User: any,
     Frame: any,
-    Pointer: any
+    Pointer: any,
+    Upload: any,
+    Token: any,
+    Contact: any
 };
 
 export async function connectToDatabase(configJSON: any, mongoURL: string): Promise<Models> {
