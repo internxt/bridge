@@ -2,8 +2,8 @@ import { UsersRepository } from './Repository';
 import { CreateUserData, User, BasicUser } from './User';
 
 type DatabaseUser = {
-  id: string;
-  email: BasicUser['id'];
+  id: DatabaseUser['uuid'];
+  email: string;
   uuid: string;
   created: Date;
   activated: boolean;
@@ -38,6 +38,12 @@ export class MongoDBUsersRepository implements UsersRepository {
       return null;
     }
     return formatFromMongoToUser(user);
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    const user = await this.userModel.findOne({ email });
+
+    return user ? formatFromMongoToUser(user) : null;
   }
 
   async findByIds(ids: string[]): Promise<User[]> {
@@ -94,6 +100,11 @@ export class MongoDBUsersRepository implements UsersRepository {
   async updateById(id: string, update: any): Promise<User | null> {
     await this.userModel.updateOne({ _id: id }, update);
     return this.findById(id);
+  }
+
+  async updateByEmail(email: string, update: Partial<User>): Promise<User | null> {
+    await this.userModel.updateOne({ email }, update);
+    return this.findByEmail(email);
   }
 
   async updateByUuid(uuid: string, update: Partial<User>) {

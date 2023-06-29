@@ -116,16 +116,16 @@ export class BucketEntriesUsecase {
       const bucketsGroupedByUsers = lodash.groupBy(buckets, (b) => b.user);
       const storageToModifyPerUser: Record<User['id'], number> = {};
 
-      Object.keys(bucketsGroupedByUsers).map((userEmail) => {
-        storageToModifyPerUser[userEmail] = 0;
+      Object.keys(bucketsGroupedByUsers).map((userId) => {
+        storageToModifyPerUser[userId] = 0;
       });
       
-      Object.keys(bucketsGroupedByUsers).map((userEmail) => {
-        const buckets = bucketsGroupedByUsers[userEmail];
+      Object.keys(bucketsGroupedByUsers).map((userId) => {
+        const buckets = bucketsGroupedByUsers[userId];
 
         for (const bucket of buckets) {
           const userBucketEntries = bucketEntriesGroupedByBucket[bucket.id.toString()];
-          storageToModifyPerUser[userEmail] += userBucketEntries.reduce((acumm, b) => b.size! + acumm, 0);
+          storageToModifyPerUser[userId] += userBucketEntries.reduce((acumm, b) => b.size! + acumm, 0);
         }
       });
 
