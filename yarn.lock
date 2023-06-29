@@ -7364,7 +7364,7 @@ storj-analytics@internxt/inxt-analytics:
 
 "storj-mongodb-adapter@github:internxt/mongodb-adapter#update/update-with-storj-models":
   version "9.0.1-beta"
-  resolved "https://codeload.github.com/internxt/mongodb-adapter/tar.gz/47041c101723812afb29b09f5da0d4cdf460dd69"
+  resolved "https://codeload.github.com/internxt/mongodb-adapter/tar.gz/6149880ae364f0d42f78b1ccb998ec6193e57961"
   dependencies:
     mongoose "^5.10.4"
     storj-lib "github:internxt/core#v8.7.3-beta"
