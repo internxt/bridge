@@ -69,7 +69,7 @@ export class UsersUsecase {
 
     if (user) {
       const newHassPass = createHash('sha256').update(password).digest('hex');
-      const userWithModifiedPass = await this.usersRepository.updateById(email, { hashpass: newHassPass }) as BasicUser;
+      const userWithModifiedPass = await this.usersRepository.updateByEmail(email, { hashpass: newHassPass }) as BasicUser;
       return userWithModifiedPass;
     }
 
@@ -96,7 +96,7 @@ export class UsersUsecase {
       throw new InvalidDataFormatError('Invalid email address provided');
     }
 
-    const maybeAlreadyExistentUser = await this.usersRepository.findById(email);
+    const maybeAlreadyExistentUser = await this.usersRepository.findByEmail(email);
     const userAlreadyExists = !!maybeAlreadyExistentUser;
 
     if (userAlreadyExists) {
@@ -120,11 +120,11 @@ export class UsersUsecase {
   }
 
   async requestPasswordReset(
-    userRequestingResetId: string,
+    userRequestingResetEmail: User['email'],
     redirect: string,
     url?: string
   ): Promise<BasicUser> {
-    const user = await this.usersRepository.findById(userRequestingResetId);
+    const user = await this.usersRepository.findByEmail(userRequestingResetEmail);
 
     if (!user) {
       throw new UserNotFoundError();
@@ -132,12 +132,12 @@ export class UsersUsecase {
 
     const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
 
-    await this.usersRepository.updateById(userRequestingResetId, {
+    await this.usersRepository.updateById(userRequestingResetEmail, {
       resetter: resetToken
     });
 
     await this.mailUsecase.sendResetPasswordMail(
-      userRequestingResetId, 
+      userRequestingResetEmail, 
       resetToken, 
       redirect, 
       url
@@ -181,17 +181,17 @@ export class UsersUsecase {
     return user;
   }
 
-  async requestUserDestroy(userId: string, deactivator: string, redirect: string) {
-    const user = await this.usersRepository.findById(userId);
+  async requestUserDestroy(userEmail: string, deactivator: string, redirect: string) {
+    const user = await this.usersRepository.findByEmail(userEmail);
 
     if (!user) {
-      throw new UserNotFoundError(userId);
+      throw new UserNotFoundError(userEmail);
     }
 
     await this.usersRepository.updateById(user.id, { deactivator });
 
     this.eventBus.emit(EventBusEvents.UserDestroyRequest, {
-      userRequestingDestroyEmail: user.id,
+      userRequestingDestroyEmail: user.email,
       mailParams: {
         deactivator,
         redirect
