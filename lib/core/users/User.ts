@@ -1,7 +1,8 @@
 export interface User {
-  id: string;
+  id: User['uuid'];
   resetter: string | null;
   uuid: string;
+  email: string;
   password: string;
   maxSpaceBytes: number;
   deactivator: string | null;

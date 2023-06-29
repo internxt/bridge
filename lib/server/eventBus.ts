@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { Logger } from 'winston';
 import { MailUsecase } from '../core/mail/usecase';
 import { Notifications } from './notifications';
+import { User } from '../core/users/User';
 
 const { trackUserActivated } = require('../analytics');
 
@@ -14,16 +15,16 @@ export enum EventBusEvents {
 }
 
 interface UserCreationStartsPayload {
-  email: string;
+  email: User['email'];
 }
 
 interface UserCreationEndsPayload {
-  email: string;
-  uuid: string;
+  email: User['email'];
+  uuid: User['id'];
 }
 
 interface UserDestroyRequestPayload {
-  userRequestingDestroyEmail: string;
+  userRequestingDestroyEmail: User['email'];
   mailParams: {
     deactivator: string;
     redirect: string;
