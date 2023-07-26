@@ -30,7 +30,7 @@ import { Upload } from '../uploads/Upload';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
-    super(`Bucket entry ${bucketEntryId || ''} not found`);
+    super(`Bucket entry ${bucketEntryId ?? ''} not found`);
 
     Object.setPrototypeOf(this, BucketEntryNotFoundError.prototype);
   }
@@ -38,7 +38,7 @@ export class BucketEntryNotFoundError extends Error {
 
 export class BucketNotFoundError extends Error {
   constructor(bucketId?: string) {
-    super(`Bucket ${bucketId || ''} not found`);
+    super(`Bucket ${bucketId ?? ''} not found`);
 
     Object.setPrototypeOf(this, BucketNotFoundError.prototype);
   }
@@ -272,7 +272,7 @@ export class BucketsUsecase {
   async getUserUsage(user: User['id']): Promise<number> {
     const usage = await this.framesRepository.getUserUsage(user);
 
-    return (usage && usage.total) || 0;
+    return usage?.total || 0;
   } 
 
   async startUpload(
