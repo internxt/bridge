@@ -27,7 +27,6 @@ import { ContactsRepository } from '../contacts/Repository';
 import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
-import _ from 'lodash';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
