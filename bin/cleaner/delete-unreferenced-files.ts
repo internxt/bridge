@@ -200,7 +200,7 @@ async function deleteFilesInTheNetworkButNotInDrive(
     console.log(
       'Error removing file %s of user %s: %s',
       currentFile!._id,
-      (currentUser as any).id,
+      currentUser.id,
       (err as Error).message
     );
     console.error((err as Error).stack);
@@ -213,7 +213,7 @@ async function deleteFilesInTheNetworkButNotInDrive(
     console.log(
       'Last file deleted: %s (from user %s)',
       currentFile!._id,
-      (currentUser as any).id
+      currentUser.id
     );
   }
 }
