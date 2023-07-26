@@ -6,6 +6,19 @@ Network
 
 The Internxt's Storage API.
 
+# Project Manteinance
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
+
+We aim to have: 
+- An 'A' score on Maintainability Rating
+- An 'A' score on Security Rating
+- A 3% of duplicated lines
+
 ## Config
 
 
