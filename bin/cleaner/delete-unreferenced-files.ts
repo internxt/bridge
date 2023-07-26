@@ -54,24 +54,6 @@ if (!program.bridgeEndpoint) {
   throw new Error('Add the bridge URL as -b or --bridgeendpoint');
 }
 
-// if (
-//   !program.deleteUnreferencedFilesFromUser &&
-//   !program.deleteUnreferencedFilesFromBackups
-// ) {
-//   throw new Error(
-//     'You must specify which files to delete either from backups (-B) or from users (-U)'
-//   );
-// }
-
-// if (
-//   program.deleteUnreferencedFilesFromUser &&
-//   program.deleteUnreferencedFilesFromBackups
-// ) {
-//   throw new Error(
-//     'You must specify which files to delete either from backups (-B) or from users (-U). But not both'
-//   );
-// }
-
 let mongourl;
 let startFromUser;
 let idUserBeingChecked: number;
@@ -112,41 +94,28 @@ const logStatus = () => {
 
 const loggerInterval = setInterval(logStatus, 4000);
 
-// function deleteUnreferencedFilesEntryPoint(cb) {
-//   let startFromUserClause = '';
-//   if (startFromUser) {
-//     startFromUserClause = `WHERE users.id >= ${startFromUser}`;
-//   }
-
-//   if (program.deleteUnreferencedFilesFromUser) {
-//     deleteUnreferencedFilesFromUser(startFromUserClause, cb);
-//   } else if (program.deleteUnreferencedFilesFromBackups) {
-//     deleteUnreferencedFilesFromBackups(startFromUserClause, cb);
-//   }
-// }
-
 const drive = driveRepository(sqlPool);
 
-// async function deleteFilesInDriveButNotInTheNetwork() {
-//   let usersLimit = 5;
-//   let filesLimit = 20;
+async function deleteFilesInDriveButNotInTheNetwork() {
+  let usersLimit = 5;
+  let filesLimit = 20;
 
-//   let lastUserId = 0;
-//   let lastFileId = 0;
+  let lastUserId = 0;
+  let lastFileId = 0;
 
-//   let usersCount = 0;
-//   let filesCount = 0;
+  let usersCount = 0;
+  let filesCount = 0;
 
-//   const users = await drive.getUsers(usersLimit, usersCount, lastUserId);
+  const users = await drive.getUsers(usersLimit, usersCount, lastUserId);
 
-//   for (const user of users) {
-//     const files = await drive.getFiles(user.id, filesLimit, filesCount, lastFileId);
+  for (const user of users) {
+    const files = await drive.getFiles(user.id, filesLimit, filesCount, lastFileId);
 
-//     for (const file of files) {
-//       // TODO: Delete file if not found on the network
-//     }
-//   }
-// }
+    for (const file of files) {
+      // TODO: Delete file if not found on the network
+    }
+  }
+}
 
 async function deleteFilesInTheNetworkButNotInDrive(
   lastFileId: string,
@@ -200,7 +169,7 @@ async function deleteFilesInTheNetworkButNotInDrive(
     console.log(
       'Error removing file %s of user %s: %s',
       currentFile!._id,
-      (currentUser as any).id,
+      currentUser.id,
       (err as Error).message
     );
     console.error((err as Error).stack);
@@ -213,98 +182,98 @@ async function deleteFilesInTheNetworkButNotInDrive(
     console.log(
       'Last file deleted: %s (from user %s)',
       currentFile!._id,
-      (currentUser as any).id
+      currentUser.id
     );
   }
 }
 
-// const checkBucketEntry = (
-//   entry,
-//   { idBucket, username, password },
-//   cb
-// ) => {
-//   const idFile = entry._id.toString();
+const checkBucketEntry = (
+  entry,
+  { idBucket, username, password },
+  cb
+) => {
+  const idFile = entry._id.toString();
 
-//   getFileCountQuery(
-//     sqlPool,
-//     sqlFilesQuery,
-//     idFile,
-//     (err, count) => {
-//       if (err) {
-//         return cb(err);
-//       }
-//       if (count > 0) {
-//         return cb();
-//       }
-//       // There are no files referencing this bucket entry, we should delete it:
-//       deleteFile({ bridgeEndpoint, idFile, idBucket, username, password }, (err) => {
-//         if (err) {
-//           return cb(err);
-//         }
-//         deletedFiles += 1;
-//         cb();
-//       });
-//     });
-// };
+  getFileCountQuery(
+    sqlPool,
+    sqlFilesQuery,
+    idFile,
+    (err, count) => {
+      if (err) {
+        return cb(err);
+      }
+      if (count > 0) {
+        return cb();
+      }
+      // There are no files referencing this bucket entry, we should delete it:
+      deleteFile({ bridgeEndpoint, idFile, idBucket, username, password }, (err) => {
+        if (err) {
+          return cb(err);
+        }
+        deletedFiles += 1;
+        cb();
+      });
+    });
+};
 
-// function deleteUnreferencedFiles(cb) {
-//   iterateOverUsers(
-//     sqlPool,
-//     sqlUsersQuery,
-//     (user, nextUser) => {
+function deleteUnreferencedFiles(cb) {
+  iterateOverUsers(
+    sqlPool,
+    sqlUsersQuery,
+    (user, nextUser) => {
 
-//       const {
-//         id_user: idUser,
-//         id_bucket: idBucket,
-//         bridge_user: username,
-//         password,
-//       } = user;
+      const {
+        id_user: idUser,
+        id_bucket: idBucket,
+        bridge_user: username,
+        password,
+      } = user;
 
-//       idUserBeingChecked = idUser;
+      idUserBeingChecked = idUser;
 
-//       const cursor = BucketEntryModel
-//         .find({
-//           bucket: idBucket,
-//         })
-//         .sort({ _id: 1 })
-//         .cursor();
+      const cursor = BucketEntryModel
+        .find({
+          bucket: idBucket,
+        })
+        .sort({ _id: 1 })
+        .cursor();
 
-//       iterateOverCursor(
-//         cursor,
-//         (entry, nextBucketEntry) => {
-//           checkBucketEntry(
-//             entry,
-//             { idBucket, username, password },
-//             nextBucketEntry
-//           );
-//         },
+      iterateOverCursor(
+        cursor,
+        (entry, nextBucketEntry) => {
+          checkBucketEntry(
+            entry,
+            { idBucket, username, password },
+            nextBucketEntry
+          );
+        },
 
-//         (err) => {
-//           if (err) {
-//             return nextUser(err);
-//           }
-//           checkedUsers += 1;
-//           nextUser();
-//         }
-//       );
-//     },
-//     cb
-//   );
-// }
+        (err) => {
+          if (err) {
+            return nextUser(err);
+          }
+          checkedUsers += 1;
+          nextUser();
+        }
+      );
+    },
+    cb
+  );
+}
 
-// deleteUnreferencedFilesEntryPoint((err) => {
-//   mongoose.disconnect();
-//   sqlPool.end();
-//   clearInterval(loggerInterval);
+deleteUnreferencedFilesEntryPoint((err) => {
+  mongoose.disconnect();
+  sqlPool.end();
+  clearInterval(loggerInterval);
 
-//   let programFinishedMessage = `Program finished. Deleted ${deletedFiles} file(s). Last user checked was ${idUserBeingChecked}`;
+  let programFinishedMessage = `Program finished. Deleted ${deletedFiles} file(s). Last user checked was ${idUserBeingChecked}`;
 
-//   if (err) {
-//     programFinishedMessage += `Error ${err.message || 'Unknown error'}`;
-//     console.log(err.stack);
-//   }
-//   console.log(programFinishedMessage);
-// });
+  if (err) {
+    programFinishedMessage += `Error ${err.message || 'Unknown error'}`;
+    console.log(err.stack);
+  }
+  console.log(programFinishedMessage);
+});
 
 deleteFilesInTheNetworkButNotInDrive(
   program.lastFileId || 'aaaaaaaaaaaaaaaaaaaaaaaa',

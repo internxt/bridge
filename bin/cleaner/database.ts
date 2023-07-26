@@ -54,8 +54,6 @@ export async function processEntries(
 }
 
 export async function iterateOverCursor(cursor: any, onEveryEntry: Function) {
-  // console.log('CURSOR', cursor);
-
   // https://mongoosejs.com/docs/api/querycursor.html#query_Query-Symbol.asyncIterator for Node >= 10.x (we use 14)
   for await (const doc of cursor) {
     await onEveryEntry(doc);
