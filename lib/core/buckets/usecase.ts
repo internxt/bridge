@@ -331,7 +331,7 @@ export class BucketsUsecase {
     const uploadPromises = uploads.map(async (upload) => {
       const { index, size } = upload;
 
-      const nodeID = _.sample(cluster);
+      const nodeID = lodash.sample(cluster);
 
       if (!nodeID) {
         throw new NoNodeFoundError();
