@@ -141,7 +141,6 @@ export class BucketsUsecase {
 
   /**
    * Retrieves file links in bulk.
-   * TODO: Add multishard support
    */
   async getFileLinks(fileIds: string[]) {
     const chunksOf = this.MAX_FILES_PER_RETRIEVAL;
