@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apt update && apt upgrade -y && apt autoremove -y
 
 # Install utilities
-RUN apt install curl build-essential python git -y 
+RUN apt install curl build-essential python3 git -y 
 
 COPY . ./
 
