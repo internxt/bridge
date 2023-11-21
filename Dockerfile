@@ -12,7 +12,7 @@ COPY . ./
 
 # Install nvm
 ENV NVM_DIR /root/.nvm
-ENV NODE_VERSION 14.18.0
+ENV NODE_VERSION 16.14.2
 RUN curl https://raw.githubusercontent.com/creationix/nvm/master/install.sh | bash \
   && . $NVM_DIR/nvm.sh \
   && nvm install $NODE_VERSION \
