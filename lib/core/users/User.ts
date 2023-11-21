@@ -15,6 +15,7 @@ export interface User {
   subscriptionPlan?: {
     isSubscribed?: boolean;
   };
+  email: string;
   referralPartner?: string | null;
   preferences?: {
     dnt: boolean;

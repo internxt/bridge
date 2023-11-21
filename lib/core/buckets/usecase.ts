@@ -268,7 +268,7 @@ export class BucketsUsecase {
     return response;
   }
 
-  async getUserUsage(user: User['id']): Promise<number> {
+  async getUserUsage(user: Frame['user']): Promise<number> {
     const usage = await this.framesRepository.getUserUsage(user);
 
     return usage?.total || 0;

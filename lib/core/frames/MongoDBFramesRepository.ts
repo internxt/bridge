@@ -29,7 +29,7 @@ export class MongoDBFramesRepository implements FramesRepository {
     return rawFrames.map(formatFromMongoToFrame);
   }
 
-  getUserUsage(user: User['id']): Promise<{ total: number } | null> {
+  getUserUsage(user: Frame['user']): Promise<{ total: number } | null> {
     return this.model
       .aggregate([
         {
