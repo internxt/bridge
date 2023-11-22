@@ -1,5 +1,5 @@
-import { ObjectId } from 'mongodb';
 import { User } from '../../../../lib/core/users/User';
+import { v4 } from 'uuid';
 
 type MongoUserModel = Required<Omit<User, 'id'>> & {
   _id: string;
@@ -12,14 +12,14 @@ const formatUser = ({ _id, ...model }: MongoUserModel): User => ({
 
 const usersTest: MongoUserModel[] = [
   {
-    _id: 'fff@ff.com',
+    _id: v4(),
     hashpass:
       '4b796e7bbe57f7092d3627d3fa7e6f645b0e50e3411e1fafd61dbf27241d836d',
     subscriptionPlan: {
       isSubscribed: false,
     },
     referralPartner: null,
-
+    email: 'fff@ff.com',
     maxSpaceBytes: 2147483648.0,
     totalUsedSpaceBytes: 14596520,
     preferences: {

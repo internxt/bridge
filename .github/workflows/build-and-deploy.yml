@@ -31,14 +31,13 @@ jobs:
       - uses: actions/checkout@master
       - name: Updates drive cluster network image
         uses: steebchen/kubectl@v2.0.0
-        with: # defaults to latest kubectl binary version
+        with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
           command: set image --record deployment/bridge-api-dp bridge-api=${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }} -n bridge-api-ns
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA }}
-          version: v1.20.2 # specify kubectl binary version explicitly
           command: rollout status deployment/bridge-api-dp -n bridge-api-ns
 
       - uses: actions/checkout@master
@@ -46,11 +45,9 @@ jobs:
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PHOTOS }}
-          version: v1.21.5
           command: set image --record deployment/bridge-api-dp bridge-api=${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }}
       - name: Verify deployment
         uses: steebchen/kubectl@v2.0.0
         with:
           config: ${{ secrets.KUBE_CONFIG_DATA_PHOTOS }}
-          version: v1.21.5
           command: rollout status deployment/bridge-api-dp
