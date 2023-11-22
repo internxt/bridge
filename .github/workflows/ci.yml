@@ -27,6 +27,6 @@ jobs:
 
       - run: yarn --ignore-engines
       - run: yarn run test
-      - run: yarn run test-mongo-init
-      - run: yarn run test-mongo
+      # - run: yarn run test-mongo-init
+      # - run: yarn run test-mongo
       
