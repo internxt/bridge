@@ -275,7 +275,7 @@ export class BucketsUsecase {
   } 
 
   async startUpload(
-    userId: string,
+    userId: User['uuid'],
     bucketId: string,
     cluster: string[],
     uploads: { index: number; size: number }[],
@@ -284,7 +284,7 @@ export class BucketsUsecase {
   ) {
     const [bucket, user] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
-      this.usersRepository.findById(userId),
+      this.usersRepository.findByUuid(userId),
     ]);
 
     if (!user) {
@@ -295,7 +295,9 @@ export class BucketsUsecase {
       throw new BucketNotFoundError();
     }
 
-    if (bucket.user !== userId) {
+    const isBucketOwnedByUser = bucket.userId === user.uuid;
+
+    if (!isBucketOwnedByUser) {
       throw new BucketForbiddenError();
     }
 
@@ -318,7 +320,7 @@ export class BucketsUsecase {
         throw new MaxSpaceUsedError();
       }
     } else {
-      const usedSpaceBytes = await this.getUserUsage(user.id);
+      const usedSpaceBytes = await this.getUserUsage(user.email);
 
       if (
         user.maxSpaceBytes <
@@ -418,15 +420,15 @@ export class BucketsUsecase {
   }
 
   async completeUpload(
-    userId: string, 
-    bucketId: string, 
+    userId: User['uuid'], 
+    bucketId: Bucket['id'], 
     fileIndex: string, 
     shards: ShardWithPossibleMultiUpload[],
     auth: { username: string; password: string }
   ): Promise<BucketEntry> {
     const [bucket, user, uploads] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
-      this.usersRepository.findById(userId),
+      this.usersRepository.findByUuid(userId),
       this.uploadsRepository.findByUuids(shards.map((s) => s.uuid)),
     ]);
 
@@ -438,7 +440,9 @@ export class BucketsUsecase {
       throw new BucketNotFoundError();
     }
 
-    if (bucket.user !== userId) {
+    const isBucketOwnedByUser = bucket.userId === user.uuid;
+
+    if (!isBucketOwnedByUser) {
       throw new BucketForbiddenError();
     }
 
@@ -465,7 +469,7 @@ export class BucketsUsecase {
         throw new MaxSpaceUsedError();
       }
     } else {
-      const usedSpaceBytes = await this.getUserUsage(user.id);
+      const usedSpaceBytes = await this.getUserUsage(user.email);
 
       if (
         user.maxSpaceBytes <
@@ -514,7 +518,7 @@ export class BucketsUsecase {
     });
 
     await this.bucketEntryShardsRepository.insertMany(bucketEntryShards);
-    await this.usersRepository.addTotalUsedSpaceBytes(userId, bucketEntrySize);
+    await this.usersRepository.addTotalUsedSpaceBytes(user.uuid, bucketEntrySize);
     this.uploadsRepository
       .deleteManyByUuids(uploads.map((u) => u.uuid))
       .catch((err) => {
