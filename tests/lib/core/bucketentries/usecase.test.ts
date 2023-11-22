@@ -334,16 +334,16 @@ describe('BucketEntriesUsecase', function () {
       it('When user and bucket exist', async () => {
         const user = fixtures.getUser({ id: userEmail });
         const fileId = 'file-id';
-        const bucket = fixtures.getBucket({ user: user.id });
+        const bucket = fixtures.getBucket({ user: user.email, userId: user.uuid });
         const bucketEntry = fixtures.getBucketEntry({
           id: fileId,
           version: 2,
           bucket: bucket.id
-        })
+        });
 
         stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
         const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
-        const findUserStub = stub(usersRepository, 'findById').resolves(user);
+        const findUserStub = stub(usersRepository, 'findByUuid').resolves(user);
         const addTotalSpaceStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
 
         const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
@@ -357,16 +357,16 @@ describe('BucketEntriesUsecase', function () {
         expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
 
         expect(findUserStub.calledOnce).toBeTruthy();
-        expect(findUserStub.calledWith(bucket.user)).toBeTruthy();
+        expect(findUserStub.calledWith(bucket.userId)).toBeTruthy();
 
         expect(addTotalSpaceStub.calledOnce).toBeTruthy();
-        expect(addTotalSpaceStub.calledWith(bucket.user, -bucketEntry.size!)).toBeTruthy();
+        expect(addTotalSpaceStub.calledWith(bucket.userId, -bucketEntry.size!)).toBeTruthy();
       });
 
       it('When bucket exists but user not', async () => {
         const user = fixtures.getUser({ id: userEmail });
         const fileId = 'file-id';
-        const bucket = fixtures.getBucket({ user: '' });
+        const bucket = fixtures.getBucket({ user: undefined, userId: undefined });
         const bucketEntry = fixtures.getBucketEntry({
           id: fileId,
           version: 2,
@@ -375,7 +375,7 @@ describe('BucketEntriesUsecase', function () {
 
         stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
         const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
-        const findUserStub = stub(usersRepository, 'findById').resolves(user);
+        const findUserStub = stub(usersRepository, 'findByUuid').resolves(null);
         const addTotalSpaceStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
 
         const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
@@ -404,7 +404,7 @@ describe('BucketEntriesUsecase', function () {
 
         stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
         const findBucketStub = stub(bucketsRepository, 'findOne').resolves(null);
-        const findUserStub = stub(usersRepository, 'findById').resolves(user);
+        const findUserStub = stub(usersRepository, 'findByUuid').resolves(user);
         const addTotalSpaceStub = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
 
         const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
@@ -546,18 +546,18 @@ describe('BucketEntriesUsecase', function () {
     });
 
     it('Should try to adjust user usage properly for v2 files', async () => {
-      const firstUserEmail = 'x@y.com';
-      const firstUserBucket = fixtures.getBucket({ user: firstUserEmail });
+      const firstUser = fixtures.getUser();
+      const firstUserBucket = fixtures.getBucket({ user: firstUser.email, userId: firstUser.uuid });
       const firstUserFiles = [
         fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 50 }), 
         fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 10 })
       ];
       
-      const secondUserEmail = 'y@z.com';
-      const secondUserBucket = fixtures.getBucket({ user: secondUserEmail });
+      const secondUser = fixtures.getUser();
+      const secondUserBucket = fixtures.getBucket({ user: secondUser.email, userId: secondUser.uuid });
       const secondUserFile = fixtures.getBucketEntry({ bucket: secondUserBucket.id, version: 2, size: 2 });
 
-      const users = [firstUserEmail, secondUserEmail];
+      const users = [firstUser, secondUser];
       const files = [...firstUserFiles, secondUserFile];
       const buckets = [firstUserBucket, secondUserBucket];
 
@@ -581,7 +581,7 @@ describe('BucketEntriesUsecase', function () {
 
       for (let i = 0; i < users.length; i++) {
         const filesFromUser = files.filter((f) => {
-          const bucket = buckets.find(b => b.user === users[i]) as Bucket;
+          const bucket = buckets.find(b => b.userId === users[i].uuid) as Bucket;
 
           return f.bucket === bucket.id
         });
@@ -589,7 +589,7 @@ describe('BucketEntriesUsecase', function () {
         const totalSizeOfFilesToRemove = filesFromUser.reduce((acumm, f) => acumm + (f.size as number), 0);
 
         expect(addTotalSpaceBytesStub.getCalls()[i].args).toStrictEqual([
-          users[i], 
+          users[i].uuid, 
           -totalSizeOfFilesToRemove
         ]);
       }
@@ -605,7 +605,7 @@ describe('BucketEntriesUsecase', function () {
 
         stub(bucketsRepository, 'findOne').resolves(null);
 
-        await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.id);
+        await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.uuid);
       } catch (err) {
         expect(err).toBeInstanceOf(BucketNotFoundError);
       }
@@ -619,21 +619,21 @@ describe('BucketEntriesUsecase', function () {
 
         stub(bucketsRepository, 'findOne').resolves(bucket);
 
-        await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.id);
+        await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.uuid);
       } catch (err) {
         expect(err).toBeInstanceOf(BucketForbiddenError);
       }
     });
 
     it('Should try to remove the file if the bucket exists and is owned by the user', async () => {
-      const user = fixtures.getUser({ id: userEmail });
-      const bucket = fixtures.getBucket({ user: user.id });
+      const user = fixtures.getUser();
+      const bucket = fixtures.getBucket({ user: user.email, userId: user.uuid });
       const fileId = 'file-id';
 
       const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
       const removeFileStub = stub(bucketEntriesUsecase, 'removeFile').resolves();
 
-      await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.id);
+      await bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.uuid);
 
       expect(findBucketStub.calledOnce).toBeTruthy();
       expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();

@@ -40,6 +40,7 @@ function getBucket(customBucket?: Partial<Bucket>): Bucket {
   const defaultBucket: Bucket = {
     encryptionKey: '',
     id: v4(),
+    userId: v4(),
     name: '',
     status: '',
     storage: 0,
@@ -109,6 +110,7 @@ function getUser(customUser?: Partial<User>): User {
   const defaultUser: User = {
     id: v4(),
     activated: true,
+    email: v4() + '@gmail.com',
     activator: '',
     deactivator: '',
     hashpass: '',

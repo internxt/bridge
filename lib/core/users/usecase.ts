@@ -132,7 +132,7 @@ export class UsersUsecase {
 
     const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
 
-    await this.usersRepository.updateById(userRequestingResetEmail, {
+    await this.usersRepository.updateById(user.id, {
       resetter: resetToken
     });
 

@@ -1,4 +1,7 @@
 import { stub } from 'sinon';
+import { v4 } from 'uuid';
+import { createLogger } from 'winston';
+import { createHash, randomBytes } from 'crypto';
 
 import { UsersRepository } from '../../../../lib/core/users/Repository';
 import { 
@@ -16,8 +19,6 @@ import { FramesRepository } from '../../../../lib/core/frames/Repository';
 import { BucketsRepository } from '../../../../lib/core/buckets/Repository';
 import { Mailer, MailUsecase, SendGridMailUsecase } from '../../../../lib/core/mail/usecase';
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
-import { createLogger } from 'winston';
-import { createHash, randomBytes } from 'crypto';
 import { User } from '../../../../lib/core/users/User';
 import { Notifications } from '../../../../lib/server/notifications';
 
@@ -50,9 +51,10 @@ beforeEach(() => {
 });
 
 const fakeUser: User = {
-  id: 'myemail@internxt.com',
+  id: v4(),
   maxSpaceBytes: 0,
   uuid: 'uuid',
+  email: 'myemail@internxt.com',
   password: 'fake-pass',
   activated: true,
   activator: '',
@@ -66,20 +68,20 @@ const fakeUser: User = {
 describe('Users usecases', () => {
   describe('createUser()', () => {
     it(`Should work if input data is valid`, async () => {
-      stub(usersRepository, 'findById').resolves(null);
+      stub(usersRepository, 'findByEmail').resolves(null);
       stub(usersRepository, 'create').resolves(fakeUser);
 
-      await usecase.createUser(fakeUser.id, fakeUser.password);
+      await usecase.createUser(fakeUser.email, fakeUser.password);
       expect(true).toBeTruthy();
     });
 
     it(`Should emit a ${EventBusEvents.UserCreationStarts} event`, async () => {
       const eventBusEmitterSpy = stub(eventBus, 'emit');
 
-      stub(usersRepository, 'findById').resolves(null);
+      stub(usersRepository, 'findByEmail').resolves(null);
       stub(usersRepository, 'create').resolves(fakeUser);
 
-      await usecase.createUser(fakeUser.id, fakeUser.password);
+      await usecase.createUser(fakeUser.email, fakeUser.password);
 
       expect(eventBusEmitterSpy.called).toBeTruthy();
       expect(eventBusEmitterSpy.calledWith(EventBusEvents.UserCreationStarts, { email: fakeUser.id }))
@@ -88,10 +90,10 @@ describe('Users usecases', () => {
     it(`Should emit a ${EventBusEvents.UserCreationEnds} event`, async () => {
       const eventBusEmitterSpy = stub(eventBus, 'emit');
 
-      stub(usersRepository, 'findById').resolves(null);
+      stub(usersRepository, 'findByEmail').resolves(null);
       stub(usersRepository, 'create').resolves(fakeUser);
 
-      await usecase.createUser(fakeUser.id, fakeUser.password);
+      await usecase.createUser(fakeUser.email, fakeUser.password);
 
       expect(eventBusEmitterSpy.called).toBeTruthy();
       expect(eventBusEmitterSpy.calledWith(EventBusEvents.UserCreationEnds, { 
@@ -112,10 +114,10 @@ describe('Users usecases', () => {
     // });
 
     it(`Should reject if the user already exists`, async () => {
-      stub(usersRepository, 'findById').resolves(fakeUser);
+      stub(usersRepository, 'findByEmail').resolves(fakeUser);
 
       try {
-        await usecase.createUser(fakeUser.id, fakeUser.password);
+        await usecase.createUser(fakeUser.email, fakeUser.password);
         expect(true).toBeFalsy();
       } catch (err) {
         expect(err).toBeInstanceOf(UserAlreadyExistsError);
@@ -125,11 +127,11 @@ describe('Users usecases', () => {
 
   describe('requestPasswordReset()', () => {
     it('Should work if input data is valid', async () => {
-      const findByIdStub = stub(usersRepository, 'findById').resolves(fakeUser);
+      const findByIdStub = stub(usersRepository, 'findByEmail').resolves(fakeUser);
       const updateByIdStub = stub(usersRepository, 'updateById').resolves();
       const sendResetPasswordMailStub = stub(mailUsecase, 'sendResetPasswordMail').resolves();
 
-      const user = await usecase.requestPasswordReset(fakeUser.id, fakeUser.password);
+      const user = await usecase.requestPasswordReset(fakeUser.email, fakeUser.password);
         
       expect(findByIdStub.calledOnce).toBeTruthy();
       expect(updateByIdStub.calledOnce).toBeTruthy();
@@ -138,10 +140,10 @@ describe('Users usecases', () => {
     });
 
     it('Should reject if user does not exist', async () => {
-      const findByIdStub = stub(usersRepository, 'findById').resolves(null);
+      const findByIdStub = stub(usersRepository, 'findByEmail').resolves(null);
 
       try {
-        await usecase.requestPasswordReset(fakeUser.id, fakeUser.password);
+        await usecase.requestPasswordReset(fakeUser.email, fakeUser.password);
         expect(true).toBeFalsy()
       } catch (err) {
         expect(err).toBeInstanceOf(UserNotFoundError);
@@ -151,11 +153,11 @@ describe('Users usecases', () => {
     });
 
     it('Should try to update the reset token of the user requesting the reset', async () => {
-      const findByIdStub = stub(usersRepository, 'findById').resolves(fakeUser);
+      const findByIdStub = stub(usersRepository, 'findByEmail').resolves(fakeUser);
       const updateByIdStub = stub(usersRepository, 'updateById').resolves();
       const sendResetPasswordMailStub = stub(mailUsecase, 'sendResetPasswordMail').resolves();
 
-      await usecase.requestPasswordReset(fakeUser.id, fakeUser.password);
+      await usecase.requestPasswordReset(fakeUser.email, fakeUser.password);
         
       expect(findByIdStub.calledOnce).toBeTruthy();
       expect(updateByIdStub.calledOnce).toBeTruthy();
