@@ -47,14 +47,14 @@ export class BucketEntriesUsecase {
     return count;
   }
 
-  async removeFileFromUser(bucketId: string, fileId: string, userId: string) {
+  async removeFileFromUser(bucketId: string, fileId: string, userId: User['uuid']) {
     const bucket = await this.bucketsRepository.findOne({ id: bucketId });
 
     if(!bucket) {
       throw new BucketNotFoundError();
     }
 
-    if (bucket.user !== userId) {
+    if (bucket.userId !== userId) {
       throw new BucketForbiddenError();
     }
 
@@ -86,11 +86,11 @@ export class BucketEntriesUsecase {
       await this.removeFilesV2([ bucketEntry ]);
       const bucket = await this.bucketsRepository.findOne({ id: bucketEntry.bucket });
 
-      if (bucket?.user) {
-        const user = await this.usersRepository.findById(bucket.user);
+      if (bucket?.userId) {
+        const user = await this.usersRepository.findByUuid(bucket.userId);
 
         if (user) {
-          await this.usersRepository.addTotalUsedSpaceBytes(bucket.user, - bucketEntry.size!);
+          await this.usersRepository.addTotalUsedSpaceBytes(user.uuid, - bucketEntry.size!);
         }
       }
     } else {
@@ -113,8 +113,8 @@ export class BucketEntriesUsecase {
       const bucketEntriesGroupedByBucket = lodash.groupBy(bucketEntriesV2, (b) => b.bucket);
       const buckets = await this.bucketsRepository.findByIds(Object.keys(bucketEntriesGroupedByBucket));
 
-      const bucketsGroupedByUsers = lodash.groupBy(buckets, (b) => b.user);
-      const storageToModifyPerUser: Record<User['id'], number> = {};
+      const bucketsGroupedByUsers = lodash.groupBy(buckets, (b) => b.userId);
+      const storageToModifyPerUser: Record<User['uuid'], number> = {};
 
       Object.keys(bucketsGroupedByUsers).map((userId) => {
         storageToModifyPerUser[userId] = 0;

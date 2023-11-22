@@ -52,6 +52,12 @@ export class MongoDBUsersRepository implements UsersRepository {
     return users.map(formatFromMongoToUser);
   }
 
+  async findByUuid(uuid: string): Promise<User | null> {
+    const user = await this.userModel.findOne({ uuid });
+
+    return user ? formatFromMongoToUser(user) : null;
+  }
+
   async findOne(where: Partial<User>): Promise<BasicUser | null> {
     const user: DatabaseUser = await this.userModel.findOne(where);
 
@@ -116,11 +122,11 @@ export class MongoDBUsersRepository implements UsersRepository {
   }
 
   addTotalUsedSpaceBytes(
-    id: string,
+    uuid: string,
     totalUsedSpaceBytes: number
   ): Promise<void> {
     return this.userModel.updateOne(
-      { _id: id },
+      { uuid },
       { $inc: { totalUsedSpaceBytes } }
     );
   }

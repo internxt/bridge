@@ -1,4 +1,3 @@
-import { User } from '../users/User';
 import { Frame } from './Frame';
 import { FramesRepository } from './Repository';
 

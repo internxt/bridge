@@ -65,7 +65,7 @@ export class UsersUsecase {
   ) {}
 
   async findOrCreateUser(email: string, password: string): Promise<BasicUser> {
-    const user = await this.usersRepository.findById(email);
+    const user = await this.usersRepository.findByEmail(email);
 
     if (user) {
       const newHassPass = createHash('sha256').update(password).digest('hex');
@@ -219,8 +219,8 @@ export class UsersUsecase {
     }
 
     await Promise.all([
-      this.bucketsRepository.removeAll({ user: user.id }),
-      this.framesRepository.removeAll({ user: user.id })
+      this.bucketsRepository.removeAll({ userId: user.uuid }),
+      this.framesRepository.removeAll({ user: user.email })
     ]);
 
     await this.usersRepository.removeById(user.id);
