@@ -1,7 +1,7 @@
 Network
 =
 [![ci](https://github.com/internxt/bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/internxt/bridge/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/internxt/bridge/branch/master/graph/badge.svg?token=5D9UW1HSCK)](https://codecov.io/gh/internxt/bridge)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=internxt_bridge&metric=coverage)](https://sonarcloud.io/summary/new_code?id=internxt_bridge)
 [![node](https://img.shields.io/badge/node-14.18-brightgreen)](https://nodejs.org/download/release/latest-fermium/)
 
 The Internxt's Storage API.
