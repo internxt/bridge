@@ -12,7 +12,8 @@ import {
   UserAlreadyExistsError, 
   UserNotFoundError,
   RESET_PASSWORD_TOKEN_BYTES_LENGTH,
-  SHA256_HASH_BYTES_LENGTH
+  SHA256_HASH_BYTES_LENGTH,
+  EmailIsAlreadyInUseError
 } from '../../../../lib/core';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
@@ -21,6 +22,7 @@ import { Mailer, MailUsecase, SendGridMailUsecase } from '../../../../lib/core/m
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { User } from '../../../../lib/core/users/User';
 import { Notifications } from '../../../../lib/server/notifications';
+import fixtures from '../fixtures';
 
 let usersRepository: UsersRepository;
 let framesRepository: FramesRepository;
@@ -246,6 +248,96 @@ describe('Users usecases', () => {
 
       expect(updateByUuidSpy).toHaveBeenCalledTimes(1);
       expect(updateByUuidSpy).toHaveBeenCalledWith(uuid, { maxSpaceBytes: bytes });
+    });
+  });
+
+  describe('Updating the user email', () => {
+    const user = fixtures.getUser();
+    const otherUser = fixtures.getUser();
+
+    it('When updating the email, it should work if the email is free and the user exists', async () => {
+      const newFreeEmail = otherUser.email;
+      
+      const findOtherUser = stub(usersRepository, 'findByEmail').resolves(null);
+      const findUserWhoseEmailIsChanged = stub(usersRepository, 'findByUuid').resolves(user);
+      const updateFramesUserSpy = jest.spyOn(framesRepository, 'updateUser').mockImplementation();
+      const updateUserEmailSpy = jest.spyOn(usersRepository, 'updateByUuid').mockImplementation();
+
+      await usecase.updateEmail(user.uuid, newFreeEmail);
+
+      expect(findOtherUser.calledOnce).toBeTruthy();
+      expect(findOtherUser.firstCall.args).toStrictEqual([newFreeEmail]);
+      expect(findUserWhoseEmailIsChanged.calledOnce).toBeTruthy();
+      expect(findUserWhoseEmailIsChanged.firstCall.args).toStrictEqual([user.uuid]);
+      expect(updateFramesUserSpy).toHaveBeenCalledTimes(1);
+      expect(updateFramesUserSpy).toHaveBeenCalledWith(user.email, newFreeEmail);
+      expect(updateUserEmailSpy).toHaveBeenCalledTimes(1);
+      expect(updateUserEmailSpy).toHaveBeenCalledWith(user.uuid, { email: newFreeEmail });
+    });
+
+    it('When updating the email, it should fail when the user does not exist', async () => {
+      const newFreeEmail = otherUser.email;
+      
+      const findOtherUser = stub(usersRepository, 'findByEmail').resolves(null);
+      const findUserWhoseEmailIsChanged = stub(usersRepository, 'findByUuid').resolves(null);
+
+      try {
+        await usecase.updateEmail(user.uuid, newFreeEmail);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      } finally {
+        expect(findOtherUser.calledOnce).toBeTruthy();
+        expect(findOtherUser.firstCall.args).toStrictEqual([newFreeEmail]);
+        expect(findUserWhoseEmailIsChanged.calledOnce).toBeTruthy();
+        expect(findUserWhoseEmailIsChanged.firstCall.args).toStrictEqual([user.uuid]);
+      }
+    });
+
+    it('When updating the email, it should fail if it is already in use by another user', async () => {
+      const newFreeEmail = otherUser.email;
+      
+      const findOtherUser = stub(usersRepository, 'findByEmail').resolves(otherUser);
+      const findUserWhoseEmailIsChanged = stub(usersRepository, 'findByUuid').resolves(user);
+
+      try {
+        await usecase.updateEmail(user.uuid, newFreeEmail);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(EmailIsAlreadyInUseError);
+      } finally {
+        expect(findOtherUser.calledOnce).toBeTruthy();
+        expect(findOtherUser.firstCall.args).toStrictEqual([newFreeEmail]);
+        expect(findUserWhoseEmailIsChanged.calledOnce).toBeTruthy();
+        expect(findUserWhoseEmailIsChanged.firstCall.args).toStrictEqual([user.uuid]);
+      }
+    });
+
+    it('When updating the email, it should undo any change if the email update fails', async () => {
+      const newFreeEmail = otherUser.email;
+      const someErrorUpdatingUserEmail = new Error('Some error');
+      const findOtherUser = stub(usersRepository, 'findByEmail').resolves(null);
+      const findUserWhoseEmailIsChanged = stub(usersRepository, 'findByUuid').resolves(user);
+      const updateFramesUserSpy = jest.spyOn(framesRepository, 'updateUser').mockImplementation();
+      const updateUserEmail = stub(usersRepository, 'updateByUuid').rejects(someErrorUpdatingUserEmail);
+
+      try {
+        await usecase.updateEmail(user.uuid, newFreeEmail);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(Error);
+        expect((err as Error).message).toBe(someErrorUpdatingUserEmail.message);
+      } finally {
+        expect(findOtherUser.calledOnce).toBeTruthy();
+        expect(findOtherUser.firstCall.args).toStrictEqual([newFreeEmail]);
+        expect(findUserWhoseEmailIsChanged.calledOnce).toBeTruthy();
+        expect(findUserWhoseEmailIsChanged.firstCall.args).toStrictEqual([user.uuid]);
+        expect(updateFramesUserSpy).toHaveBeenCalledTimes(2);
+        expect(updateFramesUserSpy).nthCalledWith(1, user.email, newFreeEmail);
+        expect(updateFramesUserSpy).nthCalledWith(2, newFreeEmail, user.email);
+        expect(updateUserEmail.calledOnce).toBeTruthy();
+        expect(updateUserEmail.firstCall.args).toStrictEqual([user.uuid, { email: newFreeEmail }]);
+      }
     });
   });
 });

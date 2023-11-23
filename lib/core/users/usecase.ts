@@ -44,6 +44,14 @@ export class UserNotFoundError extends Error {
   }
 }
 
+export class EmailIsAlreadyInUseError extends Error {
+  constructor(user?: string) {
+    super(`Email is already in use. Cannot be assigned ${user ? `to ${user}` : ''}`);
+
+    Object.setPrototypeOf(this, EmailIsAlreadyInUseError.prototype);
+  }
+}
+
 export class ResetPasswordImpersonationError extends Error {
   constructor(
     userPerformingAction?: string,
@@ -63,6 +71,35 @@ export class UsersUsecase {
     private mailUsecase: MailUsecase,
     private eventBus: EventBus
   ) {}
+
+  async updateEmail(uuid: User['uuid'], newEmail: User['email']): Promise<void> {
+    const [maybeAlreadyExistentUser, userToUpdate] = await Promise.all([
+      this.usersRepository.findByEmail(newEmail),
+      this.usersRepository.findByUuid(uuid)
+    ]);
+
+    if (!userToUpdate) {
+      throw new UserNotFoundError(uuid);
+    }
+
+    const aDifferentUserAlreadyHasThisEmail = 
+      maybeAlreadyExistentUser && 
+      maybeAlreadyExistentUser.uuid !== userToUpdate.uuid;
+
+    if (aDifferentUserAlreadyHasThisEmail) {
+      throw new EmailIsAlreadyInUseError('A different user already has this email');
+    }
+
+    await this.framesRepository.updateUser(userToUpdate.email, newEmail);
+
+    try {
+      await this.usersRepository.updateByUuid(uuid, { email: newEmail });
+    } catch (err) {
+      // Rollback frames update
+      await this.framesRepository.updateUser(newEmail, userToUpdate.email);
+      throw err;
+    }
+  }
 
   async findOrCreateUser(email: string, password: string): Promise<BasicUser> {
     const user = await this.usersRepository.findByEmail(email);
