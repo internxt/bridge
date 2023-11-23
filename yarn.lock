@@ -7435,7 +7435,7 @@ statuses@~1.4.0:
 
 "storj-service-storage-models@github:internxt/service-storage-models#v10.6.2":
   version "10.6.2"
-  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/1ee6bdcb4cd250f407aebceffdd024df4251bb90"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/67aa3e204179f8922cfdc90185961c707e0a78d0"
   dependencies:
     bluebird "^3.4.7"
     coinpayments "^2.1.1"
