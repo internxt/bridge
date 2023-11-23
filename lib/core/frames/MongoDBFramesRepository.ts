@@ -28,6 +28,10 @@ export class MongoDBFramesRepository implements FramesRepository {
     return rawFrames.map(formatFromMongoToFrame);
   }
 
+  async updateUser(oldUser: string, newUser: string): Promise<void> {
+    await this.model.updateMany({ user: oldUser }, { user: newUser });    
+  }
+
   getUserUsage(user: Frame['user']): Promise<{ total: number } | null> {
     return this.model
       .aggregate([
