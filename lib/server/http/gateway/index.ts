@@ -8,6 +8,7 @@ export const createGatewayHTTPRouter = (
   const router = Router();
 
   router.post('/users', jwtMiddleware, controller.findOrCreateUser.bind(controller));
+  router.patch('/users/:uuid', controller.updateUserEmail.bind(controller));
   router.put('/storage/users/:uuid', jwtMiddleware, controller.changeStorage.bind(controller));
   router.delete('/storage/files', jwtMiddleware, controller.deleteFilesInBulk.bind(controller));
   

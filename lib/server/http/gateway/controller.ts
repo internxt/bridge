@@ -22,13 +22,14 @@ export class HTTPGatewayController {
     private eventBus: EventBus
   ) {}
 
-  async updateUserEmail(req: Request<{}, {}, { email?: string, uuid: string }, {}>, res: Response) {
-    if (!req.body || !req.body.email || !req.body.uuid) {
+  async updateUserEmail(req: Request<{ uuid: string }, {}, { email?: string }, {}>, res: Response) {
+    if (!req.body || !req.body.email || !req.params.uuid) {
       return res.status(400).send();
     }
 
     try {
-      const { email, uuid } = req.body;
+      const { email } = req.body;
+      const { uuid } = req.params;
 
       await this.usersUsecase.updateEmail(uuid, email);
 
@@ -44,7 +45,7 @@ export class HTTPGatewayController {
       }
       this.logger.error(
         '[GATEWAY/UPDATE_EMAIL] Error updating user %s email: %s. %s', 
-        req.body.uuid, 
+        req.params.uuid, 
         err.message, 
         err.stack
       );

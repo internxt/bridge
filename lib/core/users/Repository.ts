@@ -10,6 +10,6 @@ export interface UsersRepository {
   addTotalUsedSpaceBytes(uuid: User['uuid'], totalUsedSpaceBytes: User['totalUsedSpaceBytes']): Promise<void>;
   updateById(id: User['id'], update: Partial<User>): Promise<User | null>;
   updateByEmail(email: User['email'], update: Partial<User>): Promise<User | null>;
-  updateByUuid(uuid: User['uuid'], update: Partial<User>): Promise<BasicUser | null>;
+  updateByUuid(uuid: User['uuid'], update: Partial<User>): Promise<void>;
   removeById(id: User['id']): Promise<void>;
 }
