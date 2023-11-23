@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
-import { InvalidDataFormatError, UserAlreadyExistsError, UsersUsecase } from '../../../core';
+import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
@@ -21,6 +21,37 @@ export class HTTPGatewayController {
     private logger: Logger,
     private eventBus: EventBus
   ) {}
+
+  async updateUserEmail(req: Request<{}, {}, { email?: string, uuid: string }, {}>, res: Response) {
+    if (!req.body || !req.body.email || !req.body.uuid) {
+      return res.status(400).send();
+    }
+
+    try {
+      const { email, uuid } = req.body;
+
+      await this.usersUsecase.updateEmail(uuid, email);
+
+      res.status(200).send();
+    } catch (error) {
+      const err = error as Error;
+
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+      if (err instanceof EmailIsAlreadyInUseError) {
+        return res.status(409).send({ message: err.message });
+      }
+      this.logger.error(
+        '[GATEWAY/UPDATE_EMAIL] Error updating user %s email: %s. %s', 
+        req.body.uuid, 
+        err.message, 
+        err.stack
+      );
+    
+      res.status(500).send({ message: 'Internal Server Error' });
+    }
+  }
 
   async findOrCreateUser(req: Request<{}, {}, { email?: string, password?: string }, {}>, res: Response) {
     if (!req.body || !req.body.email || !req.body.password) {
