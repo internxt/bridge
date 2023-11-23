@@ -1,0 +1,25 @@
+name: Pre build ( Health check )
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+jobs:
+  build:
+    strategy:
+      matrix:
+        node-version: [16.x]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+
+      - name: Install dependencies
+        run: yarn --ignore-engines
+
+      - name: Build
+        run: yarn build
