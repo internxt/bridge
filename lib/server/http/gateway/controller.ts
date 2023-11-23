@@ -23,8 +23,8 @@ export class HTTPGatewayController {
   ) {}
 
   async updateUserEmail(req: Request<{ uuid: string }, {}, { email?: string }, {}>, res: Response) {
-    if (!req.body || !req.body.email || !req.params.uuid) {
-      return res.status(400).send();
+    if (!(req.body && req.body.email && req.params.uuid)) {
+      return res.status(400).send({ error: "Missing params" });
     }
 
     try {
