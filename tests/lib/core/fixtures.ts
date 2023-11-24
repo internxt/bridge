@@ -112,7 +112,7 @@ function getUser(customUser?: Partial<User>): User {
     activated: true,
     email: v4() + '@gmail.com',
     activator: '',
-    deactivator: '',
+    deactivator: v4(),
     hashpass: '',
     isFreeTier: true,
     maxSpaceBytes: 0,

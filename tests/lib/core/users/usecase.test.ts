@@ -340,4 +340,111 @@ describe('Users usecases', () => {
       }
     });
   });
+
+  describe('Requesting user destroy', () => {
+    it('When requesting a user destroy, it should work if the user exists', async () => {
+      const user = fixtures.getUser();
+      const redirect = 'redirect';
+      const findUser = stub(usersRepository, 'findByEmail').resolves(user);
+      const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
+      const eventBusEmitterSpy = jest.spyOn(eventBus, 'emit').mockImplementation();
+
+      await usecase.requestUserDestroy(user.email, user.deactivator as string, redirect);
+
+      expect(findUser.calledOnce).toBeTruthy();
+      expect(findUser.firstCall.args).toStrictEqual([user.email]);
+      expect(updateById).toBeCalledTimes(1);
+      expect(updateById).toBeCalledWith(user.id, { deactivator: user.deactivator });
+      expect(eventBusEmitterSpy).toBeCalledTimes(1);
+      expect(eventBusEmitterSpy).toBeCalledWith(EventBusEvents.UserDestroyRequest, {
+        userRequestingDestroyEmail: user.email,
+        mailParams: {
+          deactivator: user.deactivator,
+          redirect,
+        }
+      });
+    });
+
+    it('When requesting a user destroy, it should fail if the user does not exist', async () => {
+      const user = fixtures.getUser();
+      const redirect = 'redirect';
+      const findUser = stub(usersRepository, 'findByEmail').resolves(null);
+
+      try {
+        await usecase.requestUserDestroy(user.email, user.deactivator as string, redirect);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+        expect(findUser.calledOnce).toBeTruthy();
+        expect(findUser.firstCall.args).toStrictEqual([user.email]);
+      }
+    });
+  });
+
+  describe('Destroying a user', () => {
+    it('When destroying a user, it should remove the user if it exists', async () => {
+      const user = fixtures.getUser();
+      const findUser = stub(usersRepository, 'findById').resolves(user);
+      const deleteBuckets = jest.spyOn(bucketsRepository, 'removeAll').mockImplementation();
+      const deleteFrames = jest.spyOn(framesRepository, 'removeAll').mockImplementation();
+      const deleteUser = jest.spyOn(usersRepository, 'removeById').mockImplementation();
+
+      await usecase.destroyUser(user.id);
+
+      expect(findUser.calledOnce).toBeTruthy();
+      expect(findUser.firstCall.args).toStrictEqual([user.id]);
+      expect(deleteBuckets).toBeCalledTimes(1);
+      expect(deleteBuckets).toBeCalledWith({ userId: user.uuid });
+      expect(deleteFrames).toBeCalledTimes(1);
+      expect(deleteFrames).toBeCalledWith({ user: user.email });
+      expect(deleteUser).toBeCalledTimes(1);
+      expect(deleteUser).toBeCalledWith(user.id);
+    });
+
+    it('When destroying a user that not exists, it fails', async () => {
+      const user = fixtures.getUser();
+      const findUser = stub(usersRepository, 'findById').resolves(null);
+  
+      try {
+        await usecase.destroyUser(user.id);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+        expect(findUser.calledOnce).toBeTruthy();
+        expect(findUser.firstCall.args).toStrictEqual([user.id]);
+      }
+    });
+  });
+
+  describe('Confirming user destruction', () => {
+    it('When confirming a destruction of a user that exists, then it works', async () => {
+      const user = fixtures.getUser();
+      const findUser = stub(usersRepository, 'findOne').resolves(user);
+      const destroyUser = jest.spyOn(usecase, 'destroyUser').mockImplementation();
+
+      const returnedUser = await usecase.confirmDestroyUser(user.deactivator as string);
+
+      expect(user).toStrictEqual(returnedUser);
+      expect(findUser.calledOnce).toBeTruthy();
+      expect(findUser.firstCall.args).toStrictEqual([{ deactivator: user.deactivator }]);
+      expect(destroyUser).toBeCalledTimes(1);
+      expect(destroyUser).toBeCalledWith(user.id);
+
+      destroyUser.mockRestore();
+    });
+
+    it('When confirming a destruction of a user that not exists, then it fails', async () => {
+      const user = fixtures.getUser();
+      const findUser = stub(usersRepository, 'findOne').resolves(null);
+  
+      try {
+        await usecase.confirmDestroyUser(user.deactivator as string);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+        expect(findUser.calledOnce).toBeTruthy();
+        expect(findUser.firstCall.args).toStrictEqual([{ deactivator: user.deactivator }]);
+      }
+    });
+  });
 });
