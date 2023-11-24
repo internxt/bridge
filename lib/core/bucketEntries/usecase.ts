@@ -61,16 +61,6 @@ export class BucketEntriesUsecase {
     return this.removeFile(fileId);
   }
 
-  async removeFileAndValidateBucketExists(bucketId: string, fileId: string) {
-    const bucket = await this.bucketsRepository.findOne({ id: bucketId });
-    
-    if(!bucket) {
-      throw new BucketNotFoundError();
-    }
-
-    return this.removeFile(fileId);
-  }
-
   async removeFile(fileId: string): Promise<void> {
     const bucketEntry = await this.bucketEntriesRepository.findOne({ id: fileId });
 

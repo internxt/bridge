@@ -642,36 +642,4 @@ describe('BucketEntriesUsecase', function () {
       expect(removeFileStub.calledWith(fileId)).toBeTruthy();
     });
   });
-
-  describe('removeFileAndValidateBucketExists()', () => {
-    it('Should throw an error if bucket is not found', async () => {
-      try {
-        const bucket = fixtures.getBucket();
-        const fileId = 'file-id';
-
-        stub(bucketsRepository, 'findOne').resolves(null);
-
-        await bucketEntriesUsecase.removeFileAndValidateBucketExists(bucket.id, fileId);
-      } catch (err) {
-        expect(err).toBeInstanceOf(BucketNotFoundError);
-      }
-    });
-
-    it('Should try to remove the file if the bucket exists', async () => {
-      const user = fixtures.getUser({ id: userEmail });
-      const bucket = fixtures.getBucket({ user: user.id });
-      const fileId = 'file-id';
-
-      const findBucketStub = stub(bucketsRepository, 'findOne').resolves(bucket);
-      const removeFileStub = stub(bucketEntriesUsecase, 'removeFile').resolves();
-
-      await bucketEntriesUsecase.removeFileAndValidateBucketExists(bucket.id, fileId);
-
-      expect(findBucketStub.calledOnce).toBeTruthy();
-      expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
-
-      expect(removeFileStub.calledOnce).toBeTruthy();
-      expect(removeFileStub.calledWith(fileId)).toBeTruthy();
-    });
-  });
 });
