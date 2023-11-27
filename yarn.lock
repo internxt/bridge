@@ -866,9 +866,9 @@
     mongodb "^4.5.0"
 
 "@types/node@*", "@types/node@>=8.1.0":
-  version "20.9.4"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.9.4.tgz#cc8f970e869c26834bdb7ed480b30ede622d74c7"
-  integrity sha512-wmyg8HUhcn6ACjsn8oKYjkN/zUzQeNtMy44weTJSM6p4MMzEOuKbA3OjJ267uPCOW7Xex9dyrNTful8XTQYoDA==
+  version "20.10.0"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.10.0.tgz#16ddf9c0a72b832ec4fcce35b8249cf149214617"
+  integrity sha512-D0WfRmU9TQ8I9PFx9Yc+EBHw+vSpIub4IDvQivcp26PtPrdMGAq5SDcpXEo/epqa/DXotVpekHiLNTg3iaKXBQ==
   dependencies:
     undici-types "~5.26.4"
 
@@ -7435,7 +7435,7 @@ statuses@~1.4.0:
 
 "storj-service-storage-models@github:internxt/service-storage-models#v10.6.2":
   version "10.6.2"
-  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/67aa3e204179f8922cfdc90185961c707e0a78d0"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/dd5be413409a2968bc4fec8f3c1fddec7610e9cc"
   dependencies:
     bluebird "^3.4.7"
     coinpayments "^2.1.1"
