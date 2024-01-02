@@ -30,7 +30,7 @@
     "test:cov": "jest --coverage",
     "test-mongo-init": "ts-node ./tests/lib/mongo/init",
     "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand",
-    "clean": "ts-node ./bin/delete-objects.ts",
+    "clean": "ts-node ./bin/delete-objects",
     "cli": "ts-node ./bin/cli"
   },
   "repository": {
