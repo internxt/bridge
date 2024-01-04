@@ -1,6 +1,12 @@
 import AWS from 'aws-sdk';
 import { existsSync, createReadStream } from 'fs';
 import readline from 'readline';
+import { createHash } from 'crypto';
+
+import { ShardsRepository } from '../../lib/core/shards/Repository';
+import { Shard } from '../../lib/core/shards/Shard';
+import { MongoDBCollections, TempShardDocument } from './temp-shard.model';
+import { ObjectId } from 'mongodb';
 
 export interface StorageObject {
   Key: string;
@@ -131,3 +137,82 @@ export class S3ObjectStorageReader implements ObjectStorageReader {
   }
 }
 
+export interface ShardsReader {
+  list(pageSize: number): AsyncGenerator<Shard>;
+  isV1(s: Shard): boolean;
+}
+
+interface TempShardsReader {
+  list(pageSize: number): AsyncGenerator<TempShardDocument>;
+}
+
+interface TempShardsWriter {
+  write(shard: Shard): Promise<void>;
+}
+
+function isValidShardHash(hash: string) {
+  return !!hash.match(/^[a-f0-9]{40}$/);
+}
+
+export function ripemd160(content: string) {
+  if (!isValidShardHash(content)) {
+    throw Error('Invalid hex string');
+  }
+
+  return createHash('ripemd160').update(Buffer.from(content, 'hex')).digest('hex');
+}
+
+export class DatabaseShardsReader implements ShardsReader {  
+  constructor(private readonly shardsRepository: ShardsRepository) {}
+
+  isV1(s: Shard): boolean {
+    const doesNotHaveUuid = !s.uuid;
+
+    return isValidShardHash(s.hash) && doesNotHaveUuid;
+  }
+
+  async* list(pageSize = 1000): AsyncGenerator<Shard> {
+    let offset = 0;
+    do {
+      const shards = await this.shardsRepository.findWithNoUuid(
+        pageSize,
+        offset,
+      );
+      for (const shard of shards) {
+        yield shard;
+      }
+      offset += shards.length;
+    } while (offset % pageSize === 0);
+  }
+}
+
+export class DatabaseTempShardsWriter implements TempShardsWriter {
+  constructor(private readonly tempShards: MongoDBCollections['tempShards']) {}
+
+  async write(shard: Shard): Promise<void> {
+    await this.tempShards.insertOne({
+      hash: shard.hash,
+      objectStorageHash: ripemd160(shard.hash),
+      shardId: new ObjectId(shard.id),
+      size: shard.size,
+    });
+  }
+}
+
+export class DatabaseTempShardsReader implements TempShardsReader {
+  constructor(private readonly tempShards: MongoDBCollections['tempShards']) {}
+
+  async* list(pageSize = 1000): AsyncGenerator<TempShardDocument> {
+    let offset = 0;
+    do {
+      const tempShards = await this.tempShards.find(
+        {},
+        { limit: pageSize, skip: offset },
+      ).toArray();
+      for (const tempShard of tempShards) {
+        yield tempShard;
+      }
+      offset += tempShards.length;
+    } while (offset % pageSize === 0);
+  }
+}
