@@ -10,6 +10,7 @@ export interface StorageObject {
 
 export interface ObjectStorageReader {
   listObjects(pageSize: number): AsyncGenerator<StorageObject>;
+  find(key: string): Promise<StorageObject | null>;
 }
 
 /**
@@ -51,6 +52,22 @@ export class FileListObjectStorageReader implements ObjectStorageReader {
       yield { Key, Size: parseInt(Size), LastModified: new Date() };
     }
   }
+
+  async find(key: string): Promise<StorageObject | null> {
+    const fileStream = createReadStream(this.filename);
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity // To recognize '\n' as a line delimiter
+    });
+
+    for await (const line of rl) {
+      const [Size, Key] = line.split(' ');
+      if (Key === key) {
+        return { Key, Size: parseInt(Size), LastModified: new Date() };
+      }
+    }
+    return null;
+  }
 }
 
 export class S3ObjectStorageReader implements ObjectStorageReader {
@@ -91,6 +108,26 @@ export class S3ObjectStorageReader implements ObjectStorageReader {
       }
       lastPointer = response.NextContinuationToken;
     } while (lastPointer);
+  }
+
+  async find(key: string): Promise<StorageObject | null> {
+    try {
+      const response = await this.s3.headObject({
+        Bucket: this.bucket,
+        Key: key,
+      }).promise();
+      
+      return {
+        Key: key,
+        Size: response.ContentLength ?? 0,
+        LastModified: response.LastModified ?? new Date(),
+      };
+    } catch (error) {
+      if ((error as { code: string }).code === 'NotFound') {
+        return null;
+      }
+      throw error;
+    }
   }
 }
 
