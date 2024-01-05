@@ -1,4 +1,4 @@
-import { User } from '../../lib/core/users/User';
+import { User } from '../../../lib/core/users/User';
 import { v4 } from 'uuid';
 
 export type MongoUserModel = Required<Omit<User, 'id'>> & {

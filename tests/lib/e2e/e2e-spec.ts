@@ -2,7 +2,7 @@ import supertest from 'supertest'
 import { checkConnection, cleanDataBase, createTestUser, getAuth, testUser } from './utils'
 // Remove jest args so there is no conflict with storj-bridge
 process.argv = process.argv.slice(0, 2)
-const engine = require('../../bin/storj-bridge')
+const engine = require('../../../bin/storj-bridge')
 
 import sendGridMail from '@sendgrid/mail'
 
