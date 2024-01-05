@@ -8,7 +8,7 @@ import {
   UsersUsecase 
 } from '../../../core';
 
-type AuthorizedRequest<T> = Request<T> & { user: { _id: string } };
+type AuthorizedRequest<T> = Request<T> & { user: { _id: string, email: string } };
 
 export class HTTPUsersController {
   constructor(
@@ -110,7 +110,7 @@ export class HTTPUsersController {
     res: Response
   ) {
     const { deactivator, redirect } = req.query;
-    const userId = (req as AuthorizedRequest<any>).user._id;
+    const userEmail = (req as AuthorizedRequest<any>).user.email;
 
     if (!deactivator || !redirect) {
       return res.status(400).send({ error: 'Missing required params' });
@@ -118,7 +118,7 @@ export class HTTPUsersController {
 
     try {
       const userRequestedToBeDestroyed = await this.usersUsecase.requestUserDestroy(
-        userId, 
+        userEmail, 
         deactivator, 
         redirect
       );
