@@ -3,7 +3,8 @@ db.createUser({
   pwd: 'password',
   roles: [
     { role: 'readWrite', db: '__inxt-network' },
-    { role: 'readAnyDatabase', db: 'admin' }
+    { role: 'readAnyDatabase', db: 'admin' },
+    { role: 'clusterMonitor', db: 'admin' }
   ],
 });
 

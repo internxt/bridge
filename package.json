@@ -28,6 +28,7 @@
     "build": "tsc",
     "test": "jest --testPathIgnorePatterns ./tests/lib/mongo",
     "test:cov": "jest --coverage",
+    "test:e2e": "NODE_ENV=test jest --config ./tests/e2e/jest-e2e.json --setupFiles dotenv/config",
     "test-mongo-init": "ts-node ./tests/lib/mongo/init",
     "test-mongo": "jest ./tests/lib/mongo --testTimeout 30000 --runInBand",
     "clean": "ts-node ./bin/delete-objects",
@@ -62,6 +63,7 @@
     "@types/node": "^17.0.23",
     "@types/node-mongodb-fixtures": "^3.2.3",
     "@types/sinon": "^10.0.11",
+    "@types/supertest": "^2.0.12",
     "@types/uuid": "^8.3.4",
     "chai": "^4.2.0",
     "coveralls": "^2.11.6",
@@ -85,6 +87,7 @@
     "redis-mock": "^0.16.0",
     "rimraf": "^2.6.3",
     "sinon": "^13.0.1",
+    "supertest": "^6.2.4",
     "ts-jest": "^27.1.4",
     "ts-node": "^10.7.0"
   },
