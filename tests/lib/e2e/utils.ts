@@ -8,14 +8,14 @@ export const checkConnection = (storage: any) => {
   }
 }
 
-export const createTestUser = async (storage: any): Promise<MongoUserModel> => { 
-  const user:MongoUserModel = await new Promise(resolve => storage.models.User.create({
+export const createTestUser = async (storage: any): Promise<MongoUserModel> => {
+  const user: MongoUserModel = await new Promise(resolve => storage.models.User.create({
     email: testUser.email,
     password: testUser.hashpass,
     maxSpaceBytes: testUser.maxSpaceBytes,
     uuid: testUser.uuid,
   }, (err: Error, user: MongoUserModel) => {
-    if(err) throw err
+    if (err) throw err
     resolve(user)
   }))
 
@@ -32,29 +32,27 @@ export const createTestUser = async (storage: any): Promise<MongoUserModel> => {
   return user
 }
 
-export const deleteTestUser = async (storage: any): Promise<void> => { 
+export const deleteTestUser = async (storage: any): Promise<void> => {
   return await new Promise(resolve => storage.models.User.deleteOne({
     email: testUser.email,
   }, (err: Error) => {
-    if(err) throw err
+    if (err) throw err
     resolve()
   }))
 
 }
 
-export const getAuth = (user: { email: string , hashpass: string }) => {
+export const getAuth = (user: { email: string, hashpass: string }) => {
   const credential = Buffer.from(`${user.email}:${user.hashpass}`).toString('base64');
   return `Basic ${credential}`;
 }
 
 
-export const cleanDataBase = (storage: any) => {
+export const cleanDataBase = async (storage: any) => {
   checkConnection(storage)
-  storage.models.User.deleteMany({}, (err: Error) => { 
-    if(err) throw err
-  })
 
-  storage.models.Bucket.deleteMany({}, (err: Error) => { 
-    if(err) throw err
-  })
+  await Promise.all([
+    storage.models.User.deleteMany({}),
+    storage.models.Bucket.deleteMany({})
+  ])
 }

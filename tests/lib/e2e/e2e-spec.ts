@@ -24,12 +24,12 @@ describe('Bridge E2E Tests', () => {
     jest.clearAllMocks()
   })
 
-  beforeAll(() => {
-    cleanDataBase(engine.storage)
+  beforeAll(async () => {
+    await cleanDataBase(engine.storage)
   })
 
-  afterAll(() => {
-    cleanDataBase(engine.storage)
+  afterAll(async () => {
+    await cleanDataBase(engine.storage)
   })
 
   describe('Buckets', () => {
