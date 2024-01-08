@@ -57,9 +57,9 @@ describe('Bridge E2E Tests', () => {
             pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
             name: 'test-bucket-name'
           })
-          .expect(201);
 
         // Assert
+        expect(response.status).toBe(201)
         expect(response.body).toHaveProperty('id')
 
         const buckets = await engine.storage.models.Bucket.find({ _id: response.body.id })
@@ -87,10 +87,11 @@ describe('Bridge E2E Tests', () => {
           .patch(`/buckets/${bucket.id}`)
           .set('Authorization', getAuth(testUser))
           .send({ pubkeys: [] })
-          .expect(200);
 
 
         // Assert
+        expect(response.status).toBe(200);
+
         const dbBucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
         expect(dbBucket.toObject().pubkeys).toEqual([])
 
@@ -111,13 +112,13 @@ describe('Bridge E2E Tests', () => {
           .expect(201);
 
         // Act: Delete the bucket
-        await supertest(engine.server.app)
+        const response = await supertest(engine.server.app)
           .delete(`/buckets/${bucket.id}`)
           .set('Authorization', getAuth(testUser))
-          .expect(204)
 
 
         // Assert
+        expect(response.status).toBe(204)
         const buckets = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
         expect(buckets).toBeNull()
 
@@ -134,9 +135,9 @@ describe('Bridge E2E Tests', () => {
         const response = await supertest(engine.server.app)
           .post('/users')
           .send({ email: 'test' + testUser.email, password: testUser.hashpass })
-          .expect(201);
 
         // Assert
+        expect(response.status).toBe(201);
         const users = await engine.storage.models.User.find({ _id: response.body.id })
         expect(users).toHaveLength(1)
         expect(users[0].toObject().activated).toBe(true)
@@ -156,12 +157,12 @@ describe('Bridge E2E Tests', () => {
           .expect(201);
 
         // Act: Request Deactivation
-        await supertest(engine.server.app)
+        const response = await supertest(engine.server.app)
           .delete(`/users/${user.email}?deactivator=test-deactivator-token-request-deactivation&redirect=/`)
           .set('Authorization', getAuth({ email: user.email, hashpass: testUser.hashpass }))
-          .expect(200)
 
         // Assert
+        expect(response.status).toBe(200)
         const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
         expect(dbUser).not.toBeNull()
 
@@ -189,11 +190,11 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth({ email: user.email, hashpass: testUser.hashpass }))
           .expect(200)
 
-        // Assert: Confirm Deactivation
-        await supertest(engine.server.app)
-          .get(`/deactivations/${token}`)
-          .expect(200)
+        // Act: Confirm Deactivation
+        const response = await supertest(engine.server.app).get(`/deactivations/${token}`)
 
+        // Assert
+        expect(response.status).toBe(200)
         const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
         expect(dbUserAfterDeactivation).toBeNull()
       })
@@ -205,10 +206,10 @@ describe('Bridge E2E Tests', () => {
         const response = await supertest(engine.server.app)
           .post('/v2/users')
           .send({ email: 'test_v2' + testUser.email, password: testUser.hashpass })
-          // .expect(201);
-          .expect(200);
 
         // Assert
+        expect(response.status).toBe(200);
+        // expect(response.status).toBe(201);
         const users = await engine.storage.models.User.find({ _id: response.body.id })
         expect(users).toHaveLength(1)
 
@@ -230,12 +231,13 @@ describe('Bridge E2E Tests', () => {
 
 
         // Act: Request Deactivation
-        await supertest(engine.server.app)
+        const response = await supertest(engine.server.app)
           .delete(`/v2/users/request-deactivate?deactivator=test-deactivator-token-request-deactivation-v2&redirect=/`)
           .set('Authorization', getAuth({ email: testEmail, hashpass: testUser.hashpass }))
-          .expect(200)
 
         // Assert
+        expect(response.status).toBe(200);
+
         const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
         expect(dbUser).not.toBeNull()
 
@@ -267,11 +269,10 @@ describe('Bridge E2E Tests', () => {
 
 
         // Act: Confirm Deactivation
-        await supertest(engine.server.app)
-          .delete(`/v2/users/confirm-deactivate/${token}`)
-          .expect(200)
+        const response = await supertest(engine.server.app).delete(`/v2/users/confirm-deactivate/${token}`)
 
         // Assert
+        expect(response.status).toBe(200);
         const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
         expect(dbUserAfterDeactivation).toBeNull()
 
@@ -291,19 +292,18 @@ describe('Bridge E2E Tests', () => {
           // .expect(201)
           .expect(200);
 
-        // Arrange: Bypass JWT verification
-
 
         // Act: Update User Email
         const newEmail = 'new_email_v2' + testUser.email
-        await supertest(engine.server.app)
+        const response = await supertest(engine.server.app)
           .patch(`/v2/gateway/users/${user.id}`)
           .set('Authorization', `Bearer fake-token`)
           .send({ email: newEmail })
-          .expect(200)
 
 
         // Assert
+        expect(response.status).toBe(200);
+
         const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
         expect(dbUser.toObject().email).toBe(newEmail)
 
