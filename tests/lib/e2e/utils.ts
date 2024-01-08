@@ -1,6 +1,8 @@
-import { MongoUserModel, users } from './users.fixtures'
-export const [testUser] = users
+import { type Test, type SuperTest } from 'supertest'
+import { MongoUserModel, testUser, } from './users.fixtures'
 
+
+export * from './users.fixtures'
 
 export const checkConnection = (storage: any) => {
   if (!storage.connection.options.dbName.includes('test')) {
@@ -42,17 +44,8 @@ export const deleteTestUser = async (storage: any): Promise<void> => {
 
 }
 
+
 export const getAuth = (user: { email: string, hashpass: string }) => {
   const credential = Buffer.from(`${user.email}:${user.hashpass}`).toString('base64');
   return `Basic ${credential}`;
-}
-
-
-export const cleanDataBase = async (storage: any) => {
-  checkConnection(storage)
-
-  await Promise.all([
-    storage.models.User.deleteMany({}),
-    storage.models.Bucket.deleteMany({})
-  ])
 }

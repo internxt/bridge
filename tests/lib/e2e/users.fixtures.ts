@@ -40,3 +40,4 @@ const usersTest: MongoUserModel[] = [
 
 export const users: MongoUserModel[] = usersTest;
 export const userFixtures: User[] = usersTest.map(formatUser);
+export const [testUser] = users
