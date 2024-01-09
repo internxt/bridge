@@ -8,7 +8,8 @@ export default async () => {
 
   await Promise.all([
     db.collection('users').deleteMany({}),
-    db.collection('buckets').deleteMany({})
+    db.collection('buckets').deleteMany({}),
+    db.collection('contacts').deleteMany({}),
   ]);
 
   await client.close();

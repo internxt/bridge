@@ -15,7 +15,8 @@ export default async () => {
   const db = client.db();
   await Promise.all([
     db.collection('users').deleteMany({}),
-    db.collection('buckets').deleteMany({})
+    db.collection('buckets').deleteMany({}),
+    db.collection('contacts').deleteMany({}),
   ]);
 
   globalThis.mongoClient = client;
