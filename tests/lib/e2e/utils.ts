@@ -1,10 +1,10 @@
 import { engine } from './setup';
 import { TestUser, testUser, User } from './users.fixtures'
 
-type Args = { storage: any, user: TestUser }
+type Args = { storage?: any, user?: TestUser }
 
-export const createTestUser = async (args: Args = { storage: engine.storage, user: testUser }): Promise<User> => {
-  const { storage, user } = args
+export const createTestUser = async (args: Args = {}): Promise<User> => {
+  const { storage = engine.storage, user = testUser } = args
 
   const payload = { email: user.email, password: user.password }
   const createdUser: User = await new Promise(resolve => storage.models.User.create(payload, (err: Error, user: any) => {
@@ -22,8 +22,8 @@ export const createTestUser = async (args: Args = { storage: engine.storage, use
   return createdUser
 }
 
-export const deleteTestUser = async (args: Args = { storage: engine.storage, user: testUser }): Promise<void> => {
-  const { storage, user } = args
+export const deleteTestUser = async (args: Args = { }): Promise<void> => {
+  const { storage = engine.storage, user = testUser } = args
   return await new Promise(resolve => storage.models.User.deleteOne({
     email: user.email,
   }, (err: Error) => {

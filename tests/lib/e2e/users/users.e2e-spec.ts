@@ -30,195 +30,334 @@ describe('Bridge E2E Tests', () => {
 
   describe('Users Management', () => {
 
-    describe('User creation v1', () => {
-      it('should create a user with email and password', async () => {
 
-        // Act
-        const response = await testServer
-          .post('/users')
-          .send({ email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }) })
+    describe('User Management v1', () => {
 
-        // Assert
-        expect(response.status).toBe(201);
-        const users = await engine.storage.models.User.find({ _id: response.body.id })
-        expect(users).toHaveLength(1)
+      describe('Creating a new user', () => {
 
-        expect(users[0].toObject().activated).toBe(true)
+        it('When creating a user, it should work if email is not in use', async () => {
 
-        // expect(dispatchSendGridMock).toHaveBeenCalled()
+          // Arrange
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
 
+          // Act
+          const response = await testServer
+            .post('/users')
+            .send(payload)
+
+          // Assert
+          expect(response.status).toBe(201);
+          const users = await engine.storage.models.User.find({ _id: response.body.id })
+          expect(users).toHaveLength(1)
+
+          expect(users[0].toObject().activated).toBe(true)
+
+          // expect(dispatchSendGridMock).toHaveBeenCalled()
+
+        })
+        it('When creating a user, it should fail if email is in use', async () => {
+
+          // Arrange
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          await testServer
+            .post('/users')
+            .send(payload)
+            .expect(201);
+
+          // Act
+          const response = await testServer
+            .post('/users')
+            .send(payload)
+
+          // Assert
+          expect(response.status).toBe(400);
+
+
+        })
+      })
+
+      describe('Deleting an existing user', () => {
+
+        it('When requesting user deactivation, it should work for authorized user email', async () => {
+          // Arrange: Mock SendGrid call
+          engine.mailer.dispatchSendGrid = jest.fn((_, __, ___, cb) => { sendGridMail.send(null as any, null as any, cb) })
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/users')
+            .send(payload)
+            .expect(201);
+
+          // Act: Request Deactivation
+          const deactivatorHash = dataGenerator.hash()
+          const response = await testServer
+            .delete(`/users/${user.email}?deactivator=${deactivatorHash}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+
+          // Assert
+          expect(response.status).toBe(200)
+          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUser).not.toBeNull()
+
+          const token = dbUser.toObject().deactivator
+          expect(token).toBe(deactivatorHash)
+
+          expect(sendGridMail.send).toHaveBeenCalled()
+
+
+        })
+
+        it('When requesting user deactivation, it should fail for an email different than authorized user email', async () => {
+
+          // Arrange: Create User
+          const payload1 = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/users')
+            .send(payload1)
+            .expect(201);
+
+          const payload2 = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          await testServer
+            .post('/users')
+            .send(payload2)
+            .expect(201);
+
+          // Act: Request Deactivation
+          const deactivatorHash = dataGenerator.hash()
+          const response = await testServer
+            .delete(`/users/${payload2.email}?deactivator=${deactivatorHash}&redirect=/`)
+            .set('Authorization', getAuth(payload1))
+
+          // Assert
+          expect(response.status).toBe(401)
+          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUser).not.toBeNull()
+
+          const token = dbUser.toObject().deactivator
+          expect(token).toBeNull()
+
+        })
+
+        it('When confirming user deactivation, it should work with the correct deactivator', async () => {
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/users')
+            .send(payload)
+            .expect(201);
+
+
+          // Arrange: Request Deactivation
+          const token = dataGenerator.hash()
+          await testServer
+            .delete(`/users/${user.email}?deactivator=${token}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+            .expect(200)
+
+          // Act: Confirm Deactivation
+          const response = await testServer.get(`/deactivations/${token}`)
+
+          // Assert
+          expect(response.status).toBe(200)
+          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUserAfterDeactivation).toBeNull()
+        })
+
+        it('When confirming user deactivation, it should fail with an incorrect deactivator', async () => {
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/users')
+            .send(payload)
+            .expect(201);
+
+
+          // Arrange: Request Deactivation
+          const token = dataGenerator.hash()
+          await testServer
+            .delete(`/users/${user.email}?deactivator=${token}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+            .expect(200)
+
+          // Act: Confirm Deactivation
+          const response = await testServer.get(`/deactivations/${dataGenerator.hash()}`)
+
+          // Assert
+          expect(response.status).toBe(404)
+          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUserAfterDeactivation).not.toBeNull()
+        })
       })
     })
 
-    describe('User deletion v1', () => {
-      it('should be able to request a user deactivation', async () => {
 
-        // Arrange: Mock SendGrid call
-        engine.mailer.dispatchSendGrid = jest.fn((_, __, ___, cb) => { sendGridMail.send(null as any, null as any, cb) })
+    describe('User Management v2', () => {
 
-        // Arrange: Create User
-        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-        const { body: user } = await testServer
-          .post('/users')
-          .send(payload)
-          .expect(201);
+      describe('Creating a new user', () => {
+        it('When creating a user, it should work if email is not in use', async () => {
 
-        // Act: Request Deactivation
-        const deactivatorHash = dataGenerator.hash()
-        const response = await testServer
-          .delete(`/users/${user.email}?deactivator=${deactivatorHash}&redirect=/`)
-          .set('Authorization', getAuth(payload))
+          // Arrange
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          // Act: Create a user
+          const response = await testServer
+            .post('/v2/users')
+            .send(payload)
 
-        // Assert
-        expect(response.status).toBe(200)
-        const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-        expect(dbUser).not.toBeNull()
+          // Assert
+          expect(response.status).toBe(200);
+          // expect(response.status).toBe(201);
+          const users = await engine.storage.models.User.find({ _id: response.body.id })
+          expect(users).toHaveLength(1)
 
-        const token = dbUser.toObject().deactivator
-        expect(token).toBe(deactivatorHash)
+          expect(users[0].toObject().activated).toBe(true)
+        })
+        it('When creating a user, it should fail if email is in use', async () => {
 
-        expect(sendGridMail.send).toHaveBeenCalled()
+          // Arrange
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          await testServer
+            .post('/v2/users')
+            .send(payload)
+            .expect(200);
 
+          // Act: Create a user
+          const response = await testServer
+            .post('/v2/users')
+            .send(payload)
+
+          // Assert
+          expect(response.status).toBe(400);
+         
+        })
+      })
+
+      describe('Deleting an existing user', () => {
+
+        it('When requesting user deactivation, it should work for authorized user', async () => {
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/v2/users')
+            .send(payload)
+            // .expect(201)
+            .expect(200);
+
+
+          // Act: Request Deactivation
+          const deactivatorHash = dataGenerator.hash()
+          const response = await testServer
+            .delete(`/v2/users/request-deactivate?deactivator=${deactivatorHash}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+
+          // Assert
+          expect(response.status).toBe(200);
+
+          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUser).not.toBeNull()
+
+          const token = dbUser.toObject().deactivator
+          expect(token).toBe(deactivatorHash)
+
+          expect(sendGridMail.send).toHaveBeenCalled()
+
+        })
+
+        it('When confirming user deactivation, it should work with the correct deactivator', async () => {
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/v2/users')
+            .send(payload)
+            // .expect(201)
+            .expect(200);
+
+
+          // Arrange: Request Deactivation
+          const token = dataGenerator.hash()
+          await testServer
+            .delete(`/v2/users/request-deactivate?deactivator=${token}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+            .expect(200)
+
+
+          // Act: Confirm Deactivation
+          const response = await testServer.delete(`/v2/users/confirm-deactivate/${token}`)
+
+          // Assert
+          expect(response.status).toBe(200);
+          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUserAfterDeactivation).toBeNull()
+
+        })
+        it('When confirming user deactivation, it should fail with an incorrect deactivator', async () => {
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/v2/users')
+            .send(payload)
+            // .expect(201)
+            .expect(200);
+
+
+          // Arrange: Request Deactivation
+          const token = dataGenerator.hash()
+          await testServer
+            .delete(`/v2/users/request-deactivate?deactivator=${token}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+            .expect(200)
+
+
+          // Act: Confirm Deactivation
+          const response = await testServer.delete(`/v2/users/confirm-deactivate/${dataGenerator.hash()}`)
+
+          // Assert
+          expect(response.status).toBe(404);
+          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUserAfterDeactivation).not.toBeNull()
+
+        })
 
       })
 
-      it('should be able to confirm a user deactivation', async () => {
+      describe('User update v2', () => {
 
-        // Arrange: Create User
-        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-        const { body: user } = await testServer
-          .post('/users')
-          .send(payload)
-          .expect(201);
+        it('should be able to update a user email via gateway', async () => {
+
+          // Arrange: Create User
+          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
+          const { body: user } = await testServer
+            .post('/v2/users')
+            .send(payload)
+            // .expect(201)
+            .expect(200);
 
 
-        // Arrange: Request Deactivation
-        const token = dataGenerator.hash()
-        await testServer
-          .delete(`/users/${user.email}?deactivator=${token}&redirect=/`)
-          .set('Authorization', getAuth(payload))
-          .expect(200)
+          // Act: Update User Email
+          const newEmail = dataGenerator.email()
+          const response = await testServer
+            .patch(`/v2/gateway/users/${user.id}`)
+            .set('Authorization', `Bearer fake-token`)
+            .send({ email: newEmail })
 
-        // Act: Confirm Deactivation
-        const response = await testServer.get(`/deactivations/${token}`)
 
-        // Assert
-        expect(response.status).toBe(200)
-        const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
-        expect(dbUserAfterDeactivation).toBeNull()
+          // Assert
+          expect(response.status).toBe(200);
+
+          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUser.toObject().email).toBe(newEmail)
+
+        })
       })
+
     })
 
-    describe('User creation v2', () => {
-      it('should create a user with email and password', async () => {
-        // Act: Create a user
-        const response = await testServer
-          .post('/v2/users')
-          .send({ email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }) })
 
-        // Assert
-        expect(response.status).toBe(200);
-        // expect(response.status).toBe(201);
-        const users = await engine.storage.models.User.find({ _id: response.body.id })
-        expect(users).toHaveLength(1)
-
-        expect(users[0].toObject().activated).toBe(true)
-      })
-    })
-
-    describe('User deletion v2', () => {
-
-      it('should be able to request a user deactivation', async () => {
-
-        // Arrange: Create User
-        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-        const { body: user } = await testServer
-          .post('/v2/users')
-          .send(payload)
-          // .expect(201)
-          .expect(200);
-
-
-        // Act: Request Deactivation
-        const deactivatorHash = dataGenerator.hash()
-        const response = await testServer
-          .delete(`/v2/users/request-deactivate?deactivator=${deactivatorHash}&redirect=/`)
-          .set('Authorization', getAuth(payload))
-
-        // Assert
-        expect(response.status).toBe(200);
-
-        const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-        expect(dbUser).not.toBeNull()
-
-        const token = dbUser.toObject().deactivator
-        expect(token).toBe(deactivatorHash)
-
-        expect(sendGridMail.send).toHaveBeenCalled()
-
-
-      })
-
-      it('should be able to confirm a user deactivation', async () => {
-
-        // Arrange: Create User
-        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-        const { body: user } = await testServer
-          .post('/v2/users')
-          .send(payload)
-          // .expect(201)
-          .expect(200);
-
-
-        // Arrange: Request Deactivation
-        const token = dataGenerator.hash()
-        await testServer
-          .delete(`/v2/users/request-deactivate?deactivator=${token}&redirect=/`)
-          .set('Authorization', getAuth(payload))
-          .expect(200)
-
-
-        // Act: Confirm Deactivation
-        const response = await testServer.delete(`/v2/users/confirm-deactivate/${token}`)
-
-        // Assert
-        expect(response.status).toBe(200);
-        const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
-        expect(dbUserAfterDeactivation).toBeNull()
-
-      })
-
-    })
-
-    describe('User update v2', () => {
-
-      it('should be able to update a user email via gateway', async () => {
-
-        // Arrange: Create User
-        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-        const { body: user } = await testServer
-          .post('/v2/users')
-          .send(payload)
-          // .expect(201)
-          .expect(200);
-
-
-        // Act: Update User Email
-        const newEmail = dataGenerator.email()
-        const response = await testServer
-          .patch(`/v2/gateway/users/${user.id}`)
-          .set('Authorization', `Bearer fake-token`)
-          .send({ email: newEmail })
-
-
-        // Assert
-        expect(response.status).toBe(200);
-
-        const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-        expect(dbUser.toObject().email).toBe(newEmail)
-
-      })
-    })
   })
 
 })

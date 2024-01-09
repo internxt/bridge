@@ -1,3 +1,4 @@
+import { dataGenerator } from './../users.fixtures'
 // import crypto from 'crypto';
 import { createTestUser, deleteTestUser, getAuth, } from '../utils'
 import { engine, testServer } from '../setup'
@@ -26,84 +27,166 @@ describe('Bridge E2E Tests', () => {
 
   describe('Buckets Management', () => {
 
-    describe('Bucket creation v1', () => {
+    describe('Bucket Management v1', () => {
 
-      it('should create a bucket with name and pubkeys', async () => {
+      describe('Creating a bucket', () => {
 
-        // Act
-        const response = await testServer
-          .post('/buckets')
-          .set('Authorization', getAuth(testUser))
-          .send({
-            pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
-            name: 'test-bucket-name'
-          })
+        it('When you want create the root bucket, it should work without any arguments', async () => {
 
-        // Assert
-        expect(response.status).toBe(201)
-        expect(response.body).toHaveProperty('id')
+          // Act
+          const response = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(testUser))
 
-        const buckets = await engine.storage.models.Bucket.find({ _id: response.body.id })
-        expect(buckets).toHaveLength(1)
+          // Assert
+          expect(response.status).toBe(201)
+          expect(response.body).toHaveProperty('id')
 
+          const buckets = await engine.storage.models.Bucket.find({ _id: response.body.id })
+          expect(buckets).toHaveLength(1)
+
+        })
+        it('When you want create a bucket with name and pubkeys, it should work with correctly formatted pubkeys', async () => {
+
+          // Act
+          const response = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(testUser))
+            .send({
+              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              name: 'test-bucket-name'
+            })
+
+          // Assert
+          expect(response.status).toBe(201)
+          expect(response.body).toHaveProperty('id')
+
+          const buckets = await engine.storage.models.Bucket.find({ _id: response.body.id })
+          expect(buckets).toHaveLength(1)
+
+        })
+        it('When you want create a bucket with name and pubkeys, it should fail with incorrectly formatted pubkeys', async () => {
+
+          // Act
+          const response = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(testUser))
+            .send({
+              pubkeys: ['invalid-pubkey'],
+              name: 'test-bucket-name'
+            })
+
+          // Assert
+          expect(response.status).toBe(400)
+
+        })
       })
-    })
 
-    describe('Bucket update v1', () => {
+      describe('Updating a bucket', () => {
 
-      it('should be able to update a bucket to empty pubkeys', async () => {
-        // Arrange
-        const { body: bucket } = await testServer
-          .post('/buckets')
-          .set('Authorization', getAuth(testUser))
-          .send({
-            pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
-            name: 'test-bucket-name-1'
-          })
-          .expect(201);
+        it('Whe you want to update a bucket, it should work with empty pubkeys list', async () => {
+          // Arrange
+          const { body: bucket } = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(testUser))
+            .send({
+              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              name: dataGenerator.word({ length: 7 })
+            })
+            .expect(201);
 
-        // Act
-
-
-        const response = await testServer
-          .patch(`/buckets/${bucket.id}`)
-          .set('Authorization', getAuth(testUser))
-          .send({ pubkeys: [] })
+          // Act
+          const response = await testServer
+            .patch(`/buckets/${bucket.id}`)
+            .set('Authorization', getAuth(testUser))
+            .send({ pubkeys: [] })
 
 
-        // Assert
-        expect(response.status).toBe(200);
+          // Assert
+          expect(response.status).toBe(200);
 
-        const dbBucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
-        expect(dbBucket.toObject().pubkeys).toEqual([])
+          const dbBucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
+          expect(dbBucket.toObject().pubkeys).toEqual([])
 
+        })
+        it('Whe you want to update a bucket, it should fail with invalid pubkeys list', async () => {
+          // Arrange
+          const { body: bucket } = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(testUser))
+            .send({
+              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              name: dataGenerator.word({ length: 7 })
+            })
+            .expect(201);
+
+          // Act
+          const response = await testServer
+            .patch(`/buckets/${bucket.id}`)
+            .set('Authorization', getAuth(testUser))
+            .send({ pubkeys: ['invalid-pubkey'] })
+
+
+          // Assert
+          expect(response.status).toBe(400);
+
+          const dbBucket = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
+          expect(dbBucket.toObject().pubkeys).toEqual(['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'])
+
+        })
       })
-    })
 
-    describe('Bucket deletion v1', () => {
-      it('should be able to delete a bucket', async () => {
+      describe('Deleting a bucket', () => {
+        it('When you want to delete a bucket it should work if is the owner', async () => {
 
-        // Arrange: Create a bucket
-        const { body: bucket } = await testServer
-          .post('/buckets')
-          .set('Authorization', getAuth(testUser))
-          .send({
-            pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
-            name: 'test-bucket-name-2'
-          })
-          .expect(201);
+          // Arrange: Create a bucket
+          const { body: bucket } = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(testUser))
+            .send({
+              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              name: dataGenerator.word({ length: 7 })
+            })
+            .expect(201);
 
-        // Act: Delete the bucket
-        const response = await testServer
-          .delete(`/buckets/${bucket.id}`)
-          .set('Authorization', getAuth(testUser))
+          // Act: Delete the bucket
+          const response = await testServer
+            .delete(`/buckets/${bucket.id}`)
+            .set('Authorization', getAuth(testUser))
+
+          // Assert
+          expect(response.status).toBe(204)
+          const buckets = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
+          expect(buckets).toBeNull()
+
+        })
+
+        it('When you want to delete a bucket it should fail if is not the owner', async () => {
+
+          // Arrange: Create a bucket
+          const owner = await createTestUser({ user: { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), maxSpaceBytes: 321312313 } })
+
+          const { body: bucket } = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(owner))
+            .send({
+              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              name: dataGenerator.word({ length: 7 })
+            })
+            .expect(201);
+
+          // Act: Delete the bucket
+          const response = await testServer
+            .delete(`/buckets/${bucket.id}`)
+            .set('Authorization', getAuth(testUser))
 
 
-        // Assert
-        expect(response.status).toBe(204)
-        const buckets = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
-        expect(buckets).toBeNull()
+          // Assert
+          expect(response.status).toBe(404)
 
+          await deleteTestUser({ user: owner })
+
+        })
       })
     })
   })
