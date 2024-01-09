@@ -110,7 +110,7 @@ export class HTTPUsersController {
     res: Response
   ) {
     const { deactivator, redirect } = req.query;
-    const userEmail = (req as AuthorizedRequest<any>).user.email;
+    const userId = (req as AuthorizedRequest<any>).user._id;
 
     if (!deactivator || !redirect) {
       return res.status(400).send({ error: 'Missing required params' });
@@ -118,7 +118,7 @@ export class HTTPUsersController {
 
     try {
       const userRequestedToBeDestroyed = await this.usersUsecase.requestUserDestroy(
-        userEmail, 
+        userId, 
         deactivator, 
         redirect
       );
