@@ -12,12 +12,10 @@ describe('Bridge E2E Tests', () => {
 
   let testUser: User
   beforeAll(async () => {
-    await engine.storage.models.Bucket.deleteMany({})
     testUser = await createTestUser()
   })
 
   afterAll(async () => {
-    await engine.storage.models.Bucket.deleteMany({})
     await deleteTestUser()
   })
 
