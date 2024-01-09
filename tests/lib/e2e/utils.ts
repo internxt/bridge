@@ -1,42 +1,31 @@
-import { type Test, type SuperTest } from 'supertest'
-import { MongoUserModel, testUser, } from './users.fixtures'
+import { engine } from './setup';
+import { TestUser, testUser, User } from './users.fixtures'
 
+type Args = { storage: any, user: TestUser }
 
-export * from './users.fixtures'
+export const createTestUser = async (args: Args = { storage: engine.storage, user: testUser }): Promise<User> => {
+  const { storage, user } = args
 
-export const checkConnection = (storage: any) => {
-  if (!storage.connection.options.dbName.includes('test')) {
-    throw new Error("For caution test database must include test in it's name");
-  }
-}
-
-export const createTestUser = async (storage: any): Promise<MongoUserModel> => {
-  const user: MongoUserModel = await new Promise(resolve => storage.models.User.create({
-    email: testUser.email,
-    password: testUser.hashpass,
-    maxSpaceBytes: testUser.maxSpaceBytes,
-    uuid: testUser.uuid,
-  }, (err: Error, user: MongoUserModel) => {
+  const payload = { email: user.email, password: user.password }
+  const createdUser: User = await new Promise(resolve => storage.models.User.create(payload, (err: Error, user: any) => {
     if (err) throw err
-    resolve(user)
+    resolve(user.toObject())
   }))
 
   await storage.models.User.updateOne(
-    {
-      _id: user._id,
-    },
-    {
-      maxSpaceBytes: testUser.maxSpaceBytes,
-      activated: testUser.activated,
-    }
+    { _id: createdUser.uuid, },
+    { maxSpaceBytes: user.maxSpaceBytes, activated: true, }
   );
 
-  return user
+  createdUser.password = user.password
+
+  return createdUser
 }
 
-export const deleteTestUser = async (storage: any): Promise<void> => {
+export const deleteTestUser = async (args: Args = { storage: engine.storage, user: testUser }): Promise<void> => {
+  const { storage, user } = args
   return await new Promise(resolve => storage.models.User.deleteOne({
-    email: testUser.email,
+    email: user.email,
   }, (err: Error) => {
     if (err) throw err
     resolve()
@@ -44,8 +33,8 @@ export const deleteTestUser = async (storage: any): Promise<void> => {
 
 }
 
-
-export const getAuth = (user: { email: string, hashpass: string }) => {
-  const credential = Buffer.from(`${user.email}:${user.hashpass}`).toString('base64');
+export const getAuth = (user: Omit<TestUser, 'maxSpaceBytes'> = testUser) => {
+  const credential = Buffer.from(`${user.email}:${user.password}`).toString('base64');
   return `Basic ${credential}`;
 }
+

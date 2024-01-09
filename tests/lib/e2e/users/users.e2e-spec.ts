@@ -1,7 +1,8 @@
-import { getAuth, testUser, } from '../utils'
+import { getAuth, } from '../utils'
 
 import sendGridMail from '@sendgrid/mail'
 import { engine, testServer } from '../setup'
+import { dataGenerator } from '../users.fixtures'
 
 
 // NB: Mock SendGrid
@@ -35,7 +36,7 @@ describe('Bridge E2E Tests', () => {
         // Act
         const response = await testServer
           .post('/users')
-          .send({ email: 'test' + testUser.email, password: testUser.hashpass })
+          .send({ email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }) })
 
         // Assert
         expect(response.status).toBe(201);
@@ -56,15 +57,17 @@ describe('Bridge E2E Tests', () => {
         engine.mailer.dispatchSendGrid = jest.fn((_, __, ___, cb) => { sendGridMail.send(null as any, null as any, cb) })
 
         // Arrange: Create User
+        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
         const { body: user } = await testServer
           .post('/users')
-          .send({ email: 'request_deactivation' + testUser.email, password: testUser.hashpass, })
+          .send(payload)
           .expect(201);
 
         // Act: Request Deactivation
+        const deactivatorHash = dataGenerator.hash()
         const response = await testServer
-          .delete(`/users/${user.email}?deactivator=test-deactivator-token-request-deactivation&redirect=/`)
-          .set('Authorization', getAuth({ email: user.email, hashpass: testUser.hashpass }))
+          .delete(`/users/${user.email}?deactivator=${deactivatorHash}&redirect=/`)
+          .set('Authorization', getAuth(payload))
 
         // Assert
         expect(response.status).toBe(200)
@@ -72,7 +75,7 @@ describe('Bridge E2E Tests', () => {
         expect(dbUser).not.toBeNull()
 
         const token = dbUser.toObject().deactivator
-        expect(token).toBe('test-deactivator-token-request-deactivation')
+        expect(token).toBe(deactivatorHash)
 
         expect(sendGridMail.send).toHaveBeenCalled()
 
@@ -82,17 +85,18 @@ describe('Bridge E2E Tests', () => {
       it('should be able to confirm a user deactivation', async () => {
 
         // Arrange: Create User
+        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
         const { body: user } = await testServer
           .post('/users')
-          .send({ email: 'confirm_deactivation' + testUser.email, password: testUser.hashpass, })
+          .send(payload)
           .expect(201);
 
 
         // Arrange: Request Deactivation
-        const token = 'test-deactivator-token-confirm-deactivation'
+        const token = dataGenerator.hash()
         await testServer
           .delete(`/users/${user.email}?deactivator=${token}&redirect=/`)
-          .set('Authorization', getAuth({ email: user.email, hashpass: testUser.hashpass }))
+          .set('Authorization', getAuth(payload))
           .expect(200)
 
         // Act: Confirm Deactivation
@@ -110,7 +114,7 @@ describe('Bridge E2E Tests', () => {
         // Act: Create a user
         const response = await testServer
           .post('/v2/users')
-          .send({ email: 'test_v2' + testUser.email, password: testUser.hashpass })
+          .send({ email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }) })
 
         // Assert
         expect(response.status).toBe(200);
@@ -127,18 +131,19 @@ describe('Bridge E2E Tests', () => {
       it('should be able to request a user deactivation', async () => {
 
         // Arrange: Create User
-        const testEmail = 'request_deactivation_v2' + testUser.email
+        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
         const { body: user } = await testServer
           .post('/v2/users')
-          .send({ email: testEmail, password: testUser.hashpass, })
+          .send(payload)
           // .expect(201)
           .expect(200);
 
 
         // Act: Request Deactivation
+        const deactivatorHash = dataGenerator.hash()
         const response = await testServer
-          .delete(`/v2/users/request-deactivate?deactivator=test-deactivator-token-request-deactivation-v2&redirect=/`)
-          .set('Authorization', getAuth({ email: testEmail, hashpass: testUser.hashpass }))
+          .delete(`/v2/users/request-deactivate?deactivator=${deactivatorHash}&redirect=/`)
+          .set('Authorization', getAuth(payload))
 
         // Assert
         expect(response.status).toBe(200);
@@ -147,7 +152,7 @@ describe('Bridge E2E Tests', () => {
         expect(dbUser).not.toBeNull()
 
         const token = dbUser.toObject().deactivator
-        expect(token).toBe('test-deactivator-token-request-deactivation-v2')
+        expect(token).toBe(deactivatorHash)
 
         expect(sendGridMail.send).toHaveBeenCalled()
 
@@ -157,19 +162,19 @@ describe('Bridge E2E Tests', () => {
       it('should be able to confirm a user deactivation', async () => {
 
         // Arrange: Create User
-        const testEmail = 'confirm_deactivation_v2' + testUser.email
+        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
         const { body: user } = await testServer
           .post('/v2/users')
-          .send({ email: testEmail, password: testUser.hashpass, })
+          .send(payload)
           // .expect(201)
           .expect(200);
 
 
         // Arrange: Request Deactivation
-        const token = 'test-deactivator-token-confirm-deactivation-v2'
+        const token = dataGenerator.hash()
         await testServer
           .delete(`/v2/users/request-deactivate?deactivator=${token}&redirect=/`)
-          .set('Authorization', getAuth({ email: testEmail, hashpass: testUser.hashpass }))
+          .set('Authorization', getAuth(payload))
           .expect(200)
 
 
@@ -190,16 +195,16 @@ describe('Bridge E2E Tests', () => {
       it('should be able to update a user email via gateway', async () => {
 
         // Arrange: Create User
-        const testEmail = 'update_user_email_v2' + testUser.email
+        const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
         const { body: user } = await testServer
           .post('/v2/users')
-          .send({ email: testEmail, password: testUser.hashpass, })
+          .send(payload)
           // .expect(201)
           .expect(200);
 
 
         // Act: Update User Email
-        const newEmail = 'new_email_v2' + testUser.email
+        const newEmail = dataGenerator.email()
         const response = await testServer
           .patch(`/v2/gateway/users/${user.id}`)
           .set('Authorization', `Bearer fake-token`)
