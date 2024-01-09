@@ -1,4 +1,3 @@
-import { ObjectId } from 'mongodb'
 import crypto from 'crypto'
 import axios from 'axios';
 import { engine, testServer } from '../setup';
@@ -21,18 +20,26 @@ describe('Bridge E2E Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+
+    const get = axios.get as jest.MockedFunction<typeof axios.get>;
+    get.mockImplementation(async (url: string) => {
+      // Mock the upload request
+      if (url.includes('/v2/upload/link')) return { data: { result: 'http://fake-url' } }
+      // Mock the download request
+      if (url.includes('/v2/download/link')) return { data: { result: 'http://fake-url' } }
+      // Mock the exists check
+      if (url.includes('/exists')) return { status: 200 }
+      // Fail for any other request
+      throw new Error('Not implemented')
+    })
   })
 
-  describe('File Management v1', () => {
+  describe('File Management v2', () => {
 
 
     describe('Uploading a file', () => {
 
       it('When a user wants to upload a file, it should work for owned buckets and get a list of upload links one per each file part', async () => {
-        // Arrange: Mock http calls
-        const get = axios.get as jest.MockedFunction<typeof axios.get>;
-        get.mockImplementation(async () => ({ data: { result: 'http://fake-url' } }))
-
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
           .post('/buckets')
@@ -65,16 +72,6 @@ describe('Bridge E2E Tests', () => {
 
 
       it('When a user finishes to upload a file, the user can finish the upload with a hash per each part uploaded', async () => {
-
-        const get = axios.get as jest.MockedFunction<typeof axios.get>;
-        get.mockImplementation(async (url: string) => {
-          // Mock the upload link
-          if (url.includes('/v2/upload/link')) return { data: { result: 'http://fake-url' } }
-          // Mock the exists check
-          if (url.includes('/exists')) return { status: 200 }
-          // Fail for any other request
-          throw new Error('Not implemented')
-        })
 
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
@@ -116,6 +113,53 @@ describe('Bridge E2E Tests', () => {
         expect(typeof body.size).toBe('number');
         expect(body.version).toBe(2);
       });
+
+    })
+
+    describe('Downloading a file', () => {
+
+      it('When a user wants to download a file, it should get a list of links for each file part', async () => {
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+
+        // Arrange: start the upload
+        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 10000, },], })
+
+        // Arrange: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(testUser))
+          .send({
+            index,
+            shards: [
+              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, },
+              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[1].uuid, },
+            ],
+          });
+        
+        
+        // Act: download the file
+        const response = await testServer.get(`/v2/buckets/${bucketId}/files/${file.id}/mirrors`)
+          .set('Authorization', getAuth(testUser))
+
+        // Assert
+        expect(response.status).toBe(200);
+        const body = response.body;
+        expect(body.bucket).toBe(bucketId)
+        expect(body.created).toBeDefined()
+        expect(body.index).toBe(index)
+        expect(body.shards).toHaveLength(2)
+        expect(body.shards[0].hash).toBeDefined()
+        expect(body.shards[0].url).toBeDefined()
+        expect(body.shards[1].hash).toBeDefined()
+        expect(body.shards[1].url).toBeDefined()
+        
+      })
+
 
     })
 
