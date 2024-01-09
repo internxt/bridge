@@ -42,7 +42,7 @@ describe('Bridge E2E Tests', () => {
           const users = await engine.storage.models.User.find({ _id: response.body.id })
           expect(users).toHaveLength(1)
 
-          // expect(users[0].toObject().activated).toBe(true)
+          expect(users[0].toObject().activated).toBe(true)
 
           // expect(dispatchSendGridMock).toHaveBeenCalled()
 
