@@ -6,12 +6,8 @@ export default async () => {
   const client = globalThis.mongoClient as MongoClient;
   const db = client.db();
 
-  await Promise.all([
-    db.collection('users').deleteMany({}),
-    db.collection('buckets').deleteMany({}),
-    db.collection('contacts').deleteMany({}),
-  ]);
-
+  const collections = await db.collections();
+  await Promise.all(collections.map(collection => collection.deleteMany({})));
   await client.close();
 
   process.emit('SIGINT')

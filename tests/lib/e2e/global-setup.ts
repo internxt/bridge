@@ -13,11 +13,8 @@ export default async () => {
   await client.connect();
 
   const db = client.db();
-  await Promise.all([
-    db.collection('users').deleteMany({}),
-    db.collection('buckets').deleteMany({}),
-    db.collection('contacts').deleteMany({}),
-  ]);
+  const collections = await db.collections();
+  await Promise.all(collections.map(collection => collection.deleteMany({})));
 
   globalThis.mongoClient = client;
 }

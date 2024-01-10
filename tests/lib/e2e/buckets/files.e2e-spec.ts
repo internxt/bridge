@@ -4,12 +4,13 @@ import axios from 'axios';
 import { engine, testServer } from '../setup';
 import { type User } from '../users.fixtures';
 import { createTestUser, getAuth, shutdownEngine } from '../utils';
+import sinon from 'sinon';
 
-jest.mock('axios', () => ({ get: jest.fn(), post: jest.fn() }))
 
 describe('Bridge E2E Tests', () => {
 
   let testUser: User
+  let axiosGetStub: sinon.SinonStub
   beforeAll(async () => {
     testUser = await createTestUser()
 
@@ -24,24 +25,25 @@ describe('Bridge E2E Tests', () => {
 
   })
 
-  afterAll(async() => {
+  afterAll(async () => {
     await shutdownEngine(engine)
   })
 
-  beforeEach(() => {
-    jest.clearAllMocks()
 
-    const get = axios.get as jest.MockedFunction<typeof axios.get>;
-    get.mockImplementation(async (url: string) => {
-      // Mock the upload request
+
+  beforeEach(() => {
+
+    axiosGetStub = sinon.stub(axios, 'get')
+    jest.clearAllMocks()
+    axiosGetStub.callsFake(async (url: string) => {
       if (url.includes('/v2/upload/link')) return { data: { result: 'http://fake-url' } }
-      // Mock the download request
       if (url.includes('/v2/download/link')) return { data: { result: 'http://fake-url' } }
-      // Mock the exists check
-      if (url.includes('/exists')) return { status: 200 }
-      // Fail for any other request
-      throw new Error('Not implemented')
+      if (url.includes('exists')) return { status: 200 }
     })
+  })
+
+  afterEach(() => {
+    axiosGetStub.restore()
   })
 
   describe('File Management v2', () => {
@@ -173,7 +175,7 @@ describe('Bridge E2E Tests', () => {
 
   })
 
-  describe('File Management v1', () => { 
+  describe('File Management v1', () => {
     describe('Deleting a file', () => {
 
       it('When a user wants to delete a file, it should work if the file and the bucket exist', async () => {
@@ -225,17 +227,117 @@ describe('Bridge E2E Tests', () => {
 
       })
     })
-    
+
     describe('Sharing a file', () => {
-      it('When a user wants to share a file, it should be able to create a token for the bucket', async () => {
+      it('When a user wants to share a file, it should be able to create a token for the bucket passing PULL as operation', async () => {
 
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
           .post('/buckets')
           .set('Authorization', getAuth(testUser))
-        
+
         // Act
         const response = await testServer.post(`/buckets/${bucketId}/tokens`)
+          .set('Authorization', getAuth(testUser))
+          .send({ operation: 'PULL', })
+
+        // Assert
+        expect(response.status).toBe(201);
+
+        const { body } = response
+
+        expect(body.bucket).toBeDefined()
+        expect(body.operation).toBeDefined()
+        expect(body.expires).toBeDefined()
+        expect(body.token).toBeDefined()
+        expect(body.encryptionKey).toBeDefined()
+        expect(body.id).toBeDefined()
+      })
+      it('When a user wants to share a file, it should be able to create a token for the bucket passing PULL as operation and an existing file', async () => {
+
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+
+        // Arrange: start the upload
+        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: 1000, }], })
+
+        // Arrange: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(testUser))
+          .send({
+            index,
+            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, }],
+          });
+
+        // Act
+        const response = await testServer.post(`/buckets/${bucketId}/tokens`)
+          .set('Authorization', getAuth(testUser))
+          .send({ operation: 'PULL', file: file.id })
+
+        // Assert 
+        expect(response.status).toBe(201);
+
+        const { body } = response
+
+        expect(body.bucket).toBeDefined()
+        expect(body.operation).toBeDefined()
+        expect(body.expires).toBeDefined()
+        expect(body.token).toBeDefined()
+        expect(body.id).toBeDefined()
+        expect(body.encryptionKey).toBeDefined()
+        expect(body.mimetype).toBeDefined()
+        expect(body.size).toBeDefined()
+      })
+
+      it('When a user wants to share a file, it should be able to get the file info', async () => {
+
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+
+        // Arrange: start the upload
+        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: 1000, }], })
+
+        // Arrange: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(testUser))
+          .send({
+            index,
+            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, }],
+          });
+
+        // Act
+        const response = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info`)
+          .set('Authorization', getAuth(testUser))
+
+        // Assert 
+        expect(response.status).toBe(200);
+
+        const { body: fileInfo } = response
+        expect(fileInfo.bucket).toBeDefined()
+        expect(fileInfo.index).toBeDefined()
+        expect(fileInfo.size).toBeDefined()
+        expect(fileInfo.version).toBeDefined()
+        expect(fileInfo.created).toBeDefined()
+        expect(fileInfo.renewal).toBeDefined()
+        expect(fileInfo.mimetype).toBeDefined()
+        expect(fileInfo.filename).toBeDefined()
+        expect(fileInfo.id).toBeDefined()
+        expect(fileInfo.shards).toBeDefined()
+        expect(fileInfo.shards).toHaveLength(1)
+        expect(fileInfo.shards[0].index).toBeDefined()
+        expect(fileInfo.shards[0].hash).toBeDefined()
+        expect(fileInfo.shards[0].url).toBeDefined()
+
       })
     })
   })
