@@ -1,5 +1,5 @@
 import { dataGenerator } from './../users.fixtures'
-import { createTestUser, deleteTestUser, getAuth, } from '../utils'
+import { createTestUser, deleteTestUser, getAuth, shutdownEngine, } from '../utils'
 import { engine, testServer } from '../setup'
 import { type User } from '../users.fixtures';
 
@@ -13,6 +13,7 @@ describe('Bridge E2E Tests', () => {
 
   afterAll(async () => {
     await deleteTestUser()
+    await shutdownEngine(engine)
   })
 
   beforeEach(() => {
@@ -185,7 +186,7 @@ describe('Bridge E2E Tests', () => {
     })
   })
 
- 
+
 
 })
 

@@ -1,4 +1,4 @@
-import { getAuth, } from '../utils'
+import { getAuth, shutdownEngine, } from '../utils'
 
 import sendGridMail from '@sendgrid/mail'
 import { engine, testServer } from '../setup'
@@ -18,6 +18,10 @@ describe('Bridge E2E Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+  })
+
+  afterAll(async() => {
+    await shutdownEngine(engine)
   })
 
   describe('Users Management', () => {

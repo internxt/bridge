@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import axios from 'axios';
 import { engine, testServer } from '../setup';
 import { type User } from '../users.fixtures';
-import { createTestUser, getAuth } from '../utils';
+import { createTestUser, getAuth, shutdownEngine } from '../utils';
 
 jest.mock('axios', () => ({ get: jest.fn(), post: jest.fn() }))
 
@@ -22,6 +22,10 @@ describe('Bridge E2E Tests', () => {
       })
     )
 
+  })
+
+  afterAll(async() => {
+    await shutdownEngine(engine)
   })
 
   beforeEach(() => {
@@ -219,6 +223,19 @@ describe('Bridge E2E Tests', () => {
         // Assert
         expect(response.status).toBe(404);
 
+      })
+    })
+    
+    describe('Sharing a file', () => {
+      it('When a user wants to share a file, it should be able to create a token for the bucket', async () => {
+
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+        
+        // Act
+        const response = await testServer.post(`/buckets/${bucketId}/tokens`)
       })
     })
   })

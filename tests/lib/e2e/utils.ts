@@ -1,4 +1,4 @@
-import { engine } from './setup';
+import { engine, intervalRefs } from './setup';
 import { TestUser, testUser, User } from './users.fixtures'
 
 type Args = { storage?: any, user?: TestUser }
@@ -38,3 +38,15 @@ export const getAuth = (user: Omit<TestUser, 'maxSpaceBytes'> = testUser) => {
   return `Basic ${credential}`;
 }
 
+
+export const shutdownEngine = async (engine: any) => {
+
+  await Promise.all([
+    engine.storage.connection.close(),
+    engine.networkQueue.close(),
+    engine.redis.quit(),
+    engine.server.server.close(),
+  ])
+  intervalRefs.forEach(ref => clearInterval(ref))
+
+}
