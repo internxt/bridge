@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb'
 import crypto from 'crypto'
 import axios from 'axios';
 import { engine, testServer } from '../setup';
@@ -12,10 +13,15 @@ describe('Bridge E2E Tests', () => {
   beforeAll(async () => {
     testUser = await createTestUser()
 
-    // Create a contact
-    const nodeID = engine._config.application.CLUSTER['0']
-    const payload = { nodeID, protocol: "1.2.0-INXT", address: "72.132.43.2", port: 43758, lastSeen: new Date(), }
-    await new Promise(resolve => engine.storage.models.Contact.record(payload, resolve))
+    // Create fake contact per each node
+    const nodeIDs = Object.values(engine._config.application.CLUSTER)
+    await Promise.all(
+      nodeIDs.map((nodeID, index) => {
+        const payload = { nodeID, protocol: "1.2.0-INXT", address: `72.132.43.${index}`, port: 43758 + index, lastSeen: new Date(), }
+        return new Promise(resolve => engine.storage.models.Contact.record(payload, resolve))
+      })
+    )
+
   })
 
   beforeEach(() => {
@@ -35,7 +41,6 @@ describe('Bridge E2E Tests', () => {
   })
 
   describe('File Management v2', () => {
-
 
     describe('Uploading a file', () => {
 
@@ -140,8 +145,8 @@ describe('Bridge E2E Tests', () => {
               { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[1].uuid, },
             ],
           });
-        
-        
+
+
         // Act: download the file
         const response = await testServer.get(`/v2/buckets/${bucketId}/files/${file.id}/mirrors`)
           .set('Authorization', getAuth(testUser))
@@ -157,12 +162,65 @@ describe('Bridge E2E Tests', () => {
         expect(body.shards[0].url).toBeDefined()
         expect(body.shards[1].hash).toBeDefined()
         expect(body.shards[1].url).toBeDefined()
-        
-      })
 
+      })
 
     })
 
+  })
+
+  describe('File Management v1', () => { 
+    describe('Deleting a file', () => {
+
+      it('When a user wants to delete a file, it should work if the file and the bucket exist', async () => {
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+
+        // Arrange: start the upload
+        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 10000, },], })
+
+        // Arrange: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(testUser))
+          .send({
+            index,
+            shards: [
+              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, },
+              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[1].uuid, },
+            ],
+          });
+
+
+        // Act: remove the file
+        const response = await testServer.delete(`/buckets/${bucketId}/files/${file.id}`)
+          .set('Authorization', getAuth(testUser))
+
+        // Assert
+        expect(response.status).toBe(204);
+
+      })
+
+      it('When a user wants to delete a file, it should work if the file does not exist', async () => {
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+
+        // Act: remove the file
+        const fakeFileId = new ObjectId()
+        const response = await testServer.delete(`/buckets/${bucketId}/files/${fakeFileId}`)
+          .set('Authorization', getAuth(testUser))
+
+        // Assert
+        expect(response.status).toBe(404);
+
+      })
+    })
   })
 
 
