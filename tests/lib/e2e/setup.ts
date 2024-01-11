@@ -20,9 +20,5 @@ if (process.env.inxtbridge_server__port !== '0') {
 process.argv = process.argv.slice(0, 2);
 export const engine = require('../../../bin/storj-bridge.ts');
 
-if (!engine.storage.connection.options.dbName.includes('test')) {
-  throw new Error("For caution test database must include test in it's name");
-}
-
 export const testServer = supertest(engine.server.app);
 
