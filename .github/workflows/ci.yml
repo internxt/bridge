@@ -17,16 +17,25 @@ jobs:
         node-version: [16.x]
     env:
       DATABASE_URI: ${{ secrets.DATABASE_URI }}
+      inxtbridge_storage__mongoUrl: mongodb://admin:password@127.0.0.1:27017/bridge-test
+      inxtbridge_storage__mongoOpts__user: admin
+      inxtbridge_storage__mongoOpts__pass: password
     steps:
       - name: Start MongoDB
-        run: docker run -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=bridge-test -d mongo:5
+        run: docker run -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=bridge-test -d mongo:4.4
 
       - uses: actions/checkout@v2
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
 
       - run: yarn --ignore-engines
+        name: Install dependencies
+
       - run: yarn run test
+        name: Run Tests
+
+      - run: yarn run test:e2e
+        name: Run E2E Tests
       # - run: yarn run test-mongo-init
       # - run: yarn run test-mongo
       
