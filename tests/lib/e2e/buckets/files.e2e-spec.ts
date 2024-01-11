@@ -6,6 +6,8 @@ import { type User } from '../users.fixtures';
 import { createTestUser, getAuth, shutdownEngine } from '../utils';
 import sinon from 'sinon';
 
+const FAKE_UPLOAD_URL = 'http://fake-upload-url'
+const FAKE_DOWNLOAD_URL = 'http://fake-download-url'
 
 describe('Bridge E2E Tests', () => {
 
@@ -14,7 +16,7 @@ describe('Bridge E2E Tests', () => {
   beforeAll(async () => {
     testUser = await createTestUser()
 
-    // Create fake contact per each node
+    // Arrange: Create fake contact per each node
     const nodeIDs = Object.values(engine._config.application.CLUSTER)
     await Promise.all(
       nodeIDs.map((nodeID, index) => {
@@ -26,7 +28,7 @@ describe('Bridge E2E Tests', () => {
   })
 
   afterAll(async () => {
-    await shutdownEngine(engine)
+    await shutdownEngine()
   })
 
 
@@ -36,8 +38,12 @@ describe('Bridge E2E Tests', () => {
     axiosGetStub = sinon.stub(axios, 'get')
     jest.clearAllMocks()
     axiosGetStub.callsFake(async (url: string) => {
-      if (url.includes('/v2/upload/link')) return { data: { result: 'http://fake-url' } }
-      if (url.includes('/v2/download/link')) return { data: { result: 'http://fake-url' } }
+      if (url.includes('/v2/upload/link')) return { data: { result: FAKE_UPLOAD_URL } }
+      if (url.includes('/v2/upload-multipart/link')) {
+        const parts = new URL(url).searchParams.get('parts')
+        return { data: { result: new Array(parts).fill(FAKE_UPLOAD_URL), UploadId: 'fake-id' } }
+      }
+      if (url.includes('/v2/download/link')) return { data: { result: FAKE_DOWNLOAD_URL } }
       if (url.includes('exists')) return { status: 200 }
     })
   })
@@ -50,7 +56,7 @@ describe('Bridge E2E Tests', () => {
 
     describe('Uploading a file', () => {
 
-      it('When a user wants to upload a file, it should work for owned buckets and get a list of upload links one per each file part', async () => {
+      it('When a user wants to upload a file with just one part, it should work for owned buckets and get an upload link', async () => {
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
           .post('/buckets')
@@ -60,7 +66,35 @@ describe('Bridge E2E Tests', () => {
         // Act: start the upload
         const response = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
           .set('Authorization', getAuth(testUser))
-          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 10000, },], })
+          .send({ uploads: [{ index: 0, size: 1000, }], })
+
+        // Assert
+        expect(response.status).toBe(200);
+        const { uploads } = response.body;
+
+        expect(uploads).toHaveLength(1);
+
+        const [upload] = uploads;
+
+        expect(upload.url).toBe(FAKE_UPLOAD_URL)
+        expect(upload.urls).toBeNull();
+        expect(upload.uuid).toBeDefined();
+
+      })
+
+      it('When a user wants to upload a file over 100MB with multiple parts into a owned bucket, it should work and get a list of upload links one per each file part', async () => {
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+          .expect(201)
+
+        // Act: start the upload
+        const MB100 = 100 * 1024 * 1024
+        const fileParts = [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, },]
+        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=${fileParts.length}`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: fileParts, })
 
         // Assert
         expect(response.status).toBe(200);
@@ -68,16 +102,38 @@ describe('Bridge E2E Tests', () => {
 
         expect(uploads).toHaveLength(2);
 
-        const upload1 = uploads[0];
-        expect(upload1.url).toBe('http://fake-url')
-        expect(upload1.urls).toBeNull();
-        expect(upload1.uuid).toBeDefined();
+        const [firstUpload, secondUpload] = uploads;
 
-        const upload2 = uploads[1];
-        expect(upload2.url).toBeDefined();
-        expect(upload2.url).toBe('http://fake-url')
-        expect(upload2.urls).toBeNull();
-        expect(upload2.uuid).toBeDefined();
+        expect(firstUpload.url).toBeNull();
+        expect(firstUpload.urls).toBeDefined();
+        expect(firstUpload.uuid).toBeDefined();
+        expect(firstUpload.UploadId).toBeDefined();
+
+        expect(secondUpload.url).toBeDefined();
+        expect(secondUpload.url).toBeNull();
+        expect(secondUpload.urls).toBeDefined();
+        expect(secondUpload.uuid).toBeDefined();
+        expect(secondUpload.UploadId).toBeDefined();
+
+      })
+
+      it('When a user wants to upload a file with multiple parts, it should fail if is under 100MB', async () => {
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+          .expect(201)
+
+        // Act: start the upload
+        const MB100 = 99 * 1024 * 1024
+        const fileParts = [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, },]
+        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=${fileParts.length}`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: fileParts, })
+
+        // Assert
+        expect(response.status).toBe(400)
+        expect(response.body.error).toBe('Multipart is not allowed for files smaller than 100MB')
 
       })
 
@@ -92,9 +148,9 @@ describe('Bridge E2E Tests', () => {
         // Arrange: start the upload
         const response = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
           .set('Authorization', getAuth(testUser))
-          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 10000, },], })
+          .send({ uploads: [{ index: 0, size: 1000, }] })
 
-        const { uploads } = response.body;
+        const { uploads: [upload] } = response.body;
 
         // Act: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
@@ -102,10 +158,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
           .send({
             index,
-            shards: [
-              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, },
-              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[1].uuid, },
-            ],
+            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }],
           });
 
         // Assert
@@ -146,10 +199,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
           .send({
             index,
-            shards: [
-              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, },
-              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[1].uuid, },
-            ],
+            shards: (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
           });
 
 
@@ -160,14 +210,18 @@ describe('Bridge E2E Tests', () => {
         // Assert
         expect(response.status).toBe(200);
         const body = response.body;
+
         expect(body.bucket).toBe(bucketId)
         expect(body.created).toBeDefined()
         expect(body.index).toBe(index)
         expect(body.shards).toHaveLength(2)
-        expect(body.shards[0].hash).toBeDefined()
-        expect(body.shards[0].url).toBeDefined()
-        expect(body.shards[1].hash).toBeDefined()
-        expect(body.shards[1].url).toBeDefined()
+
+        const [firstShard, secondShard] = body.shards
+
+        expect(firstShard.hash).toBeDefined()
+        expect(firstShard.url).toBeDefined()
+        expect(secondShard.hash).toBeDefined()
+        expect(secondShard.url).toBeDefined()
 
       })
 
@@ -195,10 +249,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
           .send({
             index,
-            shards: [
-              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, },
-              { hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[1].uuid, },
-            ],
+            shards: (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
           });
 
 
@@ -261,7 +312,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
 
         // Arrange: start the upload
-        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+        const { body: { uploads: [upload] } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
           .set('Authorization', getAuth(testUser))
           .send({ uploads: [{ index: 0, size: 1000, }], })
 
@@ -271,7 +322,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
           .send({
             index,
-            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, }],
+            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }],
           });
 
         // Act
@@ -302,7 +353,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
 
         // Arrange: start the upload
-        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+        const { body: { uploads: [upload] } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
           .set('Authorization', getAuth(testUser))
           .send({ uploads: [{ index: 0, size: 1000, }], })
 
@@ -312,7 +363,7 @@ describe('Bridge E2E Tests', () => {
           .set('Authorization', getAuth(testUser))
           .send({
             index,
-            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: uploads[0].uuid, }],
+            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }],
           });
 
         // Act
@@ -334,9 +385,11 @@ describe('Bridge E2E Tests', () => {
         expect(fileInfo.id).toBeDefined()
         expect(fileInfo.shards).toBeDefined()
         expect(fileInfo.shards).toHaveLength(1)
-        expect(fileInfo.shards[0].index).toBeDefined()
-        expect(fileInfo.shards[0].hash).toBeDefined()
-        expect(fileInfo.shards[0].url).toBeDefined()
+
+        const [shard] = fileInfo.shards
+        expect(shard.index).toBeDefined()
+        expect(shard.hash).toBeDefined()
+        expect(shard.url).toBeDefined()
 
       })
     })
