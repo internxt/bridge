@@ -20,12 +20,46 @@ jobs:
       inxtbridge_storage__mongoUrl: mongodb://admin:password@127.0.0.1:27017/bridge-test
       inxtbridge_storage__mongoOpts__user: admin
       inxtbridge_storage__mongoOpts__pass: password
+      inxtbridge_server__port: 0
+
+      inxtbridge_api_keys__segment_test: inxtbridge_api_keys__segment_test
+      inxtbridge_application__CLUSTER__0: inxtbridge_application__CLUSTER__0
+      inxtbridge_logger__level: 5
+      inxtbridge_storage__mongoOpts__authSource: inxtbridge_storage__mongoOpts__authSource
+      inxtbridge_stripe__PK_LIVE: inxtbridge_stripe__PK_LIVE
+      inxtbridge_api_keys__segment: inxtbridge_api_keys__segment
+      inxtbridge_stripe__SK_LIVE: inxtbridge_stripe__SK_LIVE
+      inxtbridge_redis__port: 6379
+      inxtbridge_server__ssl__redirect: 443
+      inxtbridge_redis__password:
+      inxtbridge_complex__rpcUser: inxtbridge_complex__rpcUser
+      inxtbridge_stripe__SIG_TEST: inxtbridge_stripe__SIG_TEST
+      inxtbridge_gateway__username: inxtbridge_gateway__username
+      inxtbridge_mailer__auth__pass: inxtbridge_mailer__auth__pass
+      inxtbridge_stripe__PK_TEST: inxtbridge_stripe__PK_TEST
+      inxtbridge_complex__rpcPassword: inxtbridge_complex__rpcPassword
+      inxtbridge_mailer__host: inxtbridge_mailer__host
+      inxtbridge_server__public__host: inxtbridge_server__public__host
+      inxtbridge_stripe__SK_TEST: inxtbridge_stripe__SK_TEST
+      inxtbridge_complex__rpcUrl: inxtbridge_complex__rpcUrl
+      inxtbridge_mailer__auth__user: inxtbridge_mailer__auth__user
+      inxtbridge_mailer__sendgrid__api_key: inxtbridge_mailer__sendgrid__api_key
+      inxtbridge_storage__mongoOpts__server__poolSize: inxtbridge_storage__mongoOpts__server__poolSize
+      inxtbridge_stripe__SIG: inxtbridge_stripe__SIG
+      inxtbridge_drive__api: inxtbridge_drive__api
+      inxtbridge_server__public__port: 443
+      inxtbridge_mailer__port: 465
+      inxtbridge_gateway__password: inxtbridge_gateway__password
+      inxtbridge_gateway__JWT_SECRET: inxtbridge_gateway__JWT_SECRET
+      inxtbridge_QUEUE_HOST: inxtbridge_QUEUE_HOST
+      inxtbridge_QUEUE_USERNAME: inxtbridge_QUEUE_USERNAME
+      inxtbridge_QUEUE_PASSWORD: inxtbridge_QUEUE_PASSWORD
+
     steps:
       - name: Start MongoDB
         run: docker run -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=bridge-test -d mongo:4.4
 
       - uses: actions/checkout@v2
-      # 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
         with:
