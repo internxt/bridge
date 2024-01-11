@@ -21,7 +21,6 @@ jobs:
       inxtbridge_storage__mongoOpts__user: admin
       inxtbridge_storage__mongoOpts__pass: password
       inxtbridge_server__port: 0
-
       inxtbridge_api_keys__segment_test: inxtbridge_api_keys__segment_test
       inxtbridge_application__CLUSTER__0: inxtbridge_application__CLUSTER__0
       inxtbridge_logger__level: 5
