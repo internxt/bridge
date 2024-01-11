@@ -4,7 +4,8 @@ declare var globalThis: any
 export default async () => {
 
   const client = globalThis.mongoClient as MongoClient;
-  const db = client.db();
+  const dbName = globalThis.dbName as string;
+  const db = client.db(dbName);
 
   const collections = await db.collections();
   await Promise.all(collections.map(collection => collection.deleteMany({})));
