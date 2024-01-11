@@ -25,17 +25,24 @@ jobs:
         run: docker run -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=bridge-test -d mongo:4.4
 
       - uses: actions/checkout@v2
+      # 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://npm.pkg.github.com/
 
       - run: yarn --ignore-engines
         name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
       - run: yarn run test
         name: Run Tests
 
       - run: yarn run test:e2e
         name: Run E2E Tests
+      #
       # - run: yarn run test-mongo-init
       # - run: yarn run test-mongo
       
