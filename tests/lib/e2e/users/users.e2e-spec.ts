@@ -5,13 +5,13 @@ import { engine, testServer } from '../setup'
 import { dataGenerator } from '../users.fixtures'
 
 
-// NB: Mock SendGrid
+// Mock SendGrid
 jest.mock('@sendgrid/mail', () => ({
   setApiKey: jest.fn(),
   send: jest.fn((_, __, done) => typeof done === 'function' ? done() : Promise.resolve()),
 }))
 
-// NB: Mock JWT verification
+// Mock JWT verification
 jest.mock('jsonwebtoken', () => ({ verify: jest.fn((_, __, ___, cb) => cb(null, {})) }))
 
 describe('Bridge E2E Tests', () => {
@@ -21,7 +21,7 @@ describe('Bridge E2E Tests', () => {
   })
 
   afterAll(async() => {
-    await shutdownEngine(engine)
+    await shutdownEngine()
   })
 
   describe('Users Management', () => {
@@ -43,12 +43,10 @@ describe('Bridge E2E Tests', () => {
 
           // Assert
           expect(response.status).toBe(201);
-          const users = await engine.storage.models.User.find({ _id: response.body.id })
-          expect(users).toHaveLength(1)
+          const user = await engine.storage.models.User.findOne({ _id: response.body.id })
+          expect(user).not.toBeNull()
 
-          expect(users[0].toObject().activated).toBe(true)
-
-          // expect(dispatchSendGridMock).toHaveBeenCalled()
+          expect(user.toObject().activated).toBe(true)
 
         })
         it('When creating a user, it should fail if email is in use', async () => {
@@ -204,11 +202,11 @@ describe('Bridge E2E Tests', () => {
 
           // Assert
           expect(response.status).toBe(200);
-          // expect(response.status).toBe(201);
-          const users = await engine.storage.models.User.find({ _id: response.body.id })
-          expect(users).toHaveLength(1)
 
-          expect(users[0].toObject().activated).toBe(true)
+          const user = await engine.storage.models.User.findOne({ _id: response.body.id })
+          expect(user).not.toBeNull()
+
+          expect(user.toObject().activated).toBe(true)
         })
         it('When creating a user, it should fail if email is in use', async () => {
 
@@ -239,7 +237,6 @@ describe('Bridge E2E Tests', () => {
           const { body: user } = await testServer
             .post('/v2/users')
             .send(payload)
-            // .expect(201)
             .expect(200);
 
 
@@ -269,7 +266,6 @@ describe('Bridge E2E Tests', () => {
           const { body: user } = await testServer
             .post('/v2/users')
             .send(payload)
-            // .expect(201)
             .expect(200);
 
 
@@ -297,7 +293,6 @@ describe('Bridge E2E Tests', () => {
           const { body: user } = await testServer
             .post('/v2/users')
             .send(payload)
-            // .expect(201)
             .expect(200);
 
 
@@ -330,7 +325,6 @@ describe('Bridge E2E Tests', () => {
           const { body: user } = await testServer
             .post('/v2/users')
             .send(payload)
-            // .expect(201)
             .expect(200);
 
 

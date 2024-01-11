@@ -1,5 +1,5 @@
 import { dataGenerator } from './../users.fixtures'
-import { createTestUser, deleteTestUser, getAuth, shutdownEngine, } from '../utils'
+import { cleanUpTestUsers, createTestUser, getAuth, shutdownEngine, } from '../utils'
 import { engine, testServer } from '../setup'
 import { type User } from '../users.fixtures';
 
@@ -12,8 +12,8 @@ describe('Bridge E2E Tests', () => {
   })
 
   afterAll(async () => {
-    await deleteTestUser()
-    await shutdownEngine(engine)
+    await cleanUpTestUsers()
+    await shutdownEngine()
   })
 
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('Bridge E2E Tests', () => {
 
       describe('Creating a bucket', () => {
 
-        it('When you want create the root bucket, it should work without any arguments', async () => {
+        it('When you want to create the root bucket, it should work without any arguments', async () => {
 
           // Act
           const response = await testServer
@@ -37,11 +37,11 @@ describe('Bridge E2E Tests', () => {
           expect(response.status).toBe(201)
           expect(response.body).toHaveProperty('id')
 
-          const buckets = await engine.storage.models.Bucket.find({ _id: response.body.id })
-          expect(buckets).toHaveLength(1)
+          const bucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
+          expect(bucket).not.toBeNull()
 
         })
-        it('When you want create a bucket with name and pubkeys, it should work with correctly formatted pubkeys', async () => {
+        it('When you want to create a bucket with name and pubkeys, it should work with correctly formatted pubkeys', async () => {
 
           // Act
           const response = await testServer
@@ -56,11 +56,11 @@ describe('Bridge E2E Tests', () => {
           expect(response.status).toBe(201)
           expect(response.body).toHaveProperty('id')
 
-          const buckets = await engine.storage.models.Bucket.find({ _id: response.body.id })
-          expect(buckets).toHaveLength(1)
+          const bucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
+          expect(bucket).not.toBeNull()
 
         })
-        it('When you want create a bucket with name and pubkeys, it should fail with incorrectly formatted pubkeys', async () => {
+        it('When you want to create a bucket with name and pubkeys, it should fail with incorrectly formatted pubkeys', async () => {
 
           // Act
           const response = await testServer
@@ -79,7 +79,7 @@ describe('Bridge E2E Tests', () => {
 
       describe('Updating a bucket', () => {
 
-        it('Whe you want to update a bucket, it should work with empty pubkeys list', async () => {
+        it('When you want to update a bucket, it should work with empty pubkeys list', async () => {
           // Arrange
           const { body: bucket } = await testServer
             .post('/buckets')
@@ -104,7 +104,7 @@ describe('Bridge E2E Tests', () => {
           expect(dbBucket.toObject().pubkeys).toEqual([])
 
         })
-        it('Whe you want to update a bucket, it should fail with invalid pubkeys list', async () => {
+        it('When you want to update a bucket, it should fail with invalid pubkeys list', async () => {
           // Arrange
           const { body: bucket } = await testServer
             .post('/buckets')
@@ -160,6 +160,7 @@ describe('Bridge E2E Tests', () => {
 
           // Arrange: Create a bucket
           const owner = await createTestUser({ user: { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), maxSpaceBytes: 321312313 } })
+          const notTheOwner = testUser
 
           const { body: bucket } = await testServer
             .post('/buckets')
@@ -173,13 +174,11 @@ describe('Bridge E2E Tests', () => {
           // Act: Delete the bucket
           const response = await testServer
             .delete(`/buckets/${bucket.id}`)
-            .set('Authorization', getAuth(testUser))
+            .set('Authorization', getAuth(notTheOwner))
 
 
           // Assert
           expect(response.status).toBe(404)
-
-          await deleteTestUser({ user: owner })
 
         })
       })
