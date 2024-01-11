@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 
 import { ShardsRepository } from '../../lib/core/shards/Repository';
 import { Shard } from '../../lib/core/shards/Shard';
-import { MongoDBCollections, TempShardDocument } from './temp-shard.model';
+import { FrameDocument, MongoDBCollections, TempShardDocument } from './temp-shard.model';
 import { ObjectId } from 'mongodb';
 
 export interface StorageObject {
@@ -214,5 +214,71 @@ export class DatabaseTempShardsReader implements TempShardsReader {
       }
       offset += tempShards.length;
     } while (offset % pageSize === 0);
+  }
+}
+
+export interface FramesReader {
+  list(pageSize?: number): AsyncGenerator<FrameDocument>;
+}
+
+export class DatabaseFramesReader {
+  constructor(private readonly frames: MongoDBCollections['frames']) {}
+
+  async* list(pageSize = 50): AsyncGenerator<FrameDocument> {
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'bucketentries',
+          localField: '_id',
+          foreignField: 'frame',
+          as: 'matched_entries'
+        }
+      },
+      {
+        $match: {
+          matched_entries: { $size: 0 }
+        }
+      },
+    ];
+    const cursor = this.frames.aggregate<FrameDocument>(pipeline);
+
+    while (await cursor.hasNext()) {
+      const frame = await cursor.next();
+
+      if (frame) {
+        yield frame;
+      }
+    }
+  }
+}
+
+export class DatabaseFramesReaderWithoutOwner {
+  constructor(private readonly frames: MongoDBCollections['frames']) {}
+
+  async* list(pageSize = 50): AsyncGenerator<FrameDocument> {
+    const pipeline = [
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "user_info"
+        }
+      },
+      {
+        $match: {
+          user_info: { $eq: [] } // Filtra los documentos donde no hay coincidencias en Users
+        }
+      },
+    ];
+    const cursor = this.frames.aggregate<FrameDocument>(pipeline);
+
+    while (await cursor.hasNext()) {
+      const frame = await cursor.next();
+
+      if (frame) {
+        yield frame;
+      }
+    }
   }
 }

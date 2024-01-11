@@ -1,7 +1,9 @@
 import { ObjectId, Document, Collection, Db, MongoClient } from 'mongodb';
+import { Frame } from '../../lib/core/frames/Frame';
 
 export interface MongoDBCollections {
   tempShards: Collection<TempShardDocument>;
+  frames: Collection<FrameDocument>;
 }
 
 interface TempShard extends Document {
@@ -13,6 +15,10 @@ interface TempShard extends Document {
 
 export interface TempShardDocument extends Omit<TempShard, 'shardId'> {
   shardId: ObjectId;
+}
+
+export interface FrameDocument extends Omit<Frame, 'id'> {
+  _id: ObjectId;
 }
 
 export class MongoDB {
@@ -45,6 +51,7 @@ export class MongoDB {
 
     return {
       tempShards: this.db.collection<TempShardDocument>('tempshards'),
+      frames: this.db.collection<FrameDocument>('frames')
     };
   }
 

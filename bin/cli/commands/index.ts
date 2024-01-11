@@ -4,6 +4,7 @@ import { buildCommand } from './build'
 import { default as destroyUserBuckets } from "./destroy-user-buckets.command";
 import { default as emptyBucket } from "./empty-bucket.command";
 import { default as emptyBuckets } from "./empty-buckets.command";
+import { default as cleanStalledFrames } from "./clean-stalled-frames.command";
 
 export default (resources: PrepareFunctionReturnType, onFinish: () => void) => ({
   [destroyUserBuckets.id]: buildCommand({
@@ -33,6 +34,16 @@ export default (resources: PrepareFunctionReturnType, onFinish: () => void) => (
     options: [],
   }).action(async (userId) => {
     await emptyBuckets.fn(resources, userId);
+    onFinish();
+  }),
+
+  [cleanStalledFrames.id]: buildCommand({
+    version: cleanStalledFrames.version,
+    command: `${cleanStalledFrames.id}`,
+    description: 'Cleans stalled frames',
+    options: [],
+  }).action(async () => {
+    await cleanStalledFrames.fn(resources);
     onFinish();
   }),
 });
