@@ -157,7 +157,7 @@ export class BucketEntriesUsecase {
       await this.framesRepository.deleteByIds(frames.map(f => f.id));
     }
     
-    await this.bucketEntriesRepository.deleteByIds(files.map(f => f.id));
+    // await this.bucketEntriesRepository.deleteByIds(files.map(f => f.id));
   }
 
   async removeFilesV2(files: BucketEntry[]): Promise<void> {

@@ -29,7 +29,7 @@ export const cleanStalledFrames: CleanStalledFramesFunctionType = async (
       }
     }
     if (toDelete.length === deleteInBulksOf) {
-      // await bucketEntriesUsecase.removeFilesV1(toDelete as any);
+      await bucketEntriesUsecase.removeFilesV1(toDelete as any);
 
       stats.totalSize += toDelete.reduce((acc, curr) => acc + curr._frame.size, 0);        
       stats.totalCount += toDelete.length;
