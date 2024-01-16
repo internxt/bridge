@@ -8,7 +8,7 @@ import {
   UsersUsecase 
 } from '../../../core';
 
-type AuthorizedRequest<T> = Request<T> & { user: { _id: string, email: string } };
+type AuthorizedRequest<T> = Request<T> & { user: { _id: string } };
 
 export class HTTPUsersController {
   constructor(
