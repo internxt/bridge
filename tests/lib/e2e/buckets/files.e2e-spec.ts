@@ -40,7 +40,7 @@ describe('Bridge E2E Tests', () => {
     axiosGetStub.callsFake(async (url: string) => {
       if (url.includes('/v2/upload/link')) return { data: { result: FAKE_UPLOAD_URL } }
       if (url.includes('/v2/upload-multipart/link')) {
-        const parts = new URL(url).searchParams.get('parts')
+        const parts = Number(new URL(url).searchParams.get('parts'))
         return { data: { result: new Array(parts).fill(FAKE_UPLOAD_URL), UploadId: 'fake-id' } }
       }
       if (url.includes('/v2/download/link')) return { data: { result: FAKE_DOWNLOAD_URL } }
@@ -76,9 +76,11 @@ describe('Bridge E2E Tests', () => {
 
         const [upload] = uploads;
 
-        expect(upload.url).toBe(FAKE_UPLOAD_URL)
-        expect(upload.urls).toBeNull();
-        expect(upload.uuid).toBeDefined();
+        expect(upload).toMatchObject({
+          url: FAKE_UPLOAD_URL,
+          urls: null,
+          uuid: expect.any(String),
+        })
 
       })
 
@@ -104,16 +106,19 @@ describe('Bridge E2E Tests', () => {
 
         const [firstUpload, secondUpload] = uploads;
 
-        expect(firstUpload.url).toBeNull();
-        expect(firstUpload.urls).toBeDefined();
-        expect(firstUpload.uuid).toBeDefined();
-        expect(firstUpload.UploadId).toBeDefined();
+        expect(firstUpload).toMatchObject({
+          url: null,
+          urls: [FAKE_UPLOAD_URL, FAKE_UPLOAD_URL],
+          uuid: expect.any(String),
+          UploadId: expect.any(String),
+        })
 
-        expect(secondUpload.url).toBeDefined();
-        expect(secondUpload.url).toBeNull();
-        expect(secondUpload.urls).toBeDefined();
-        expect(secondUpload.uuid).toBeDefined();
-        expect(secondUpload.UploadId).toBeDefined();
+        expect(secondUpload).toMatchObject({
+          url: null,
+          urls: [FAKE_UPLOAD_URL, FAKE_UPLOAD_URL],
+          uuid: expect.any(String),
+          UploadId: expect.any(String),
+        })
 
       })
 
@@ -125,8 +130,8 @@ describe('Bridge E2E Tests', () => {
           .expect(201)
 
         // Act: start the upload
-        const MB100 = 99 * 1024 * 1024
-        const fileParts = [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, },]
+        const MB99 = 99 * 1024 * 1024
+        const fileParts = [{ index: 0, size: MB99 / 2, }, { index: 1, size: MB99 / 2, },]
         const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=${fileParts.length}`)
           .set('Authorization', getAuth(testUser))
           .send({ uploads: fileParts, })
@@ -138,7 +143,7 @@ describe('Bridge E2E Tests', () => {
       })
 
 
-      it('When a user finishes to upload a file, the user can finish the upload with a hash per each part uploaded', async () => {
+      it('When a user finishes to upload a file with single part upload, the user can finish the upload with a hash for the file', async () => {
 
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
@@ -166,16 +171,61 @@ describe('Bridge E2E Tests', () => {
 
         const body = responseComplete.body;
 
-        expect(body.bucket).toEqual(bucketId);
-        expect(body.created).toBeDefined();
-        expect(body.filename).toBeDefined();
-        expect(body.id).toBeDefined();
-        expect(body.index).toEqual(index);
-        expect(body.mimetype).toBeDefined();
-        expect(body.renewal).toBeDefined();
-        expect(body.size).toBeGreaterThan(0);
-        expect(typeof body.size).toBe('number');
-        expect(body.version).toBe(2);
+        expect(body).toMatchObject({
+          bucket: bucketId,
+          created: expect.any(String),
+          filename: expect.any(String),
+          index: index,
+          id: expect.any(String),
+          mimetype: 'application/octet-stream',
+          renewal: expect.any(String),
+          size: 1000,
+          version: 2,
+        })
+
+      });
+
+      it('When a user finishes to upload a file with multipart upload, the user can finish the upload with a hash per each part uploaded', async () => {
+
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+
+        // Arrange: start the upload
+        const MB100 = 100 * 1024 * 1024
+        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=2`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, }] })
+
+        const { uploads } = response.body;
+
+        // Act: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        const responseComplete = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(testUser))
+          .send({
+            index,
+            shards: (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
+          });
+
+        // Assert
+        expect(responseComplete.status).toBe(200);
+
+        const body = responseComplete.body;
+
+        expect(body).toMatchObject({
+          bucket: bucketId,
+          created: expect.any(String),
+          filename: expect.any(String),
+          index: index,
+          id: expect.any(String),
+          mimetype: 'application/octet-stream',
+          renewal: expect.any(String),
+          size: MB100,
+          version: 2,
+        })
+
       });
 
     })
@@ -195,12 +245,10 @@ describe('Bridge E2E Tests', () => {
 
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
+        const uploadedShards = (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }))
         const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
           .set('Authorization', getAuth(testUser))
-          .send({
-            index,
-            shards: (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
-          });
+          .send({ index, shards: uploadedShards, });
 
 
         // Act: download the file
@@ -211,17 +259,16 @@ describe('Bridge E2E Tests', () => {
         expect(response.status).toBe(200);
         const body = response.body;
 
-        expect(body.bucket).toBe(bucketId)
-        expect(body.created).toBeDefined()
-        expect(body.index).toBe(index)
-        expect(body.shards).toHaveLength(2)
-
-        const [firstShard, secondShard] = body.shards
-
-        expect(firstShard.hash).toBeDefined()
-        expect(firstShard.url).toBeDefined()
-        expect(secondShard.hash).toBeDefined()
-        expect(secondShard.url).toBeDefined()
+        const [firstShard, secondShard] = uploadedShards
+        expect(body).toMatchObject({
+          bucket: bucketId,
+          created: expect.any(String),
+          index,
+          shards: expect.arrayContaining([
+            { hash: firstShard.hash, url: expect.any(String), },
+            { hash: secondShard.hash, url: expect.any(String), },
+          ])
+        })
 
       })
 
@@ -262,7 +309,7 @@ describe('Bridge E2E Tests', () => {
 
       })
 
-      it('When a user wants to delete a file, it should work if the file does not exist', async () => {
+      it('When a user wants to delete a file, it should fail if the file does not exist', async () => {
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
           .post('/buckets')
@@ -297,12 +344,15 @@ describe('Bridge E2E Tests', () => {
 
         const { body } = response
 
-        expect(body.bucket).toBeDefined()
-        expect(body.operation).toBeDefined()
-        expect(body.expires).toBeDefined()
-        expect(body.token).toBeDefined()
-        expect(body.encryptionKey).toBeDefined()
-        expect(body.id).toBeDefined()
+        expect(body).toMatchObject({
+          bucket: bucketId,
+          operation: 'PULL',
+          expires: expect.any(String),
+          token: expect.any(String),
+          id: expect.any(String),
+          encryptionKey: expect.any(String),
+        })
+
       })
       it('When a user wants to share a file, it should be able to create a token for the bucket passing PULL as operation and an existing file', async () => {
 
@@ -335,17 +385,20 @@ describe('Bridge E2E Tests', () => {
 
         const { body } = response
 
-        expect(body.bucket).toBeDefined()
-        expect(body.operation).toBeDefined()
-        expect(body.expires).toBeDefined()
-        expect(body.token).toBeDefined()
-        expect(body.id).toBeDefined()
-        expect(body.encryptionKey).toBeDefined()
-        expect(body.mimetype).toBeDefined()
-        expect(body.size).toBeDefined()
+        expect(body).toMatchObject({
+          bucket: bucketId,
+          operation: 'PULL',
+          expires: expect.any(String),
+          token: expect.any(String),
+          id: expect.any(String),
+          encryptionKey: expect.any(String),
+          mimetype: 'application/octet-stream',
+          size: 1000,
+        })
+
       })
 
-      it('When a user wants to share a file, it should be able to get the file info', async () => {
+      it('When a user uploads a file, it should able to see the metadata of a file once is uploaded', async () => {
 
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
@@ -359,11 +412,12 @@ describe('Bridge E2E Tests', () => {
 
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
+        const fileHash = crypto.randomBytes(20).toString('hex')
         const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
           .set('Authorization', getAuth(testUser))
           .send({
             index,
-            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }],
+            shards: [{ hash: fileHash, uuid: upload.uuid, }],
           });
 
         // Act
@@ -374,22 +428,19 @@ describe('Bridge E2E Tests', () => {
         expect(response.status).toBe(200);
 
         const { body: fileInfo } = response
-        expect(fileInfo.bucket).toBeDefined()
-        expect(fileInfo.index).toBeDefined()
-        expect(fileInfo.size).toBeDefined()
-        expect(fileInfo.version).toBeDefined()
-        expect(fileInfo.created).toBeDefined()
-        expect(fileInfo.renewal).toBeDefined()
-        expect(fileInfo.mimetype).toBeDefined()
-        expect(fileInfo.filename).toBeDefined()
-        expect(fileInfo.id).toBeDefined()
-        expect(fileInfo.shards).toBeDefined()
-        expect(fileInfo.shards).toHaveLength(1)
 
-        const [shard] = fileInfo.shards
-        expect(shard.index).toBeDefined()
-        expect(shard.hash).toBeDefined()
-        expect(shard.url).toBeDefined()
+        expect(fileInfo).toMatchObject({
+          bucket: bucketId,
+          created: expect.any(String),
+          filename: expect.any(String),
+          index,
+          id: expect.any(String),
+          mimetype: 'application/octet-stream',
+          renewal: expect.any(String),
+          size: 1000,
+          version: 2,
+          shards: [{ index: 0, hash: fileHash, url: expect.any(String), }]
+        })
 
       })
     })
