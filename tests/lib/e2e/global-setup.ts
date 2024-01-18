@@ -37,7 +37,8 @@ export default async () => {
     throw new Error("For caution test database must include test in it's name");
   }
 
-  const client = new MongoClient(url);
+  const baseUrl = new URL(url);
+  const client = new MongoClient(baseUrl.toString().replace(baseUrl.pathname, ''));
 
   await client.connect();
 
