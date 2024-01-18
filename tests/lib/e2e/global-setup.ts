@@ -27,17 +27,17 @@ export default async () => {
   const url = process.env.inxtbridge_storage__mongoUrl;
   const user = process.env.inxtbridge_storage__mongoOpts__user;
   const password = process.env.inxtbridge_storage__mongoOpts__pass;
+  const dbName = process.env.inxtbridge_storage__mongoOpts__dbName;
   if (!url) throw new Error('Missing mongo url');
   if (!user) throw new Error('Missing mongo user');
   if (!password) throw new Error('Missing mongo password');
+  if (!dbName) throw new Error('Missing mongo dbName');
 
-  if (!url.includes('test')) {
+  if (!url.includes('test') || !dbName.includes('test')) {
     throw new Error("For caution test database must include test in it's name");
   }
 
-  const urlParts = url.split('/');
-  const dbName = urlParts.pop();
-  const client = new MongoClient(urlParts.join('/'));
+  const client = new MongoClient(url);
 
   await client.connect();
 
