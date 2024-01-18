@@ -20,6 +20,7 @@ jobs:
       inxtbridge_storage__mongoUrl: mongodb://admin:password@127.0.0.1:27017/bridge-test
       inxtbridge_storage__mongoOpts__user: admin
       inxtbridge_storage__mongoOpts__pass: password
+      inxtbridge_storage__mongoOpts__dbName: bridge-test
       inxtbridge_server__port: 0
       inxtbridge_api_keys__segment_test: inxtbridge_api_keys__segment_test
       inxtbridge_application__CLUSTER__0: inxtbridge_application__CLUSTER__0
