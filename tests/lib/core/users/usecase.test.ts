@@ -345,14 +345,14 @@ describe('Users usecases', () => {
     it('When requesting a user destroy, it should work if the user exists', async () => {
       const user = fixtures.getUser();
       const redirect = 'redirect';
-      const findUser = stub(usersRepository, 'findByEmail').resolves(user);
+      const findUser = stub(usersRepository, 'findById').resolves(user);
       const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
       const eventBusEmitterSpy = jest.spyOn(eventBus, 'emit').mockImplementation();
 
-      await usecase.requestUserDestroy(user.email, user.deactivator as string, redirect);
+      await usecase.requestUserDestroy(user.id, user.deactivator as string, redirect);
 
       expect(findUser.calledOnce).toBeTruthy();
-      expect(findUser.firstCall.args).toStrictEqual([user.email]);
+      expect(findUser.firstCall.args).toStrictEqual([user.id]);
       expect(updateById).toBeCalledTimes(1);
       expect(updateById).toBeCalledWith(user.id, { deactivator: user.deactivator });
       expect(eventBusEmitterSpy).toBeCalledTimes(1);
@@ -368,15 +368,15 @@ describe('Users usecases', () => {
     it('When requesting a user destroy, it should fail if the user does not exist', async () => {
       const user = fixtures.getUser();
       const redirect = 'redirect';
-      const findUser = stub(usersRepository, 'findByEmail').resolves(null);
+      const findUser = stub(usersRepository, 'findById').resolves(null);
 
       try {
-        await usecase.requestUserDestroy(user.email, user.deactivator as string, redirect);
+        await usecase.requestUserDestroy(user.id, user.deactivator as string, redirect);
         expect(true).toBeFalsy();
       } catch (err) {
         expect(err).toBeInstanceOf(UserNotFoundError);
         expect(findUser.calledOnce).toBeTruthy();
-        expect(findUser.firstCall.args).toStrictEqual([user.email]);
+        expect(findUser.firstCall.args).toStrictEqual([user.id]);
       }
     });
   });

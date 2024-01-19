@@ -218,11 +218,11 @@ export class UsersUsecase {
     return user;
   }
 
-  async requestUserDestroy(userEmail: string, deactivator: string, redirect: string) {
-    const user = await this.usersRepository.findByEmail(userEmail);
+  async requestUserDestroy(userId: string, deactivator: string, redirect: string) {
+    const user = await this.usersRepository.findById(userId);
 
     if (!user) {
-      throw new UserNotFoundError(userEmail);
+      throw new UserNotFoundError(userId);
     }
 
     await this.usersRepository.updateById(user.id, { deactivator });
