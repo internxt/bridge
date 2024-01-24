@@ -29,7 +29,7 @@ import { UploadsRepository } from '../../lib/core/uploads/Repository';
 import { TokensRepository } from '../../lib/core/tokens/Repository';
 import { ContactsRepository } from '../../lib/core/contacts/Repository';
 import { MongoDB } from '../delete-objects/temp-shard.model';
-import { DatabaseFramesReader } from '../delete-objects/ObjectStorage';
+import { DatabaseFramesReader, DatabaseBucketEntriesReaderWithoutBucket } from '../delete-objects/ObjectStorage';
 
 const Config = require('../../lib/config');
 
@@ -38,6 +38,7 @@ const config = new Config(process.env.NODE_ENV || 'develop', '', '');
 export type PrepareFunctionReturnType = {
   readers: {
     framesReader: DatabaseFramesReader,
+    bucketEntriesReader: DatabaseBucketEntriesReaderWithoutBucket,
   },
   repo: {
     bucketEntriesRepository: BucketEntriesRepository,
@@ -124,11 +125,15 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
   const framesReader = new DatabaseFramesReader(
     newDbConnection.getCollections().frames
   );
+  const bucketEntriesReader = new DatabaseBucketEntriesReaderWithoutBucket(
+    newDbConnection.getCollections().bucketEntries
+  );
   await networkQueue.connectAndRetry();
 
   return {
     readers: {
       framesReader,
+      bucketEntriesReader,
     },
     repo: {
       bucketEntriesRepository,

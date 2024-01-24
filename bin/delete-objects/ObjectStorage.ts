@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 
 import { ShardsRepository } from '../../lib/core/shards/Repository';
 import { Shard } from '../../lib/core/shards/Shard';
-import { FrameDocument, MongoDBCollections, TempShardDocument } from './temp-shard.model';
+import { BucketEntryDocument, FrameDocument, MongoDBCollections, TempShardDocument } from './temp-shard.model';
 import { ObjectId } from 'mongodb';
 
 export interface StorageObject {
@@ -217,9 +217,12 @@ export class DatabaseTempShardsReader implements TempShardsReader {
   }
 }
 
-export interface FramesReader {
-  list(pageSize?: number): AsyncGenerator<FrameDocument>;
+export interface Reader<T> {
+  list(pageSize?: number): AsyncGenerator<T>;
 }
+
+export interface FramesReader extends Reader<FrameDocument> {}
+export interface BucketEntriesReader extends Reader<BucketEntryDocument> {}
 
 export class DatabaseFramesReader {
   constructor(private readonly frames: MongoDBCollections['frames']) {}
@@ -278,6 +281,44 @@ export class DatabaseFramesReaderWithoutOwner {
 
       if (frame) {
         yield frame;
+      }
+    }
+  }
+}
+
+export class DatabaseBucketEntriesReaderWithoutBucket implements BucketEntriesReader {
+  constructor(private readonly collection: MongoDBCollections['bucketEntries']) {}
+
+  async* list(pageSize = 50): AsyncGenerator<BucketEntryDocument> {
+    const pipeline = [
+      {
+        $match: {
+          created: {
+            $lt: new Date("2022-04-01T00:00:00Z") // Filtrar antes de abril de 2022
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "buckets",
+          localField: "bucket",
+          foreignField: "_id",
+          as: "bucketInfo"
+        }
+      },
+      {
+        $match: {
+          bucketInfo: { $size: 0 } // Filtra los documentos donde no hay coincidencias en Users
+        }
+      },
+    ];
+    const cursor = this.collection.aggregate<BucketEntryDocument>(pipeline);
+
+    while (await cursor.hasNext()) {
+      const doc = await cursor.next();
+
+      if (doc) {
+        yield doc;
       }
     }
   }

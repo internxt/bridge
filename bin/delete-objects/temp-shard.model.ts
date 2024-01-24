@@ -1,9 +1,11 @@
 import { ObjectId, Document, Collection, Db, MongoClient } from 'mongodb';
 import { Frame } from '../../lib/core/frames/Frame';
+import { BucketEntry } from '../../lib/core/bucketEntries/BucketEntry';
 
 export interface MongoDBCollections {
   tempShards: Collection<TempShardDocument>;
   frames: Collection<FrameDocument>;
+  bucketEntries: Collection<BucketEntryDocument>;
 }
 
 interface TempShard extends Document {
@@ -19,6 +21,12 @@ export interface TempShardDocument extends Omit<TempShard, 'shardId'> {
 
 export interface FrameDocument extends Omit<Frame, 'id'> {
   _id: ObjectId;
+}
+
+export interface BucketEntryDocument extends Omit<BucketEntry, 'id'> {
+  _id: ObjectId;
+  renewal: Date; 
+  toObject(): Omit<BucketEntryDocument, 'toObject'>;
 }
 
 export class MongoDB {
@@ -51,7 +59,8 @@ export class MongoDB {
 
     return {
       tempShards: this.db.collection<TempShardDocument>('tempshards'),
-      frames: this.db.collection<FrameDocument>('frames')
+      frames: this.db.collection<FrameDocument>('frames'),
+      bucketEntries: this.db.collection<BucketEntryDocument>('bucketentries'),
     };
   }
 

@@ -3,4 +3,5 @@ export enum CommandId {
   EmptyBucket = 'empty-bucket',
   EmptyBuckets = 'empty-buckets',
   CleanStalledFrames = 'clean-stalled-frames',
+  CleanStalledBucketEntries = 'clean-stalled-bucket-entries',
 }
