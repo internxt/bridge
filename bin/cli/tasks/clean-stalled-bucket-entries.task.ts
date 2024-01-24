@@ -27,20 +27,20 @@ const task: CleanStalledBucketEntriesFunctionType = async (
   for await (const bucketEntry of reader.list()) {
     const bucketDoesNotExist = await bucketsUsecase.findById(bucketEntry.bucket) === null;
     const isV1 = !bucketEntry.version;
-
-    // console.log(`processing ${bucketEntry._id} is V1: ${isV1}`);
     
     if (bucketDoesNotExist && isV1) {
       toDelete.push(bucketEntry);
     }
 
     if (toDelete.length === deleteInBulksOf) {
-      // await bucketEntriesUsecase.removeFiles(toDelete.map(be => be._id.toString()));
       const frames = await framesRepository.findByIds(toDelete.map(b => b.frame!));
-      const bucketEntriesWithFrames = toDelete.map(be => ({
-        ...be,
-        frame: frames.find(f => f.id.toString() === be.frame?.toString()),
-      }));
+      const beIds = toDelete.map(be => be._id.toString());
+
+      await bucketEntriesUsecase.removeFiles(beIds);
+
+      toDelete.forEach(be => {
+        console.log(`deleting entry ${be._id}`);
+      });
 
       stats.totalSize += frames.reduce((acc, curr) => acc + (curr.size || 0), 0);        
       stats.totalCount += toDelete.length;
