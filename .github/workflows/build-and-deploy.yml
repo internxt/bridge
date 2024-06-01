@@ -21,7 +21,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }},${{ secrets.DOCKERHUB_USERNAME }}/bridge:latest
   deploy:
     needs: build
     runs-on: ubuntu-latest
