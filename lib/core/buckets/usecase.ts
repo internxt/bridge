@@ -28,6 +28,13 @@ import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
 
+import { sign as signJwt } from 'jsonwebtoken';
+import { getEnv } from '../../server/env';
+
+function signTokenWith(payload: Record<string, unknown>) {
+  return signJwt({ payload }, getEnv().storage.jwtSecret, { expiresIn: '30d' });
+}
+
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
     super(`Bucket entry ${bucketEntryId ?? ''} not found`);
@@ -280,7 +287,8 @@ export class BucketsUsecase {
     cluster: string[],
     uploads: { index: number; size: number }[],
     auth: { username: string; password: string },
-    multiparts = 1
+    multiparts = 1,
+    withToken = true
   ) {
     const [bucket, user] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
@@ -374,11 +382,27 @@ export class BucketsUsecase {
           auth,
           multiparts
         );
-        return { index, uuid, url: null, urls, UploadId };
+
+        return { 
+          index, 
+          uuid, 
+          url: null, 
+          urls: withToken ? urls.map((url) => url + '?token=' + signTokenWith({
+            size, uuid
+          })) : urls,
+          UploadId 
+        };
       }
 
       const objectStorageUrl = await this.singlePartUpload(contact, uuid, auth);
-      return { index, uuid, url: objectStorageUrl, urls: null };
+      return { 
+        index, 
+        uuid, 
+        url: withToken ? objectStorageUrl + '?token=' + signTokenWith({
+          size, uuid
+        }): objectStorageUrl, 
+        urls: null 
+      };
     });
 
     return Promise.all(uploadPromises);
@@ -390,13 +414,13 @@ export class BucketsUsecase {
     auth: { username: string; password: string }
   ): Promise<string> {
     const { address, port } = contact;
-    const farmerUrl = `http://${address}:${port}/v2/upload/link/${uuid}`;
+    const objectStorageUrl = `http://${address}:${port}/v2/upload/${uuid}`;
 
-    const { username, password } = auth;
-    const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
-      auth: { username, password },
-    });
-    const objectStorageUrl = farmerRes.data.result;
+    // const { username, password } = auth;
+    // const farmerRes = await axios.get<{ result: string }>(farmerUrl, {
+    //   auth: { username, password },
+    // });
+    // const objectStorageUrl = farmerRes.data.result;
 
     return objectStorageUrl;
   }
