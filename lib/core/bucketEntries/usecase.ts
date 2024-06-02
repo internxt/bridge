@@ -41,6 +41,12 @@ export class BucketEntriesUsecase {
     return bucketEntries;
   }
 
+  async findById(id: BucketEntry['id']): Promise<BucketEntry | null> {
+    const bucketEntry = await this.bucketEntriesRepository.findOne({ id });
+
+    return bucketEntry;
+  }
+
   async countByBucket(bucketId: Bucket['id']): Promise<number> {
     const count = await this.bucketEntriesRepository.count({ bucket: bucketId });
 

@@ -34,6 +34,16 @@ const formatFromMongoToShard = (mongoShard: any): Shard => {
 export class MongoDBShardsRepository implements ShardsRepository {
   constructor(private model: any) {}
 
+  findWithNoUuid(limit = 10, offset = 0): Promise<Shard[]> {
+    return this.model
+      .find({ uuid: { $exists: false } })
+      .sort({ _id: 1 })
+      .skip(offset)
+      .limit(limit)
+      .exec()
+      .then((shards: any) => shards.map(formatFromMongoToShard));
+  }
+
   findByIds(shardIds: Shard['id'][]): Promise<Shard[]> {
     return this.model
       .find({ _id: { $in: shardIds } })

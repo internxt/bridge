@@ -28,12 +28,18 @@ import { ShardsRepository } from '../../lib/core/shards/Repository';
 import { UploadsRepository } from '../../lib/core/uploads/Repository';
 import { TokensRepository } from '../../lib/core/tokens/Repository';
 import { ContactsRepository } from '../../lib/core/contacts/Repository';
+import { MongoDB } from '../delete-objects/temp-shard.model';
+import { DatabaseFramesReader, DatabaseBucketEntriesReaderWithoutBucket } from '../delete-objects/ObjectStorage';
 
 const Config = require('../../lib/config');
 
 const config = new Config(process.env.NODE_ENV || 'develop', '', '');
 
 export type PrepareFunctionReturnType = {
+  readers: {
+    framesReader: DatabaseFramesReader,
+    bucketEntriesReader: DatabaseBucketEntriesReaderWithoutBucket,
+  },
   repo: {
     bucketEntriesRepository: BucketEntriesRepository,
     bucketEntryShardsRepository:BucketEntryShardsRepository,
@@ -57,6 +63,8 @@ export type PrepareFunctionReturnType = {
 export async function prepare(): Promise<PrepareFunctionReturnType> {
   const QUEUE_NAME = 'NETWORK_WORKER_TASKS_QUEUE';
 
+  const newDbConnection = new MongoDB(process.env.inxtbridge_storage__mongoUri as string);
+  await newDbConnection.connect();
   const models = await connectToDatabase('', '');
   const { QUEUE_USERNAME, QUEUE_PASSWORD, QUEUE_HOST } = config;
 
@@ -114,9 +122,19 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
     tokensRepository,
     contactsRepository,
   )
+  const framesReader = new DatabaseFramesReader(
+    newDbConnection.getCollections().frames
+  );
+  const bucketEntriesReader = new DatabaseBucketEntriesReaderWithoutBucket(
+    newDbConnection.getCollections().bucketEntries
+  );
   await networkQueue.connectAndRetry();
 
   return {
+    readers: {
+      framesReader,
+      bucketEntriesReader,
+    },
     repo: {
       bucketEntriesRepository,
       bucketEntryShardsRepository,
