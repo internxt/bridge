@@ -116,7 +116,7 @@ export class UsersUsecase {
   async createUser(email: string, password: string) {
     this.eventBus.emit(EventBusEvents.UserCreationStarts, { email });
 
-    const maxSpaceBytes = 1024 * 1024 * 1024 * 2;
+    const maxSpaceBytes = 1024 * 1024 * 1024 * 1;
     const activated = true;
 
     const emailMatch = isEmailValid(email);
