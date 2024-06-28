@@ -191,7 +191,7 @@ export class BucketsUsecase {
     }
   }
 
-  async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], supportsV2: boolean): Promise<
+  async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], partSize?: number): Promise<
     Omit<BucketEntry, 'frame'> & { shards: any[] } | 
     BucketEntry & { frame: Frame['id'], size: Frame['size'] }
   > {
@@ -205,7 +205,7 @@ export class BucketsUsecase {
     }
 
     if (bucketEntry.version && bucketEntry.version === 2) {
-      const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id);
+      const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id, partSize);
 
       return { ...bucketEntry, shards: downloadLinks };
     }
@@ -217,7 +217,7 @@ export class BucketsUsecase {
     return { ...bucketEntry, frame: bucketEntry.frame.id, size: bucketEntry.frame.size };
   }
 
-  async getBucketEntryDownloadLinks(bucketEntryId: BucketEntry['id']): Promise<{
+  async getBucketEntryDownloadLinks(bucketEntryId: BucketEntry['id'], partSize?: number): Promise<{
     index: BucketEntryShard['index'],
     size: Shard['size'],
     hash: Shard['hash'],
@@ -253,7 +253,11 @@ export class BucketsUsecase {
         b => b.shard.toString() === shard.id.toString()
       ) as BucketEntryShard;
 
-      const farmerUrl = `http://${address}:${port}/v2/download/link/${shard.uuid}`;
+      let farmerUrl = `http://${address}:${port}/v2/download/link/${shard.uuid}`;
+
+      if (partSize) {
+        farmerUrl = `http://${address}:${port}/v2/download-multipart/link/${shard.uuid}?partSize=${partSize}`
+      }
 
       await axios.get(farmerUrl).then(res => {
         response.push({
