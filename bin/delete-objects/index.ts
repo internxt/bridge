@@ -1,14 +1,17 @@
 import AWS from 'aws-sdk';
 import { validate } from 'uuid';
 import { program } from 'commander';
-
+import { MongoDBShardsRepository } from '../../lib/core/shards/MongoDBShardsRepository';
 import { connectToDatabase, Models } from '../utils/database';
 import { 
+  DatabaseShardsReader,
   FileListObjectStorageReader, 
   ObjectStorageReader, 
+  ripemd160, 
   S3ObjectStorageReader, 
   StorageObject 
 } from './ObjectStorage';
+import listV1Shards from './list-v1-shards';
 
 program
   .version('0.0.1')
@@ -39,6 +42,10 @@ program
   .option(
     '-r, --region <us-east-1>',
     'object storage region'
+  )
+  .option(
+    '-n, --nodeId <node-id>',
+    'the node id of the farmer that has a contract with the shards to filter'
   )
   .parse();
 
@@ -107,6 +114,7 @@ if (readerSource === 'file') {
 const stats = {
   totalDeletedSize: 0,
   totalDeletedObjects: 0,
+  throughput: 0,
 };
 
 async function cleanStalledObjects(): Promise<void> {
@@ -137,6 +145,50 @@ async function cleanStalledObjects(): Promise<void> {
     await deleteObjects(objectsToDelete);
   }
 }
+
+const createTimer = () => {
+  let timeStart: [number, number];
+
+  return {
+    start: () => {
+      timeStart = process.hrtime();
+    },
+    end: () => {
+      const NS_PER_SEC = 1e9;
+      const NS_TO_MS = 1e6;
+      const diff = process.hrtime(timeStart);
+
+      return (diff[0] * NS_PER_SEC + diff[1]) / NS_TO_MS;
+    }
+  };
+};
+
+/**
+ * TODO: Add the cleanup part
+ */
+async function cleanStalledV1Objects(): Promise<void> {
+  console.log('nodeId', options.nodeId);
+
+  models = await connectToDatabase(options.config, options.mongourl);
+  const shardsReader = new DatabaseShardsReader(new MongoDBShardsRepository(models?.Shard));
+
+  const timer = createTimer();
+  timer.start();
+  const listingEmitter = listV1Shards(shardsReader, options.nodeId);
+
+  await new Promise((resolve, reject) => {
+    listingEmitter
+      .once('error', reject)
+      .once('end', resolve)
+      .on('progress', ({ deletedCount }) => {
+        stats.throughput = deletedCount / (timer.end() / 1000)
+      })
+      .on('data', (shard) => {
+        console.log('shard %s %s %s', shard.hash, ripemd160(shard.hash), shard.size);
+      })
+  });
+}
+
 
 /**
  * Clean unfinished multipart uploads. 
@@ -174,7 +226,8 @@ async function main(): Promise<void> {
     console.log('STATS', stats);
   }, 10000);
   try {
-    await cleanStalledObjects();
+    // await cleanStalledObjects();
+    await cleanStalledV1Objects();
     await insertStatsOnDatabase(stats.totalDeletedSize);
     
     console.log('PROGRAM FINISHED SUCCESSFULLY');

@@ -2,18 +2,51 @@ import { MirrorsRepository } from '../mirrors/Repository';
 import NetworkMessageQueue from "../../server/queues/networkQueue";
 import { DELETING_FILE_MESSAGE } from "../../server/queues/messageTypes";
 import log from '../../logger';
+import { ContactsRepository } from '../contacts/Repository';
+import { Contact } from '../contacts/Contact';
+import { MirrorWithContact } from '../mirrors/Mirror';
 
 export class ShardsUsecase {
   constructor(
-    private mirrorsRepository: MirrorsRepository,
-    private networkQueue: NetworkMessageQueue
+    private readonly mirrorsRepository: MirrorsRepository,
+    private readonly contactsRepository: ContactsRepository, 
+    private readonly networkQueue: NetworkMessageQueue
   ) {}
 
-  async deleteShardsStorageByUuids(shards: { hash: string, uuid: string }[]) {
+  async deleteShardsStorageByUuids(shards: { 
+    hash: string, 
+    uuid: string, 
+    contracts: ({ nodeID: Contact['id'] })[] 
+  }[]) {
     const mirrors = await this.mirrorsRepository.findByShardHashesWithContacts(shards.map(s => s.hash));
     const stillExistentMirrors = mirrors.filter((mirror) => {
       return mirror.contact && mirror.contact.address && mirror.contact.port;
     });
+
+    const noMirrors = stillExistentMirrors.length === 0;
+
+    if (noMirrors) {
+      const contactIdsWithShardsHashes = shards.flatMap((s) => 
+        s.contracts.map(c => ({ nodeID: c.nodeID, shardHash: s.hash, uuid: s.uuid }))
+      );
+
+      const contacts = await this.contactsRepository.findByIds(
+        contactIdsWithShardsHashes.map(c => c.nodeID)
+      );
+
+      for (const shard of shards) {
+        const contactsForGivenShard = contactIdsWithShardsHashes.filter((contactWHash) => {
+          return contactWHash.shardHash === shard.hash
+        });
+        for (const mirror of contactsForGivenShard) {
+          stillExistentMirrors.push({
+            id: '000000000000000000000000',
+            contact: contacts.find(c => c.id === mirror.nodeID) as Contact,
+            shardHash: mirror.shardHash
+          } as MirrorWithContact);
+        }
+      }
+    } 
 
     for (const { contact, shardHash } of stillExistentMirrors) {
       const { address, port } = contact;
@@ -35,7 +68,7 @@ export class ShardsUsecase {
       })
     }
 
-    if (stillExistentMirrors.length > 0) {
+    if (!noMirrors && stillExistentMirrors.length > 0) {
       log.info('Deleting still existent mirrors (by uuids): %s from hashes: %s', stillExistentMirrors.map(m => m.id).toString(), shards.toString());
 
       await this.mirrorsRepository.deleteByIds(stillExistentMirrors.map(m => m.id));

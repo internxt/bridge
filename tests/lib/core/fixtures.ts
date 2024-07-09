@@ -7,8 +7,9 @@ import { Frame } from '../../../lib/core/frames/Frame';
 import { BucketEntryShard } from '../../../lib/core/bucketEntryShards/BucketEntryShard';
 import { Bucket } from '../../../lib/core/buckets/Bucket';
 import { User } from '../../../lib/core/users/User';
-import { Shard } from '../../../lib/core/shards/Shard';
+import { Shard, Contract } from '../../../lib/core/shards/Shard';
 import { Contact } from '../../../lib/core/contacts/Contact';
+import { Mirror } from '../../../lib/core/mirrors/Mirror';
 
 function getBucketEntriesWithFrames(fileIds?: string[]): BucketEntryWithFrame[] {
   const ids = fileIds ?? [v4()];
@@ -156,7 +157,7 @@ function getShard(custom?: Partial<Shard>, contactId?: Contact['id']): Shard {
 
 function getContact(custom?: Partial<Contact>): Contact {
   const defaultContact: Contact = {
-    address: `http://${randomBytes(10).toString('hex')}.com`,
+    address: `${randomBytes(10).toString('hex')}.com`,
     id: v4(),
     ip: 'http://1.1.1.1',
     lastSeen: new Date(),
@@ -174,6 +175,30 @@ function getContact(custom?: Partial<Contact>): Contact {
   return { ...defaultContact, ...custom };
 }
 
+function getContract(custom?: Partial<Contract>): Contract {
+  return {
+    version: 1,
+    farmer_id: randomBytes(40).toString('hex'),
+    data_size: Math.trunc(Math.random() * 1000),
+    data_hash: randomBytes(40).toString('hex'),
+    store_begin: new Date(),
+    ...custom
+  }
+};
+
+function getMirror(custom?: Partial<Mirror>): Mirror {
+  return {
+    id: v4(),
+    shardHash: randomBytes(40).toString('hex'),
+    contact: v4(),
+    token: v4(),
+    isEstablished: true,
+    contract: getContract(),
+    created: new Date(),
+    ...custom
+  };
+}
+
 export default {
   getBucketEntriesWithFrames,
   getBucketEntriesWithoutFrames,
@@ -184,5 +209,7 @@ export default {
   getBucket,
   getUser,
   getShard,
-  getContact
+  getContact,
+  getContract,
+  getMirror
 };

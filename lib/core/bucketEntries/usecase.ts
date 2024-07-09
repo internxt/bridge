@@ -41,6 +41,12 @@ export class BucketEntriesUsecase {
     return bucketEntries;
   }
 
+  async findById(id: BucketEntry['id']): Promise<BucketEntry | null> {
+    const bucketEntry = await this.bucketEntriesRepository.findOne({ id });
+
+    return bucketEntry;
+  }
+
   async countByBucket(bucketId: Bucket['id']): Promise<number> {
     const count = await this.bucketEntriesRepository.count({ bucket: bucketId });
 
@@ -162,7 +168,7 @@ export class BucketEntriesUsecase {
     const shards = await this.shardsRepository.findByIds(shardIds);
 
     if (shards.length > 0) {
-      await this.shardsUsecase.deleteShardsStorageByUuids(shards.map(s => ({ uuid: s.uuid!, hash: s.hash })));
+      await this.shardsUsecase.deleteShardsStorageByUuids(shards as any);
       await this.shardsRepository.deleteByIds(shards.map(s => s.id));   
     }
 
