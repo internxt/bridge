@@ -24,6 +24,8 @@ import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
 import fixtures from '../fixtures';
 import { BucketEntry } from '../../../../lib/core/bucketEntries/BucketEntry';
 import { Bucket } from '../../../../lib/core/buckets/Bucket';
+import { ContactsRepository } from '../../../../lib/core/contacts/Repository';
+import { MongoDBContactsRepository } from '../../../../lib/core/contacts/MongoDBContactsRepository';
 
 describe('BucketEntriesUsecase', function () {
   const bucketId =  'bucketIdSAMPLE';
@@ -38,6 +40,7 @@ describe('BucketEntriesUsecase', function () {
   let pointersRepository: PointersRepository = new MongoDBPointersRepository({});
   let usersRepository: UsersRepository = new MongoDBUsersRepository({});
   let bucketEntryShardsRepository: BucketEntryShardsRepository = new MongoDBBucketEntryShardsRepository({});
+  let contactsRepository: ContactsRepository = new MongoDBContactsRepository({});
 
   let networkQueue: any = {
     enqueueMessage: (message: any) => {}
@@ -45,6 +48,7 @@ describe('BucketEntriesUsecase', function () {
 
   let shardsUseCase = new ShardsUsecase(
     mirrorsRepository,
+    contactsRepository,
     networkQueue,
   );
 
@@ -67,9 +71,11 @@ describe('BucketEntriesUsecase', function () {
     shardsRepository = new MongoDBShardsRepository({});
     bucketsRepository = new MongoDBBucketsRepository({});
     pointersRepository = new MongoDBPointersRepository({});
+    contactsRepository = new MongoDBContactsRepository({});
 
     shardsUseCase = new ShardsUsecase(
       mirrorsRepository,
+      contactsRepository,
       networkQueue,
     );
 
@@ -278,7 +284,9 @@ describe('BucketEntriesUsecase', function () {
       expect(findShardsStub.calledWith(shards.map(b => b.id)));
 
       expect(deleteShardsStorageStub.calledOnce).toBeTruthy();
-      expect(deleteShardsStorageStub.calledWith(shards.map(s => ({ hash: s.hash, uuid: (s.uuid as string) }))))
+      expect(deleteShardsStorageStub.calledWith(
+        shards.map(s => ({ hash: s.hash, uuid: (s.uuid as string), contracts: s.contracts })))
+      )
 
       expect(deleteShardsStub.calledOnce).toBeTruthy();
       expect(deleteShardsStub.calledWith(shards.map(s => s.id)));
