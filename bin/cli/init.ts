@@ -97,6 +97,7 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
 
   const shardsUsecase = new ShardsUsecase(
     mirrorsRepository,
+    contactsRepository,
     networkQueue
   );
   const bucketEntriesUsecase = new BucketEntriesUsecase(
