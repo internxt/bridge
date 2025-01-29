@@ -593,6 +593,8 @@ export class BucketsUsecase {
     isMultipartUpload: boolean = false
   ): Promise<Shard> {
     const { uuid, contracts, data_size } = upload;
+    const shardHash = v4().concat('$', shard.hash);
+    shard.hash = shardHash;
 
     const contacts = await this.contactsRepository.findByIds(
       contracts.map((c) => c.nodeID)

@@ -265,8 +265,8 @@ describe('Bridge E2E Tests', () => {
           created: expect.any(String),
           index,
           shards: expect.arrayContaining([
-            { hash: firstShard.hash, url: expect.any(String), },
-            { hash: secondShard.hash, url: expect.any(String), },
+            { hash: expect.stringMatching(new RegExp(`\\$${firstShard.hash}$`)), url: expect.any(String), },
+            { hash: expect.stringMatching(new RegExp(`\\$${secondShard.hash}$`)), url: expect.any(String), },
           ])
         })
 
@@ -439,7 +439,7 @@ describe('Bridge E2E Tests', () => {
           renewal: expect.any(String),
           size: 1000,
           version: 2,
-          shards: [{ index: 0, hash: fileHash, url: expect.any(String), }]
+          shards: [{ index: 0, hash: expect.stringMatching(new RegExp(`\\$${fileHash}$`)), url: expect.any(String), }]
         })
 
       })
