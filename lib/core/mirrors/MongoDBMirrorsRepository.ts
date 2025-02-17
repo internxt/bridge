@@ -75,20 +75,17 @@ export class MongoDBMirrorsRepository implements MirrorsRepository {
       const shardHash = shard.hash;
       const mirror = await this.model.find({ shardHash });
       if (mirror.length === 0) {
-        let contract = {};
-        let nodeID = '';
         if (shard.contracts.length > 0) {
-          contract = shard.contracts[0].contract;
-          nodeID = shard.contracts[0].nodeID;
+          for (const { contract, nodeID } of shard.contracts) {
+            await this.create({
+              isEstablished: true,
+              shardHash,
+              contact: nodeID,
+              contract: { ...contract, data_hash: shardHash } as Contract,
+              token: '',
+            });
+          }
         }
-
-        await this.create({
-          isEstablished: true,
-          shardHash,
-          contact: nodeID,
-          contract: { ...contract, data_hash: shardHash } as Contract,
-          token: '',
-        });
       }
     }
     return this.findByShardHashesWithContacts(shards.map((s) => s.hash));
