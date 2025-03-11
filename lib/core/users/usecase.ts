@@ -113,6 +113,16 @@ export class UsersUsecase {
     return this.createUser(email, password);
   }
 
+  async findUser(uuid: string): Promise<User> {
+    const user = await this.usersRepository.findByUuid(uuid);
+
+    if (!user) {
+      throw new UserNotFoundError(uuid);
+    }
+
+    return user;
+  }
+
   async createUser(email: string, password: string) {
     this.eventBus.emit(EventBusEvents.UserCreationStarts, { email });
 
