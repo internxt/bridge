@@ -54,6 +54,33 @@ export class HTTPGatewayController {
     }
   }
 
+  async findUser(req: Request<{ uuid: string }, {}, {}, {}>, res: Response) {
+    if (!req.params.uuid) {
+      return res.status(400).send({ error: "Missing params" });
+    }
+
+    try {
+      const { uuid } = req.params;
+
+      const user = await this.usersUsecase.findUser(uuid);
+
+      res.status(200).send(user);
+    } catch (error) {
+      const err = error as Error;
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+      this.logger.error(
+        '[GATEWAY/FIND_USER] Error finding user %s: %s. %s', 
+        req.params.uuid, 
+        err.message, 
+        err.stack
+      );
+    
+      res.status(500).send({ message: 'Internal Server Error' });
+    }
+  }
+
   async findOrCreateUser(req: Request<{}, {}, { email?: string, password?: string }, {}>, res: Response) {
     if (!req.body || !req.body.email || !req.body.password) {
       return res.status(400).send();
