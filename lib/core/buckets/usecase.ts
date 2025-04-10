@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { v4 } from 'uuid';
 import lodash from 'lodash';
 
@@ -205,9 +205,19 @@ export class BucketsUsecase {
     }
 
     if (bucketEntry.version && bucketEntry.version === 2) {
-      const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id, partSize);
+      try {
+        const downloadLinks = await this.getBucketEntryDownloadLinks(bucketEntry.id, partSize);
 
-      return { ...bucketEntry, shards: downloadLinks };
+        return { ...bucketEntry, shards: downloadLinks };
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const axiosError = error as AxiosError;
+          if (axiosError.response?.status === 404) {
+            throw new BucketEntryNotFoundError(fileId);
+          }
+        }
+        throw error;
+      }
     }
 
     if (!bucketEntry.frame) {
