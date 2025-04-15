@@ -1,3 +1,4 @@
+import { validate } from 'uuid';
 import { Contact } from '../contacts/Contact';
 import { ShardsRepository } from './Repository';
 import { Shard } from './Shard';
@@ -13,6 +14,8 @@ const formatFromMongoToShard = (mongoShard: any): Shard => {
       nodeID: c.nodeID,
     });
   });
+
+  
   const formattedShard = {
     ...shard,
     contracts,
@@ -31,6 +34,25 @@ const formatFromMongoToShard = (mongoShard: any): Shard => {
 
   return formattedShard;
 };
+
+
+export const formatShardHash = (shard: Shard): Shard => { 
+  if (shard.hash) {
+    const separatorIndex = shard.hash.indexOf('$');
+    if (separatorIndex !== -1) {
+      const potentialUuid = shard.hash.slice(0, separatorIndex);
+      
+      if (validate(potentialUuid)) {
+        return {
+          ...shard,
+          hash: shard.hash.slice(separatorIndex + 1)
+        };
+      }
+    }
+  }
+  return shard;
+}
+
 export class MongoDBShardsRepository implements ShardsRepository {
   constructor(private model: any) {}
 
