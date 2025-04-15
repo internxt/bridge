@@ -7,7 +7,7 @@ import { ShardsRepository } from '../../lib/core/shards/Repository';
 import { Shard } from '../../lib/core/shards/Shard';
 import { BucketEntryDocument, FrameDocument, MongoDBCollections, TempShardDocument } from './temp-shard.model';
 import { ObjectId } from 'mongodb';
-import { removeUuidFromHash } from '../../lib/core/shards/MongoDBShardsRepository';
+import { removeUuidFromHash } from '../../lib/core/shards/utils';
 
 export interface StorageObject {
   Key: string;
