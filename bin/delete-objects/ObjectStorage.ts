@@ -7,7 +7,6 @@ import { ShardsRepository } from '../../lib/core/shards/Repository';
 import { Shard } from '../../lib/core/shards/Shard';
 import { BucketEntryDocument, FrameDocument, MongoDBCollections, TempShardDocument } from './temp-shard.model';
 import { ObjectId } from 'mongodb';
-import { removeUuidFromHash } from '../../lib/core/shards/utils';
 
 export interface StorageObject {
   Key: string;
@@ -152,8 +151,7 @@ interface TempShardsWriter {
 }
 
 function isValidShardHash(hash: string) {
-  const hashWithoutUuid = removeUuidFromHash(hash);
-  return !!hashWithoutUuid.match(/^[a-f0-9]{40}$/);
+  return !!hash.match(/^[a-f0-9]{40}$/);
 }
 
 export function ripemd160(content: string) {
