@@ -192,7 +192,14 @@ export class BucketsUsecase {
   }
 
   async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], partSize?: number): Promise<
-    Omit<BucketEntry, 'frame'> & { shards: any[] } | 
+    Omit<BucketEntry, 'frame'> & {
+      shards: {
+        index: BucketEntryShard["index"];
+        size: Shard["size"];
+        hash: Shard["hash"];
+        url: string;
+      }[]
+    } |
     BucketEntry & { frame: Frame['id'], size: Frame['size'] }
   > {
     const bucketEntry = await this.bucketEntriesRepository.findOneWithFrame({
@@ -603,6 +610,8 @@ export class BucketsUsecase {
     isMultipartUpload: boolean = false
   ): Promise<Shard> {
     const { uuid, contracts, data_size } = upload;
+    const shardHash = v4().concat('$', shard.hash);
+    shard.hash = shardHash;
 
     const contacts = await this.contactsRepository.findByIds(
       contracts.map((c) => c.nodeID)
