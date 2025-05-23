@@ -1,0 +1,176 @@
+import KeyPair, {
+    getFarmerBridgeRequestObject,
+    getProofOfWork,
+    shutdownEngine,
+} from "../utils";
+import { testServerURL, testServer, engine } from "../setup";
+import { dataGenerator } from "../users.fixtures";
+
+describe("Bridge E2E Tests", () => {
+    let actualPort: number;
+
+    beforeAll(async () => {
+        actualPort = testServerURL.port;
+    });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    afterAll(async () => {
+        await shutdownEngine();
+    });
+
+    describe("Contacts Management", () => {
+        describe("Getting contact by nodeID", () => {
+            it("When requesting a contact by nodeID, it should return 404 if contact does not exist", async () => {
+                const nonExistentNodeID = dataGenerator.hash({
+                    length: 40,
+                });
+
+                const response = await testServer
+                    .get(`/contacts/${nonExistentNodeID}`)
+                    .set("x-node-timestamp", "1747971345313")
+                    .set(
+                        "x-node-id",
+                        "0a35d2d0d16ecbcbd3f29153f20f07bd7ed9cdaf"
+                    )
+                    .set(
+                        "x-node-signature",
+                        "30450221008536ba999db48798bddd315fa1bfcc451dcedc6ab84caadbe5b25a5076966c5f02205fdda41e7cf08cc73661bc9f063af3f5d2b98a6d17e3808d731151e36c7f5ce0"
+                    )
+                    .set(
+                        "x-node-pubkey",
+                        "03a1aa78894d7228e25a326b9dcf0418c80f84e928513a0664cf6b960f744e95e3"
+                    )
+                    .set("content-type", "application/json");
+
+                expect(response.status).toBe(404);
+                expect(response.body.error).toBe("Contact not found");
+            });
+        });
+
+        describe("Challenge Creation", () => {
+            it("When requesting a challenge with valid farmer headers, it should return challenge and target", async () => {
+                const keypair = new KeyPair(
+                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                );
+
+                // Use the actual port the server is running on
+                const baseUrl = `http://127.0.0.1:${actualPort}`;
+                const requestData = getFarmerBridgeRequestObject(
+                    keypair,
+                    baseUrl,
+                    "POST",
+                    "/contacts/challenges",
+                    {},
+                    {}
+                );
+
+                const response = await testServer
+                    .post("/contacts/challenges")
+                    .set(requestData.headers)
+                    .send(requestData.data);
+
+                expect(response.status).toBe(201);
+                expect(response.body).toMatchObject({
+                    challenge: expect.any(String),
+                    target: expect.any(String),
+                });
+
+                // Verify challenge is 64 character hex string (32 bytes)
+                expect(response.body.challenge).toMatch(/^[a-f0-9]{64}$/i);
+
+                // Verify target is 64 character hex string
+                expect(response.body.target).toMatch(/^[a-f0-9]{64}$/i);
+            });
+
+            it("When requesting a challenge with invalid signature headers, it should throw", async () => {
+                const keypair = new KeyPair(
+                    "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+                );
+
+                const wrongBaseUrl = `http://127.1.1.1:${actualPort}`;
+                const requestData = getFarmerBridgeRequestObject(
+                    keypair,
+                    wrongBaseUrl,
+                    "POST",
+                    "/contacts/challenges",
+                    {},
+                    {}
+                );
+
+                const response = await testServer
+                    .post("/contacts/challenges")
+                    .set(requestData.headers)
+                    .send(requestData.data);
+
+                expect(response.status).toBe(400);
+            });
+        });
+
+        describe("Node Registration", () => {
+            it("When a correct proofOfWork is sent and a node is registered, then the node should be stored", async () => {
+                const nodeAddress = "https://network";
+                const nodePort = 8000;
+                const baseUrl = `http://127.0.0.1:${actualPort}`;
+                const keypair = new KeyPair(
+                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                );
+                const challengeRequestObject = getFarmerBridgeRequestObject(
+                    keypair,
+                    baseUrl,
+                    "POST",
+                    "/contacts/challenges",
+                    {},
+                    {}
+                );
+
+                const challengeResponse = await testServer
+                    .post("/contacts/challenges")
+                    .set(challengeRequestObject.headers)
+                    .send(challengeRequestObject.data);
+
+                const { challenge, target } = challengeResponse.body;
+                const nonce = await getProofOfWork(challenge, target);
+
+                const nodeCreationRequestObject = getFarmerBridgeRequestObject(
+                    keypair,
+                    baseUrl,
+                    "POST",
+                    "/contacts",
+                    {
+                        "x-challenge": challenge,
+                        "x-challenge-nonce": nonce,
+                    },
+                    {
+                        address: nodeAddress,
+                        port: nodePort,
+                        spaceAvailable: true,
+                        protocol: "1.2.0-INXT",
+                    }
+                );
+
+                const response = await testServer
+                    .post("/contacts")
+                    .set(nodeCreationRequestObject.headers)
+                    .send(nodeCreationRequestObject.data);
+
+                expect(response.status).toBe(200);
+                expect(response.body).toMatchObject({
+                    nodeID: expect.any(String),
+                    address: nodeAddress,
+                    port: nodePort,
+                });
+
+                const contact = await engine.storage.models.Contact.findOne({
+                    _id: response.body.nodeID,
+                });
+
+                expect(contact).not.toBeNull();
+                expect(contact.address).toBe(nodeAddress);
+                expect(contact.port).toBe(nodePort);
+            });
+        });
+    });
+});

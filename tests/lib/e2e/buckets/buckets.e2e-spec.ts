@@ -42,13 +42,14 @@ describe('Bridge E2E Tests', () => {
 
         })
         it('When you want to create a bucket with name and pubkeys, it should work with correctly formatted pubkeys', async () => {
+          const bucketPubKey = '031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9';
 
           // Act
           const response = await testServer
             .post('/buckets')
             .set('Authorization', getAuth(testUser))
             .send({
-              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              pubkeys: [bucketPubKey],
               name: 'test-bucket-name'
             })
 
@@ -104,13 +105,15 @@ describe('Bridge E2E Tests', () => {
           expect(dbBucket.toObject().pubkeys).toEqual([])
 
         })
+        
         it('When you want to update a bucket, it should fail with invalid pubkeys list', async () => {
+          const bucketPubKey = '031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9';
           // Arrange
           const { body: bucket } = await testServer
             .post('/buckets')
             .set('Authorization', getAuth(testUser))
             .send({
-              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              pubkeys: [bucketPubKey],
               name: dataGenerator.word({ length: 7 })
             })
             .expect(201);
@@ -126,21 +129,23 @@ describe('Bridge E2E Tests', () => {
           expect(response.status).toBe(400);
 
           const dbBucket = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
-          expect(dbBucket.toObject().pubkeys).toEqual(['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'])
+          expect(dbBucket.toObject().pubkeys).toEqual([bucketPubKey])
 
         })
       })
 
       describe('Deleting a bucket', () => {
         it('When you want to delete a bucket it should work if is the owner', async () => {
+          const bucketPubKey = '03fff97bd5755eeea420453a14355235d382f6472f8568a18b2f057a1460297556'
+          const bucketName = dataGenerator.word({ length: 7 });
 
           // Arrange: Create a bucket
           const { body: bucket } = await testServer
             .post('/buckets')
             .set('Authorization', getAuth(testUser))
             .send({
-              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
-              name: dataGenerator.word({ length: 7 })
+              pubkeys: [bucketPubKey],
+              name: bucketName
             })
             .expect(201);
 
