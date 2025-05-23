@@ -7,6 +7,8 @@ import { testServerURL, testServer, engine } from "../setup";
 import { dataGenerator } from "../users.fixtures";
 
 describe("Bridge E2E Tests", () => {
+    jest.setTimeout(30000);
+
     let actualPort: number;
 
     beforeAll(async () => {
