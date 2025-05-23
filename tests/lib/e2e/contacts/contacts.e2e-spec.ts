@@ -30,22 +30,9 @@ describe("Bridge E2E Tests", () => {
                     length: 40,
                 });
 
-                const response = await testServer
-                    .get(`/contacts/${nonExistentNodeID}`)
-                    .set("x-node-timestamp", "1747971345313")
-                    .set(
-                        "x-node-id",
-                        "0a35d2d0d16ecbcbd3f29153f20f07bd7ed9cdaf"
-                    )
-                    .set(
-                        "x-node-signature",
-                        "30450221008536ba999db48798bddd315fa1bfcc451dcedc6ab84caadbe5b25a5076966c5f02205fdda41e7cf08cc73661bc9f063af3f5d2b98a6d17e3808d731151e36c7f5ce0"
-                    )
-                    .set(
-                        "x-node-pubkey",
-                        "03a1aa78894d7228e25a326b9dcf0418c80f84e928513a0664cf6b960f744e95e3"
-                    )
-                    .set("content-type", "application/json");
+                const response = await testServer.get(
+                    `/contacts/${nonExistentNodeID}`
+                );
 
                 expect(response.status).toBe(404);
                 expect(response.body.error).toBe("Contact not found");
