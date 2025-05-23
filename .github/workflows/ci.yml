@@ -32,6 +32,7 @@ jobs:
       inxtbridge_redis__port: 6379
       inxtbridge_server__ssl__redirect: 443
       inxtbridge_redis__password:
+      inxtbridge_redis__host: 127.0.0.1
       inxtbridge_complex__rpcUser: inxtbridge_complex__rpcUser
       inxtbridge_stripe__SIG_TEST: inxtbridge_stripe__SIG_TEST
       inxtbridge_gateway__username: inxtbridge_gateway__username
@@ -58,6 +59,8 @@ jobs:
     steps:
       - name: Start MongoDB
         run: docker run -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=password -e MONGO_INITDB_DATABASE=bridge-test -d mongo:4.4
+      - name: Start Redis
+        run: docker run -p 6379:6379 -d redis:latest
 
       - uses: actions/checkout@v2
       - name: Use Node.js ${{ matrix.node-version }}

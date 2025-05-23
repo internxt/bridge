@@ -54,6 +54,7 @@
   "homepage": "https://github.com/internxt/bridge#readme",
   "devDependencies": {
     "@types/async": "^3.2.13",
+    "@types/bitcore-lib": "^0.15.6",
     "@types/chance": "^1.1.6",
     "@types/express": "^4.17.13",
     "@types/jest": "^27.4.1",
@@ -62,6 +63,7 @@
     "@types/mysql": "^2.15.21",
     "@types/node": "^17.0.23",
     "@types/node-mongodb-fixtures": "^3.2.3",
+    "@types/secp256k1": "^4.0.6",
     "@types/sinon": "^10.0.11",
     "@types/supertest": "^2.0.12",
     "@types/uuid": "^8.3.4",
