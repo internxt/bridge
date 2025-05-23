@@ -11,7 +11,7 @@ export const formatFromMongoToBucket = (mongoBucket: any): Bucket => {
   };
 };
 export class MongoDBBucketsRepository implements BucketsRepository {
-  constructor(private model: any) {}
+  constructor(private model: any) { }
 
   async find(where: Partial<Bucket>): Promise<Bucket[]> {
     const query = where.id ? { ...where, _id: where.id } : where;
@@ -25,7 +25,7 @@ export class MongoDBBucketsRepository implements BucketsRepository {
   async findByUser(userId: string, limit: number, skip: number): Promise<Bucket[]> {
     const buckets = await this.model.find({ userId }).skip(skip).limit(limit).exec();
 
-    return buckets;
+    return buckets.map(formatFromMongoToBucket);
   }
 
   async findByIds(ids: string[]): Promise<Bucket[]> {

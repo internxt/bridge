@@ -32,8 +32,8 @@ export class MongoDBFramesRepository implements FramesRepository {
     await this.model.updateMany({ user: oldUser }, { user: newUser });    
   }
 
-  getUserUsage(user: Frame['user']): Promise<{ total: number } | null> {
-    return this.model
+  async getUserUsage(user: Frame['user']): Promise<{ total: number } | null> {
+    const cursor = await this.model
       .aggregate([
         {
           $match: {
@@ -48,9 +48,9 @@ export class MongoDBFramesRepository implements FramesRepository {
           },
         },
       ])
-      .cursor()
-      .exec()
-      .next();
+      .cursor().exec();
+
+      return cursor.next();
   }
 
   removeAll(where: Partial<Frame>): Promise<void> {
