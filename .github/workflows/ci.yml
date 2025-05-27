@@ -25,7 +25,7 @@ jobs:
       inxtbridge_api_keys__segment_test: inxtbridge_api_keys__segment_test
       inxtbridge_application__CLUSTER__0: inxtbridge_application__CLUSTER__0
       inxtbridge_logger__level: 5
-      inxtbridge_storage__mongoOpts__authSource: inxtbridge_storage__mongoOpts__authSource
+      inxtbridge_storage__mongoOpts__authSource: admin
       inxtbridge_stripe__PK_LIVE: inxtbridge_stripe__PK_LIVE
       inxtbridge_api_keys__segment: inxtbridge_api_keys__segment
       inxtbridge_stripe__SK_LIVE: inxtbridge_stripe__SK_LIVE
@@ -45,7 +45,7 @@ jobs:
       inxtbridge_complex__rpcUrl: inxtbridge_complex__rpcUrl
       inxtbridge_mailer__auth__user: inxtbridge_mailer__auth__user
       inxtbridge_mailer__sendgrid__api_key: inxtbridge_mailer__sendgrid__api_key
-      inxtbridge_storage__mongoOpts__server__poolSize: inxtbridge_storage__mongoOpts__server__poolSize
+      inxtbridge_storage__mongoOpts__server__poolSize: 100
       inxtbridge_stripe__SIG: inxtbridge_stripe__SIG
       inxtbridge_drive__api: inxtbridge_drive__api
       inxtbridge_server__public__port: 443
