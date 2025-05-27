@@ -88,7 +88,7 @@ export function getFarmerBridgeRequestObject(
     body: any
 ) {
     if (!headers) {
-        headers = [];
+        headers = {};
     }
 
     const urlObj = new URL(bridgeUrl + path);
@@ -117,10 +117,8 @@ export default class KeyPair {
     _privkey: any;
     _pubkey: any;
 
-    constructor(privkey?: string) {
-        this._privkey = privkey
-            ? new bitcore.PrivateKey(privkey)
-            : new bitcore.PrivateKey();
+    constructor(privkey: string) {
+        this._privkey = new bitcore.PrivateKey(privkey)
 
         this._pubkey = this._privkey.toPublicKey();
     }
@@ -186,24 +184,30 @@ export default class KeyPair {
 export async function getProofOfWork(
     challenge: string,
     target: string,
-    nonce = 0
+    startNonce = 0,
+    maxNonce = 1000000
 ) {
     const scryptOpts = { N: Math.pow(2, 10), r: 1, p: 1 };
 
-    const salt = Buffer.alloc(8, 0);
-    salt.writeDoubleBE(nonce);
+    let nonce = startNonce;
 
-    return new Promise((resolve, reject) => {
-        scrypt(challenge, salt, 32, scryptOpts, (err, result) => {
-            if (err) {
-                return reject(err);
-            }
+    while (nonce <= maxNonce) {
+        const salt = Buffer.alloc(8, 0);
+        salt.writeDoubleBE(nonce);
 
-            if (result.toString("hex").localeCompare(target) < 0) {
-                return resolve(nonce);
-            }
-
-            return getProofOfWork(challenge, target, nonce + 1);
+        const result: Buffer = await new Promise((resolve, reject) => {
+            scrypt(challenge, salt, 32, scryptOpts, (err, derivedKey) => {
+                if (err) return reject(err);
+                resolve(derivedKey);
+            });
         });
-    });
+
+        if (result.toString("hex").localeCompare(target) < 0) {
+            return nonce;
+        }
+
+        nonce++;
+    }
+
+    throw new Error(`Proof of work not found within nonce limit of ${maxNonce}`);
 }
