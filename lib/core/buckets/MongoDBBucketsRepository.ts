@@ -11,7 +11,7 @@ export const formatFromMongoToBucket = (mongoBucket: any): Bucket => {
   };
 };
 export class MongoDBBucketsRepository implements BucketsRepository {
-  constructor(private model: any) { }
+  constructor(private model: any) {}
 
   async find(where: Partial<Bucket>): Promise<Bucket[]> {
     const query = where.id ? { ...where, _id: where.id } : where;

@@ -55,7 +55,7 @@ export const formatFromMongoToBucketEntryWithFrame = (
 };
 
 export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
-  constructor(private model: any) { }
+  constructor(private model: any) {}
 
   count(where: Partial<BucketEntry>): Promise<number> {
     return this.model.countDocuments(where);

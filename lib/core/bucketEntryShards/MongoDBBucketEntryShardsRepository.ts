@@ -16,8 +16,9 @@ const formatFromMongoToBucketEntryShard = (
   };
 };
 export class MongoDBBucketEntryShardsRepository
-  implements BucketEntryShardsRepository {
-  constructor(private model: any) { }
+  implements BucketEntryShardsRepository
+{
+  constructor(private model: any) {}
 
   async find(where: Partial<BucketEntryShard>): Promise<BucketEntryShard[]> {
     const results = await this.model.find(where);
