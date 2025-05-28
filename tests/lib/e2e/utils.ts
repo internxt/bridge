@@ -30,7 +30,7 @@ export const createTestUser = async (args: Args = {}): Promise<User> => {
 
 export const cleanUpTestUsers = (): Promise<void> => {
   return new Promise((resolve, reject) => {
-    engine.storage.models.User.deleteMany({ email: { $in: [createdUsers.map(user => user.email)] } }, (err: Error) => {
+    engine.storage.models.User.deleteMany({ email: { $in: createdUsers.map(user => user.email) } }, (err: Error) => {
       err ? reject(err) : resolve()
     })
   })

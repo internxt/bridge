@@ -25,7 +25,7 @@ export class MongoDBBucketsRepository implements BucketsRepository {
   async findByUser(userId: string, limit: number, skip: number): Promise<Bucket[]> {
     const buckets = await this.model.find({ userId }).skip(skip).limit(limit).exec();
 
-    return buckets;
+    return buckets.map(formatFromMongoToBucket);
   }
 
   async findByIds(ids: string[]): Promise<Bucket[]> {
