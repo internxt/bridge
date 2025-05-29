@@ -7,8 +7,8 @@ import { testServerURL, testServer, engine } from "../setup";
 import { dataGenerator } from "../users.fixtures";
 
 describe("Bridge E2E Tests", () => {
-    jest.setTimeout(30000);
-
+    const privateKey =
+        "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3";
     let actualPort: number;
 
     beforeAll(async () => {
@@ -41,9 +41,7 @@ describe("Bridge E2E Tests", () => {
 
         describe("Challenge Creation", () => {
             it("When requesting a challenge with valid farmer headers, it should return challenge and target", async () => {
-                const keypair = new KeyPair(
-                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-                );
+                const keypair = new KeyPair(privateKey);
 
                 // Use the actual port the server is running on
                 const baseUrl = `http://127.0.0.1:${actualPort}`;
@@ -75,9 +73,7 @@ describe("Bridge E2E Tests", () => {
             });
 
             it("When requesting a challenge with invalid signature headers, it should throw", async () => {
-                const keypair = new KeyPair(
-                    "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
-                );
+                const keypair = new KeyPair(privateKey);
 
                 const wrongBaseUrl = `http://127.1.1.1:${actualPort}`;
                 const requestData = getFarmerBridgeRequestObject(
@@ -103,9 +99,8 @@ describe("Bridge E2E Tests", () => {
                 const nodeAddress = "https://network";
                 const nodePort = 8000;
                 const baseUrl = `http://127.0.0.1:${actualPort}`;
-                const keypair = new KeyPair(
-                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-                );
+                const keypair = new KeyPair(privateKey);
+
                 const challengeRequestObject = getFarmerBridgeRequestObject(
                     keypair,
                     baseUrl,
