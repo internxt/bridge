@@ -48,7 +48,7 @@ export class MongoDBFramesRepository implements FramesRepository {
           },
         },
       ])
-      .cursor().exec();
+      .cursor();
 
       return cursor.next();
   }

@@ -191,6 +191,16 @@ export class BucketsUsecase {
     }
   }
 
+  async deleteBucketByIdAndUser(bucketId: Bucket['id'], userId: User['uuid']) {
+    const bucket = await this.bucketsRepository.findOne({id: bucketId, userId: userId});
+
+    if(!bucket){
+      throw new BucketNotFoundError(bucketId);
+    }
+
+    await this.bucketsRepository.removeByIdAndUser(bucket.id, userId);
+  }
+
   async getFileInfo(bucketId: Bucket['id'], fileId: BucketEntry['id'], partSize?: number): Promise<
     Omit<BucketEntry, 'frame'> & {
       shards: {
