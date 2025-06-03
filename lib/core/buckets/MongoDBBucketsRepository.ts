@@ -54,6 +54,13 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     });
   }
 
+  async removeByIdAndUser(bucketId: Bucket['id'], userId:  Bucket['userId']): Promise<void> {
+    await this.model.deleteOne({
+      userId,
+      _id: bucketId
+    });
+  }
+
   removeAll(where: Partial<Bucket>): Promise<void> {
     return this.model.deleteMany(where);
   }

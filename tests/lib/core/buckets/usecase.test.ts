@@ -10,7 +10,7 @@ import { UsersRepository } from '../../../../lib/core/users/Repository';
 
 import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
-import { BucketsUsecase } from '../../../../lib/core/buckets/usecase';
+import { BucketNotFoundError, BucketsUsecase } from '../../../../lib/core/buckets/usecase';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
@@ -257,6 +257,26 @@ describe('BucketEntriesUsecase', function () {
 
         expect(received).toStrictEqual(expected);
       });
+    });
+  });
+
+  describe('deleteBucketByIdAndUser()', () => {
+    const user = fixtures.getUser()
+    const bucket = fixtures.getBucket({userId: user.uuid})
+
+    it('Should throw if bucket is not found', async () => {
+      stub(bucketsRepository, 'findOne').resolves(null);
+
+      await expect(bucketsUsecase.deleteBucketByIdAndUser(bucket.id, user.uuid)).rejects.toThrow(BucketNotFoundError);
+    });
+
+    it('Should remove the bucket if bucket is found', async () => {
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      jest.spyOn(bucketsRepository, 'removeByIdAndUser').mockResolvedValue(undefined);
+
+      await bucketsUsecase.deleteBucketByIdAndUser(bucket.id, user.uuid)
+
+      expect(bucketsRepository.removeByIdAndUser).toHaveBeenCalledWith(bucket.id, user.uuid)
     });
   });
 });
