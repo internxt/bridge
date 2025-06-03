@@ -33,7 +33,7 @@ export class MongoDBFramesRepository implements FramesRepository {
   }
 
   async getUserUsage(user: Frame['user']): Promise<{ total: number } | null> {
-    const cursor = await this.model
+    const cursor = this.model
       .aggregate([
         {
           $match: {
