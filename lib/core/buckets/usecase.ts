@@ -313,6 +313,12 @@ export class BucketsUsecase {
     return bucket;
   }
 
+  async findByIdAndUser(id: Bucket['id'], userId: Bucket['userId']): Promise<Bucket | null> {
+    const bucket = await this.bucketsRepository.findOne({ id, userId });
+
+    return bucket;
+  }
+
   async getUserUsage(user: Frame['user']): Promise<number> {
     const usage = await this.framesRepository.getUserUsage(user);
 
