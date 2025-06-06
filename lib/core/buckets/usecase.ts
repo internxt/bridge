@@ -319,6 +319,13 @@ export class BucketsUsecase {
     return bucket;
   }
 
+  async findAllByUserAndCreatedSince(userId: Bucket['userId'], createdSince?: Date): Promise<Bucket[]> {
+    const buckets = await this.bucketsRepository.findUserBucketsFromDate(userId, createdSince);
+
+    return buckets;
+  }
+
+
   async getUserUsage(user: Frame['user']): Promise<number> {
     const usage = await this.framesRepository.getUserUsage(user);
 
