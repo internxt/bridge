@@ -1,3 +1,4 @@
+import { Model } from 'mongoose';
 import { Bucket } from './Bucket';
 import { BucketsRepository } from './Repository';
 
@@ -12,6 +13,13 @@ export const formatFromMongoToBucket = (mongoBucket: any): Bucket => {
 };
 export class MongoDBBucketsRepository implements BucketsRepository {
   constructor(private model: any) {}
+
+  async create(newBucketData: Omit<Bucket, 'id'>): Promise<Bucket> {
+    const bucket = new this.model(newBucketData);
+    const bucketCreated = await bucket.save();
+
+    return formatFromMongoToBucket(bucketCreated);
+  }
 
   async find(where: Partial<Bucket>): Promise<Bucket[]> {
     const query = where.id ? { ...where, _id: where.id } : where;
@@ -48,8 +56,8 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     return formatFromMongoToBucket(rawModel);
   }
 
-  destroyByUser(userId: Bucket['userId']): Promise<void> {
-    return this.model.deleteMany({
+  async destroyByUser(userId: Bucket['userId']): Promise<void> {
+    await this.model.deleteMany({
       userId,
     });
   }
@@ -61,7 +69,7 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     });
   }
 
-  removeAll(where: Partial<Bucket>): Promise<void> {
-    return this.model.deleteMany(where);
+  async removeAll(where: Partial<Bucket>): Promise<void> {
+    await this.model.deleteMany(where);
   }
 }
