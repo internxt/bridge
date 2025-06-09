@@ -279,4 +279,36 @@ describe('BucketEntriesUsecase', function () {
       expect(bucketsRepository.removeByIdAndUser).toHaveBeenCalledWith(bucket.id, user.uuid)
     });
   });
+
+  describe('findByIdAndUser()', () => {
+  const user = fixtures.getUser();
+  const bucket = fixtures.getBucket({ userId: user.uuid });
+
+  it('When called, then it should return the specific bucket', async () => {
+    jest.spyOn(bucketsRepository, 'findOne').mockResolvedValueOnce(bucket);
+
+    const result = await bucketsUsecase.findByIdAndUser(bucket.id, user.uuid);
+
+    expect(bucketsRepository.findOne).toHaveBeenCalledWith({ id: bucket.id, userId: user.uuid });
+    expect(result).toStrictEqual(bucket);
+  });
+});
+
+describe('findAllByUserAndCreatedSince()', () => {
+  const user = fixtures.getUser();
+  const buckets = [
+    fixtures.getBucket({ userId: user.uuid }),
+    fixtures.getBucket({ userId: user.uuid })
+  ];
+
+  it('When called, then it should fetch buckets with specified date', async () => {
+    const createdSince = new Date('2024-01-01');
+    jest.spyOn(bucketsRepository, 'findUserBucketsFromDate').mockResolvedValueOnce(buckets);
+
+    const result = await bucketsUsecase.findAllByUserAndCreatedSince(user.uuid, createdSince);
+
+    expect(bucketsRepository.findUserBucketsFromDate).toHaveBeenCalledWith(user.uuid, createdSince);
+    expect(result).toStrictEqual(buckets);
+  });
+});
 });
