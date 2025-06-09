@@ -10,7 +10,7 @@ import { UsersRepository } from '../../../../lib/core/users/Repository';
 
 import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
-import { BucketNotFoundError, BucketsUsecase } from '../../../../lib/core/buckets/usecase';
+import { BucketNameAlreadyInUse, BucketNotFoundError, BucketsUsecase } from '../../../../lib/core/buckets/usecase';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
@@ -277,6 +277,70 @@ describe('BucketEntriesUsecase', function () {
       await bucketsUsecase.deleteBucketByIdAndUser(bucket.id, user.uuid)
 
       expect(bucketsRepository.removeByIdAndUser).toHaveBeenCalledWith(bucket.id, user.uuid)
+    });
+  });
+
+  describe('create()', () => {
+    const user = fixtures.getUser();
+
+    it('Should throw if bucket name already exists for user', async () => {
+      const newBucket = fixtures.getBucket({ name: 'existing-bucket' });
+      const existingBucket = fixtures.getBucket({ userId: user.uuid, name: 'existing-bucket' });
+
+      stub(bucketsRepository, 'findOne').resolves(existingBucket);
+
+      await expect(bucketsUsecase.create(user, newBucket)).rejects.toThrow(BucketNameAlreadyInUse);
+    });
+
+    it('Should create bucket with default name if no name provided', async () => {
+      const newBucket = fixtures.getBucket({ name: undefined });
+      const expectedBucket = fixtures.getBucket({ userId: user.uuid });
+
+      stub(bucketsRepository, 'findOne').resolves(null);
+      const createStub = stub(bucketsRepository, 'create').resolves(expectedBucket);
+
+      const result = await bucketsUsecase.create(user, newBucket);
+
+      expect(createStub.calledOnce).toBeTruthy();
+      const createArgs = createStub.firstCall.args[0];
+      expect(createArgs.status).toBe('Active');
+      expect(createArgs.user).toBe(user.id);
+      expect(createArgs.userId).toBe(user.uuid);
+      expect(createArgs.name).toMatch(/^Bucket-[a-f0-9]{6}$/);
+      expect(result).toStrictEqual(expectedBucket);
+    });
+
+    it('Should create bucket with provided name', async () => {
+      const bucketName = 'my-custom-bucket';
+      const newBucket = fixtures.getBucket({ name: bucketName });
+      const expectedBucket = fixtures.getBucket({ userId: user.uuid, name: bucketName });
+
+      stub(bucketsRepository, 'findOne').resolves(null);
+      const createStub = stub(bucketsRepository, 'create').resolves(expectedBucket);
+
+      const result = await bucketsUsecase.create(user, newBucket);
+
+      expect(createStub.calledOnce).toBeTruthy();
+      const createArgs = createStub.firstCall.args[0];
+      expect(createArgs.status).toBe('Active');
+      expect(createArgs.user).toBe(user.id);
+      expect(createArgs.userId).toBe(user.uuid);
+      expect(createArgs.name).toBe(bucketName);
+      expect(createArgs.pubkeys).toBe(newBucket.pubkeys);
+      expect(result).toStrictEqual(expectedBucket);
+    });
+
+    it('Should check for existing bucket with same name for the user', async () => {
+      const bucketName = 'test-bucket';
+      const newBucket = fixtures.getBucket({ name: bucketName });
+
+      const findOneStub = stub(bucketsRepository, 'findOne').resolves(null);
+      stub(bucketsRepository, 'create').resolves(fixtures.getBucket());
+
+      await bucketsUsecase.create(user, newBucket);
+
+      expect(findOneStub.calledOnce).toBeTruthy();
+      expect(findOneStub.firstCall.args).toStrictEqual([{ userId: user.uuid, name: bucketName }]);
     });
   });
 });
