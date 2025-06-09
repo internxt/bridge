@@ -127,7 +127,7 @@ export class BucketNameAlreadyInUse extends Error {
   constructor() {
     super('Name already used by another bucket');
 
-    Object.setPrototypeOf(this, EmptyMirrorsError.prototype);
+    Object.setPrototypeOf(this, BucketNameAlreadyInUse.prototype);
   }
 }
 
