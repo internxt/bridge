@@ -283,7 +283,7 @@ describe('BucketEntriesUsecase', function () {
   describe('create()', () => {
     const user = fixtures.getUser();
 
-    it('Should throw if bucket name already exists for user', async () => {
+    it('When there is an existing bucket with the same name, then it should throw', async () => {
       const newBucket = fixtures.getBucket({ name: 'existing-bucket' });
       const existingBucket = fixtures.getBucket({ userId: user.uuid, name: 'existing-bucket' });
 
@@ -292,7 +292,7 @@ describe('BucketEntriesUsecase', function () {
       await expect(bucketsUsecase.create(user, newBucket)).rejects.toThrow(BucketNameAlreadyInUse);
     });
 
-    it('Should create bucket with default name if no name provided', async () => {
+    it('When there is no name provided, then it should use a default name', async () => {
       const newBucket = fixtures.getBucket({ name: undefined });
       const expectedBucket = fixtures.getBucket({ userId: user.uuid });
 
@@ -310,7 +310,7 @@ describe('BucketEntriesUsecase', function () {
       expect(result).toStrictEqual(expectedBucket);
     });
 
-    it('Should create bucket with provided name', async () => {
+    it('When name is provided, then it should create bucket with provided name', async () => {
       const bucketName = 'my-custom-bucket';
       const newBucket = fixtures.getBucket({ name: bucketName });
       const expectedBucket = fixtures.getBucket({ userId: user.uuid, name: bucketName });
@@ -330,7 +330,7 @@ describe('BucketEntriesUsecase', function () {
       expect(result).toStrictEqual(expectedBucket);
     });
 
-    it('Should check for existing bucket with same name for the user', async () => {
+    it('When user tries to create a bucket, then it should search for buckets with the same name', async () => {
       const bucketName = 'test-bucket';
       const newBucket = fixtures.getBucket({ name: bucketName });
 
