@@ -170,14 +170,14 @@ export async function deleteBucketAndContents(
   );
 
   for (const entry of entries) {
-    await entry.remove();
+    await entry.deleteOne();
     const frame = await FrameModel.findOne({ _id: entry.frame._id });
     const pointers = await PointerModel.find({ _id: { $in: frame.shards } });
     for (const pointer of pointers) {
-      await pointer.remove();
+      await pointer.deleteOne();
       await onPointerDelete(pointer);
     }
-    await frame.remove();
+    await frame.deleteOne();
   }
-  await bucket.remove();
+  await bucket.deleteOne();
 }
