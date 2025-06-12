@@ -11,7 +11,7 @@ import {
 } from '../shards/Shard';
 import { BucketEntry } from '../bucketEntries/BucketEntry';
 import { BucketEntryShard } from '../bucketEntryShards/BucketEntryShard';
-
+import crypto from 'crypto';
 import { BucketEntriesRepository } from '../bucketEntries/Repository';
 import { BucketEntryShardsRepository } from '../bucketEntryShards/Repository';
 import { FramesRepository } from '../frames/Repository';
@@ -120,6 +120,14 @@ export class EmptyMirrorsError extends Error {
     super('Empty mirrors');
 
     Object.setPrototypeOf(this, EmptyMirrorsError.prototype);
+  }
+}
+
+export class BucketNameAlreadyInUse extends Error {
+  constructor() {
+    super('Name already used by another bucket');
+
+    Object.setPrototypeOf(this, BucketNameAlreadyInUse.prototype);
   }
 }
 
@@ -301,6 +309,12 @@ export class BucketsUsecase {
 
   async findById(id: Bucket['id']): Promise<Bucket | null> {
     const bucket = await this.bucketsRepository.findOne({ id });
+
+    return bucket;
+  }
+
+  async findByIdAndUser(id: Bucket['id'], userId: Bucket['userId']): Promise<Bucket | null> {
+    const bucket = await this.bucketsRepository.findOne({ id, userId });
 
     return bucket;
   }
@@ -702,5 +716,27 @@ export class BucketsUsecase {
 
   async destroyByUser(userId: User['uuid']) {
     await this.bucketsRepository.destroyByUser(userId);
+  }
+
+  async create(user: User, newBucket: Bucket) {
+    const payload = {
+      ...newBucket,
+      status: 'Active',
+      pubkeys: newBucket.pubkeys,
+      user: user.id,
+      userId: user.uuid,
+    };
+
+    if (!payload.name) {
+      payload['name'] = "Bucket-" + crypto.randomBytes(3).toString("hex");
+    }
+
+    const existentBucket = await this.bucketsRepository.findOne({ userId: user.uuid, name: payload.name });
+
+    if (existentBucket) {
+      throw new BucketNameAlreadyInUse();
+    }
+
+    return this.bucketsRepository.create(payload);
   }
 }
