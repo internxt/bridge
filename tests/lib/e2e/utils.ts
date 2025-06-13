@@ -28,20 +28,13 @@ export const createTestUser = async (args: Args = {}): Promise<User> => {
   return createdUser
 }
 
-export const cleanUpTestUsers = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    engine.storage.models.User.deleteMany({ email: { $in: createdUsers.map(user => user.email) } }, (err: Error) => {
-      err ? reject(err) : resolve()
-    })
-  })
-
+export const cleanUpTestUsers = async (): Promise<void> => {
+    await engine.storage.models.User.deleteMany({ email: { $in: createdUsers.map(user => user.email) } });
 }
 
-export const deleteTestUser = (args: Args = {}): Promise<void> => {
+export const deleteTestUser = async (args: Args = {}): Promise<void> => {
   const { storage = engine.storage, user = testUser } = args
-  return new Promise((resolve, reject) => storage.models.User.deleteOne({ email: user.email, }, (err: Error) => {
-    err ? reject(err) : resolve()
-  }))
+  await storage.models.User.deleteOne({ email: user.email, });
 }
 
 export const getAuth = (user: Omit<TestUser, 'maxSpaceBytes'> = testUser) => {
