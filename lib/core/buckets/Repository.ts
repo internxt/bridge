@@ -1,6 +1,7 @@
 import { Bucket } from './Bucket';
 
 export interface BucketsRepository {
+  create(bucket: Omit<Bucket, 'id'>): Promise<Bucket>;
   findOne(where: Partial<Bucket>): Promise<Bucket | null>;
   findByUser(userId: Bucket['userId'], limit: number, skip: number): Promise<Bucket[]>;
   findByIds(ids: Bucket['id'][]): Promise<Bucket[]>;
