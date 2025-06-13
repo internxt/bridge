@@ -48,25 +48,19 @@ const logStatus = () => {
 
 const loggerInterval = setInterval(logStatus, 4000);
 
-const deleteEmptyMirror = (mirror, onDelete, cb) => {
+const deleteEmptyMirror = async (mirror, onDelete, cb) => {
   const { shardHash } = mirror;
-  Shard.findOne({ hash: shardHash }, (err, shard) => {
-    if (err) {
-      return cb(err);
-    }
-
+  try {
+    const shard = await Shard.findOne({ hash: shardHash });
     if (!shard) {
-      mirror.remove(err => {
-        if (err) {
-          cb(err);
-        } else {
-          onDelete(cb);
-        }
-      });
+      await mirror.deleteOne();
+      onDelete(cb);
     } else {
       cb();
     }
-  });
+  } catch (err) {
+    return cb(err);
+  }
 };
 
 const processMirrorChunks = (mirrors, cb) => {

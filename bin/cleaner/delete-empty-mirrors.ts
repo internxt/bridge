@@ -62,7 +62,7 @@ async function deleteEmptyMirror(mirror: any, onDelete: Function) {
   const { shardHash } = mirror;
   const shard = await Shard.findOne({ hash: shardHash });
   if (!shard) {
-    await mirror.remove();
+    await mirror.deleteOne();
     await onDelete();
   }
 }
