@@ -1,6 +1,7 @@
 import { Model } from 'mongoose';
 import { Bucket } from './Bucket';
 import { BucketsRepository } from './Repository';
+import constants from '../../constants';
 
 export const formatFromMongoToBucket = (mongoBucket: any): Bucket => {
   const id = mongoBucket._id.toString();
@@ -71,5 +72,20 @@ export class MongoDBBucketsRepository implements BucketsRepository {
 
   async removeAll(where: Partial<Bucket>): Promise<void> {
     await this.model.deleteMany(where);
+  }
+
+  async findUserBucketsFromDate(userId: Bucket['id'], date?: Date, limit?: number): Promise<Bucket[]> {
+    const maxBuckets = limit ?? constants.DEFAULT_MAX_BUCKETS;
+    const findQuery = {
+      userId,
+      ...(date ? { created: { $gt: date } } : {})
+    };
+
+    const buckets = await this.model
+      .find(findQuery)
+      .sort({ created: 1 })
+      .limit(maxBuckets)
+
+    return buckets.map(formatFromMongoToBucket)
   }
 }
