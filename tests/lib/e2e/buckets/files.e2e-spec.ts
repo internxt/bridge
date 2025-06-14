@@ -5,6 +5,7 @@ import { engine, testServer } from '../setup';
 import { type User } from '../users.fixtures';
 import { createTestUser, getAuth, shutdownEngine } from '../utils';
 import sinon from 'sinon';
+import { StorageDbManager } from '../storage-db-manager';
 
 const FAKE_UPLOAD_URL = 'http://fake-upload-url'
 const FAKE_DOWNLOAD_URL = 'http://fake-download-url'
@@ -13,9 +14,11 @@ describe('Bridge E2E Tests', () => {
 
   let testUser: User
   let axiosGetStub: sinon.SinonStub
-  beforeAll(async () => {
-    testUser = await createTestUser()
+  const databaseConnection = new StorageDbManager();
 
+  beforeAll(async () => {
+    await databaseConnection.connect();
+    testUser = await createTestUser()
     // Arrange: Create fake contact per each node
     const nodeIDs = Object.values(engine._config.application.CLUSTER)
     await Promise.all(
@@ -33,10 +36,9 @@ describe('Bridge E2E Tests', () => {
 
 
 
-  beforeEach(() => {
-
-    axiosGetStub = sinon.stub(axios, 'get')
+  beforeEach(async () => {
     jest.clearAllMocks()
+    axiosGetStub = sinon.stub(axios, 'get')
     axiosGetStub.callsFake(async (url: string) => {
       if (url.includes('/v2/upload/link')) return { data: { result: FAKE_UPLOAD_URL } }
       if (url.includes('/v2/upload-multipart/link')) {
@@ -228,50 +230,112 @@ describe('Bridge E2E Tests', () => {
 
       });
 
+
+      it('When an user finished to upload a file, then file size should be added to the used space', async () => {
+        // Arrange: Create a user with some used space
+        const originalUser = await createTestUser();
+        const previousTotalUsedSpace = 10000;
+        await databaseConnection.models.User.updateOne({ uuid: originalUser.uuid }, { totalUsedSpaceBytes: previousTotalUsedSpace });
+
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(originalUser))
+
+        // Arrange: start the upload
+        const MB100 = 100 * 1024 * 1024
+        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=2`)
+          .set('Authorization', getAuth(originalUser))
+          .send({ uploads: [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, }] })
+
+        const { uploads } = response.body;
+
+        // Act: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(originalUser))
+          .send({
+            index,
+            shards: (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
+          });
+
+        const userInDb = await databaseConnection.models.User.findOne({ uuid: originalUser.uuid });
+        expect(userInDb).not.toBeNull();
+        expect(userInDb.totalUsedSpaceBytes).toEqual(previousTotalUsedSpace + MB100);
+      });
+
+
+      it('When an user tries to upload a file bigger than the free space, then it should fail', async () => {
+        // Arrange: Create user with insufficient space for upload
+        const user = await createTestUser();
+        const MB100 = 100 * 1024 * 1024;
+        const uploadSize = MB100 * 2; // 200MB
+
+        // Set used space to leave insufficient room (1 byte short)
+        const usedSpace = user.maxSpaceBytes - uploadSize + 1;
+        await databaseConnection.models.User.updateOne(
+          { uuid: user.uuid },
+          { totalUsedSpaceBytes: usedSpace }
+        );
+
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(user))
+
+        // Act: Attempt upload that exceeds available space
+        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=2`)
+          .set('Authorization', getAuth(user))
+          .send({ uploads: Array.from({ length: 2 }, (_, index) => ({ index, size: MB100 })) })
+
+        expect(response.status).toBe(420);
+      });
     })
 
     describe('Downloading a file', () => {
+      it('When a user uploads a file, then it should be able to get download links', async () => {
+        const user = await createTestUser();
 
-      it('When a user wants to download a file, it should get a list of links for each file part', async () => {
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
           .post('/buckets')
-          .set('Authorization', getAuth(testUser))
+          .set('Authorization', getAuth(user))
 
         // Arrange: start the upload
-        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
-          .set('Authorization', getAuth(testUser))
-          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 10000, },], })
+        const { body: { uploads: [upload] } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(user))
+          .send({ uploads: [{ index: 0, size: 1000, }], })
 
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        const uploadedShards = (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }))
+        const fileHash = crypto.randomBytes(20).toString('hex')
         const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
-          .send({ index, shards: uploadedShards, });
+          .set('Authorization', getAuth(user))
+          .send({
+            index,
+            shards: [{ hash: fileHash, uuid: upload.uuid, }],
+          });
 
-
-        // Act: download the file
-        const response = await testServer.get(`/v2/buckets/${bucketId}/files/${file.id}/mirrors`)
-          .set('Authorization', getAuth(testUser))
+        // Act
+        const response = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info`)
+          .set('Authorization', getAuth(user))
 
         // Assert
         expect(response.status).toBe(200);
-        const body = response.body;
 
-        const [firstShard, secondShard] = uploadedShards
-        expect(body).toMatchObject({
+        const { body: fileInfo } = response
+
+        expect(fileInfo).toMatchObject({
           bucket: bucketId,
           created: expect.any(String),
+          filename: expect.any(String),
           index,
-          shards: expect.arrayContaining([
-            { hash: firstShard.hash, url: expect.any(String), },
-            { hash: secondShard.hash, url: expect.any(String), },
-          ])
+          id: expect.any(String),
+          mimetype: 'application/octet-stream',
+          renewal: expect.any(String),
+          size: 1000,
+          version: 2,
+          shards: [{ index: 0, hash: fileHash, url: expect.any(String), }]
         })
-
       })
-
     })
 
   })
@@ -323,6 +387,42 @@ describe('Bridge E2E Tests', () => {
         // Assert
         expect(response.status).toBe(404);
 
+      })
+
+      it('When a user deletes a file and it succeeds, then it should subtract the file size from user total used space', async () => {
+        const user = await createTestUser();
+        const MB100 = 100 * 1024 * 1024;
+        // Arrange: Create a bucket
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(user))
+
+        // Arrange: start the upload
+        const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(user))
+          .send({ uploads: [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, },], })
+
+        // Arrange: finish the upload
+        const index = crypto.randomBytes(32).toString('hex');
+        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(user))
+          .send({
+            index,
+            shards: (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
+          });
+
+        // Arrange: get the user before deleting the file
+        const userWithFileUploaded = await databaseConnection.models.User.findOne({ uuid: user.uuid });
+
+        // Act: remove the file
+        const response = await testServer.delete(`/buckets/${bucketId}/files/${file.id}`)
+          .set('Authorization', getAuth(user))
+
+        // Assert
+        expect(response.status).toBe(204);
+        const userAfterFileDeleted = await databaseConnection.models.User.findOne({ uuid: user.uuid });
+        expect(user.totalUsedSpaceBytes).toBeLessThan(userWithFileUploaded.totalUsedSpaceBytes);
+        expect(userAfterFileDeleted.totalUsedSpaceBytes).toBeLessThan(userWithFileUploaded.totalUsedSpaceBytes);
       })
     })
 
@@ -398,38 +498,39 @@ describe('Bridge E2E Tests', () => {
 
       })
 
-      it('When a user uploads a file, it should able to see the metadata of a file once is uploaded', async () => {
+      it('When a user wants to share a file using tokens, then the file should be downloadable using created tokens', async () => {
+        const user = await createTestUser();
 
         // Arrange: Create a bucket
         const { body: { id: bucketId } } = await testServer
           .post('/buckets')
-          .set('Authorization', getAuth(testUser))
+          .set('Authorization', getAuth(user))
 
-        // Arrange: start the upload
+        // Arrange: Start the upload
         const { body: { uploads: [upload] } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
-          .set('Authorization', getAuth(testUser))
+          .set('Authorization', getAuth(user))
           .send({ uploads: [{ index: 0, size: 1000, }], })
 
-        // Arrange: finish the upload
+        // Arrange: Finish the upload
         const index = crypto.randomBytes(32).toString('hex');
         const fileHash = crypto.randomBytes(20).toString('hex')
         const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
+          .set('Authorization', getAuth(user))
           .send({
             index,
             shards: [{ hash: fileHash, uuid: upload.uuid, }],
           });
 
-        // Act
-        const response = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info`)
-          .set('Authorization', getAuth(testUser))
+        // Arrange: Create a Token
+        const tokenResponse = await testServer.post(`/buckets/${bucketId}/tokens`)
+          .set('Authorization', getAuth(user))
+          .send({ operation: 'PULL', file: file.id });
 
-        // Assert 
-        expect(response.status).toBe(200);
+        // Act: Download the file using the token 
+        const fileInfoResponse = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info`)
+          .set('x-token', tokenResponse.body.token)
 
-        const { body: fileInfo } = response
-
-        expect(fileInfo).toMatchObject({
+        expect(fileInfoResponse.body).toMatchObject({
           bucket: bucketId,
           created: expect.any(String),
           filename: expect.any(String),
@@ -441,7 +542,6 @@ describe('Bridge E2E Tests', () => {
           version: 2,
           shards: [{ index: 0, hash: fileHash, url: expect.any(String), }]
         })
-
       })
     })
   })
