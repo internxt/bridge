@@ -1,13 +1,17 @@
 import { dataGenerator } from './../users.fixtures'
 import { cleanUpTestUsers, createTestUser, getAuth, shutdownEngine, } from '../utils'
-import { engine, testServer } from '../setup'
+import { testServer } from '../setup'
 import { type User } from '../users.fixtures';
+import { StorageDbManager } from '../storage-db-manager';
 
 
 describe('Bridge E2E Tests', () => {
 
   let testUser: User
+  const databaseConnection = new StorageDbManager();
+
   beforeAll(async () => {
+    await databaseConnection.connect();
     testUser = await createTestUser()
   })
 
@@ -35,14 +39,30 @@ describe('Bridge E2E Tests', () => {
 
           // Assert
           expect(response.status).toBe(201)
-          expect(response.body).toHaveProperty('id')
 
-          const bucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
+          expect(response.body).toMatchObject({
+            storage: 0,
+            transfer: 0,
+            status: "Active",
+            pubkeys: [],
+            user: testUser.uuid,
+            userId: testUser.uuid,
+            name: expect.any(String),
+            maxFrameSize: -1,
+            publicPermissions: [],
+            encryptionKey: expect.any(String),
+            created: expect.any(String),
+            id: expect.any(String)
+          })
+
+          const bucket = await databaseConnection.models.Bucket.findOne({ _id: response.body.id })
           expect(bucket).not.toBeNull()
 
-        })
+        });
+
         it('When you want to create a bucket with name and pubkeys, it should work with correctly formatted pubkeys', async () => {
           const bucketPubKey = '031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9';
+          const bucketName = 'test-bucket-name';
 
           // Act
           const response = await testServer
@@ -50,17 +70,31 @@ describe('Bridge E2E Tests', () => {
             .set('Authorization', getAuth(testUser))
             .send({
               pubkeys: [bucketPubKey],
-              name: 'test-bucket-name'
+              name: bucketName
             })
 
           // Assert
           expect(response.status).toBe(201)
           expect(response.body).toHaveProperty('id')
+          expect(response.body).toMatchObject({
+            storage: 0,
+            transfer: 0,
+            status: "Active",
+            pubkeys: [bucketPubKey],
+            user: testUser.uuid,
+            userId: testUser.uuid,
+            name: bucketName,
+            maxFrameSize: -1,
+            publicPermissions: [],
+            encryptionKey: expect.any(String),
+            created: expect.any(String),
+            id: expect.any(String)
+          })
 
-          const bucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
+          const bucket = await databaseConnection.models.Bucket.findOne({ _id: response.body.id })
           expect(bucket).not.toBeNull()
+        });
 
-        })
         it('When you want to create a bucket with name and pubkeys, it should fail with incorrectly formatted pubkeys', async () => {
 
           // Act
@@ -101,11 +135,11 @@ describe('Bridge E2E Tests', () => {
           // Assert
           expect(response.status).toBe(200);
 
-          const dbBucket = await engine.storage.models.Bucket.findOne({ _id: response.body.id })
+          const dbBucket = await databaseConnection.models.Bucket.findOne({ _id: response.body.id })
           expect(dbBucket.toObject().pubkeys).toEqual([])
 
         })
-        
+
         it('When you want to update a bucket, it should fail with invalid pubkeys list', async () => {
           const bucketPubKey = '031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9';
           // Arrange
@@ -128,7 +162,7 @@ describe('Bridge E2E Tests', () => {
           // Assert
           expect(response.status).toBe(400);
 
-          const dbBucket = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
+          const dbBucket = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
           expect(dbBucket.toObject().pubkeys).toEqual([bucketPubKey])
 
         })
@@ -156,7 +190,7 @@ describe('Bridge E2E Tests', () => {
 
           // Assert
           expect(response.status).toBe(204)
-          const buckets = await engine.storage.models.Bucket.findOne({ _id: bucket.id })
+          const buckets = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
           expect(buckets).toBeNull()
 
         })
