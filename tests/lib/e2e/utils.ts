@@ -4,6 +4,7 @@ import { createHash, scrypt } from "crypto";
 import secp256k1 from "secp256k1";
 import { engine, intervalRefs } from "./setup";
 import { generateTestUserData, TestUser, User } from "./users.fixtures";
+import { sign } from "jsonwebtoken";
 
 type Args = { storage?: any, user: TestUser }
 
@@ -203,4 +204,15 @@ export async function getProofOfWork(
     }
 
     throw new Error(`Proof of work not found within nonce limit of ${maxNonce}`);
+}
+
+
+export function signRS256JWT(
+    duration: string,
+    secret: string,
+) {
+    return sign({}, Buffer.from(secret, 'base64').toString('utf8'), {
+        algorithm: 'RS256',
+        expiresIn: duration,
+    });
 }
