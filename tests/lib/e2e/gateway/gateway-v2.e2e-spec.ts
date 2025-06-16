@@ -88,7 +88,7 @@ describe('Gateway V2 e2e tests', () => {
             expect(response.status).toBe(200)
             const confirmedFileIds = response.body.message.confirmed;
             expect(confirmedFileIds).toEqual(expect.arrayContaining(createdFileIds));
-            const filesInDatabase = await databaseConnection.models.BucketEntry.find({ id: { $in: createdFileIds } })
+            const filesInDatabase = await databaseConnection.models.BucketEntry.find({ _id: { $in: createdFileIds } })
             expect(filesInDatabase.length).toEqual(0);
         })
     })
