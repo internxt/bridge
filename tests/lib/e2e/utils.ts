@@ -3,62 +3,56 @@ import bitcore from "bitcore-lib";
 import { createHash, scrypt } from "crypto";
 import secp256k1 from "secp256k1";
 import { engine, intervalRefs } from "./setup";
-import { TestUser, testUser, User } from "./users.fixtures";
+import { generateTestUserData, TestUser, User } from "./users.fixtures";
+import { sign } from "jsonwebtoken";
 
-type Args = { storage?: any, user?: TestUser }
+type Args = { storage?: any, user: TestUser }
 
 const createdUsers: User[] = []
-export const createTestUser = async (args: Args = {}): Promise<User> => {
-  const { storage = engine.storage, user = testUser } = args
+export const createTestUser = async (args: Partial<Args> = {}): Promise<User> => {
+    const { storage = engine.storage, user = generateTestUserData() } = args
+    const payload = { email: user.email, password: user.password }
+    const createdUser: User = await new Promise((resolve, reject) => storage.models.User.create(payload, (err: Error, user: any) => {
+        err ? reject(err) : resolve(user.toObject())
+    }))
 
-  const payload = { email: user.email, password: user.password }
-  const createdUser: User = await new Promise((resolve, reject) => storage.models.User.create(payload, (err: Error, user: any) => {
-    err ? reject(err) : resolve(user.toObject())
-  }))
+    await storage.models.User.updateOne(
+        { uuid: createdUser.uuid, },
+        { maxSpaceBytes: user.maxSpaceBytes, activated: true, }
+    );
 
-  await storage.models.User.updateOne(
-    { _id: createdUser.uuid, },
-    { maxSpaceBytes: user.maxSpaceBytes, activated: true, }
-  );
+    createdUser.maxSpaceBytes = user.maxSpaceBytes
+    createdUser.activated = true;
+    createdUser.password = user.password
 
-  createdUser.password = user.password
-
-  createdUsers.push(createdUser)
-
-  return createdUser
+    createdUsers.push(createdUser)
+    return createdUser
 }
 
-export const cleanUpTestUsers = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    engine.storage.models.User.deleteMany({ email: { $in: createdUsers.map(user => user.email) } }, (err: Error) => {
-      err ? reject(err) : resolve()
-    })
-  })
-
+export const cleanUpTestUsers = async (): Promise<void> => {
+    await engine.storage.models.User.deleteMany({ email: { $in: createdUsers.map(user => user.email) } });
 }
 
-export const deleteTestUser = (args: Args = {}): Promise<void> => {
-  const { storage = engine.storage, user = testUser } = args
-  return new Promise((resolve, reject) => storage.models.User.deleteOne({ email: user.email, }, (err: Error) => {
-    err ? reject(err) : resolve()
-  }))
+export const deleteTestUser = async (args: Args): Promise<void> => {
+    const { storage = engine.storage, user } = args || {}
+    await storage.models.User.deleteOne({ email: user.email, });
 }
 
-export const getAuth = (user: Omit<TestUser, 'maxSpaceBytes'> = testUser) => {
-  const credential = Buffer.from(`${user.email}:${user.password}`).toString('base64');
-  return `Basic ${credential}`;
+export const getAuth = (user: Omit<TestUser, 'maxSpaceBytes'>) => {
+    const credential = Buffer.from(`${user.email}:${user.password}`).toString('base64');
+    return `Basic ${credential}`;
 }
 
 
 export const shutdownEngine = async () => {
 
-  await Promise.all([
-    engine.storage.connection.close(),
-    engine.networkQueue.close(),
-    engine.redis.quit(),
-    engine.server.server.close(),
-  ])
-  intervalRefs.forEach(ref => clearInterval(ref))
+    await Promise.all([
+        engine.storage.connection.close(),
+        engine.networkQueue.close(),
+        engine.redis.quit(),
+        engine.server.server.close(),
+    ])
+    intervalRefs.forEach(ref => clearInterval(ref))
 
 }
 
@@ -210,4 +204,15 @@ export async function getProofOfWork(
     }
 
     throw new Error(`Proof of work not found within nonce limit of ${maxNonce}`);
+}
+
+
+export function signRS256JWT(
+    duration: string,
+    secret: string,
+) {
+    return sign({}, Buffer.from(secret, 'base64').toString('utf8'), {
+        algorithm: 'RS256',
+        expiresIn: duration,
+    });
 }
