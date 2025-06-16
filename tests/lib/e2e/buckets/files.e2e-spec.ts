@@ -421,8 +421,8 @@ describe('Bridge E2E Tests', () => {
         // Assert
         expect(response.status).toBe(204);
         const userAfterFileDeleted = await databaseConnection.models.User.findOne({ uuid: user.uuid });
-        expect(user.totalUsedSpaceBytes).toBeLessThan(userWithFileUploaded.totalUsedSpaceBytes);
-        expect(userAfterFileDeleted.totalUsedSpaceBytes).toBeLessThan(userWithFileUploaded.totalUsedSpaceBytes);
+        expect(userWithFileUploaded.totalUsedSpaceBytes).toEqual(MB100);
+        expect(userAfterFileDeleted.totalUsedSpaceBytes).toEqual(0);
       })
     })
 
