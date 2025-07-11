@@ -7373,6 +7373,30 @@ statuses@~1.4.0:
     stripe "^8.142.0"
     uuid "^8.3.2"
 
+"storj-service-storage-models@github:internxt/service-storage-models#11.0.1":
+  version "11.0.1"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/431719289176830d7ecf6c216c555cdb7694a7ac"
+  dependencies:
+    bluebird "^3.4.7"
+    coinpayments "^2.1.1"
+    cross-env "^7.0.2"
+    dotenv "^8.2.0"
+    elliptic "^6.3.2"
+    hat "0.0.3"
+    merge "^2.1.1"
+    mime-db "^1.24.0"
+    moment "^2.17.1"
+    mongoose "^7.8.7"
+    mongoose-int32 "^0.1.0"
+    mongoose-types "^1.0.3"
+    ms "^2.1.3"
+    proxyquire "^1.8.0"
+    random-word "^2.0.0"
+    storj-lib "github:internxt/core#v8.7.3-beta"
+    storj-service-error-types "github:internxt/service-error-types"
+    stripe "^8.142.0"
+    uuid "^8.3.2"
+
 stream-transform@^2.1.3:
   version "2.1.3"
   resolved "https://registry.yarnpkg.com/stream-transform/-/stream-transform-2.1.3.tgz#a1c3ecd72ddbf500aa8d342b0b9df38f5aa598e3"
