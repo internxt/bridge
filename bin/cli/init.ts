@@ -12,6 +12,7 @@ import { MongoDBBucketEntryShardsRepository } from '../../lib/core/bucketEntrySh
 import { MongoDBUploadsRepository } from '../../lib/core/uploads/MongoDBUploadsRepository';
 import { MongoDBTokensRepository } from '../../lib/core/tokens/MongoDBTokensRepository';
 import { MongoDBContactsRepository } from '../../lib/core/contacts/MongoDBContactsRepository';
+import { MongoDBFileStateRepository } from '../../lib/core/fileState/MongoDBFileStateRepository';
 
 import { BucketEntriesUsecase } from '../../lib/core/bucketEntries/usecase';
 import { ShardsUsecase } from '../../lib/core/shards/usecase';
@@ -30,6 +31,7 @@ import { TokensRepository } from '../../lib/core/tokens/Repository';
 import { ContactsRepository } from '../../lib/core/contacts/Repository';
 import { MongoDB } from '../delete-objects/temp-shard.model';
 import { DatabaseFramesReader, DatabaseBucketEntriesReaderWithoutBucket } from '../delete-objects/ObjectStorage';
+import { FileStateRepository } from '../../lib/core/fileState/Repository';
 
 const Config = require('../../lib/config');
 
@@ -42,7 +44,7 @@ export type PrepareFunctionReturnType = {
   },
   repo: {
     bucketEntriesRepository: BucketEntriesRepository,
-    bucketEntryShardsRepository:BucketEntryShardsRepository,
+    bucketEntryShardsRepository: BucketEntryShardsRepository,
     bucketsRepository: BucketsRepository,
     usersRepository: UsersRepository,
     framesRepository: FramesRepository,
@@ -94,6 +96,7 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
   const uploadsRepository = new MongoDBUploadsRepository(models.Upload);
   const tokensRepository = new MongoDBTokensRepository(models.Token);
   const contactsRepository = new MongoDBContactsRepository(models.Contact);
+  const fileStateRepository: FileStateRepository = new MongoDBFileStateRepository(models.FileState);
 
   const shardsUsecase = new ShardsUsecase(
     mirrorsRepository,
@@ -109,7 +112,8 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
     pointersRepository,
     mirrorsRepository,
     shardsUsecase,
-    usersRepository
+    usersRepository,
+    fileStateRepository
   );
   const bucketsUsecase = new BucketsUsecase(
     bucketEntryShardsRepository,
@@ -117,7 +121,7 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
     mirrorsRepository,
     framesRepository,
     shardsRepository,
-    bucketsRepository, 
+    bucketsRepository,
     uploadsRepository,
     usersRepository,
     tokensRepository,

@@ -31,6 +31,8 @@ import { ShardsUsecase } from "../../core/shards/usecase";
 import { BucketEntryShardsRepository } from "../../core/bucketEntryShards/Repository";
 import { MongoDBBucketEntryShardsRepository } from "../../core/bucketEntryShards/MongoDBBucketEntryShardsRepository";
 import { Notifications } from "../notifications";
+import { FileStateRepository } from "../../core/fileState/Repository";
+import { MongoDBFileStateRepository } from "../../core/fileState/MongoDBFileStateRepository";
 
 const { authenticate } = require('storj-service-middleware');
 
@@ -44,12 +46,13 @@ interface Models {
   Contact: any;
   Shard: any;
   BucketEntryShard: any;
+  FileState: any;
 }
 
 export function bindNewRoutes(
-  app: Application, 
-  storage: { models: Models }, 
-  mailer: Mailer, 
+  app: Application,
+  storage: { models: Models },
+  mailer: Mailer,
   profile: Profile,
   log: Logger,
   networkQueue: any,
@@ -66,14 +69,15 @@ export function bindNewRoutes(
   const pointersRepository: PointersRepository = new MongoDBPointersRepository(models.Pointer);
   const contactsRepository: ContactsRepository = new MongoDBContactsRepository(models.Contact);
   const shardsRepository: ShardsRepository = new MongoDBShardsRepository(models.Shard);
+  const fileStateRepository: FileStateRepository = new MongoDBFileStateRepository(models.FileState);
 
   const mailUsecase: MailUsecase = new SendGridMailUsecase(mailer, profile);
   const eventBus = new EventBus(log, mailUsecase, notifications);
 
   const usersUsecase = new UsersUsecase(
-    usersRepository, 
+    usersRepository,
     framesRepository,
-    bucketsRepository, 
+    bucketsRepository,
     mailUsecase,
     eventBus
   );
@@ -104,7 +108,8 @@ export function bindNewRoutes(
     pointersRepository,
     mirrorsRepository,
     shardsUsecase,
-    usersRepository
+    usersRepository,
+    fileStateRepository
   );
 
   const basicAuthMiddleware = authenticate(storage);
@@ -113,8 +118,8 @@ export function bindNewRoutes(
 
   const usersController = new HTTPUsersController(usersUsecase, log);
   const gatewayController = new HTTPGatewayController(
-    gatewayUsecase, 
-    bucketEntriesUsecase, 
+    gatewayUsecase,
+    bucketEntriesUsecase,
     usersUsecase,
     log,
     eventBus

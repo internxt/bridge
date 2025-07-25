@@ -1,4 +1,5 @@
 import { restore, stub } from 'sinon';
+import { Model } from 'mongoose';
 
 import { BucketEntriesRepository } from '../../../../lib/core/bucketEntries/Repository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
@@ -26,11 +27,13 @@ import { BucketEntry } from '../../../../lib/core/bucketEntries/BucketEntry';
 import { Bucket } from '../../../../lib/core/buckets/Bucket';
 import { ContactsRepository } from '../../../../lib/core/contacts/Repository';
 import { MongoDBContactsRepository } from '../../../../lib/core/contacts/MongoDBContactsRepository';
+import { FileStateRepository } from '../../../../lib/core/fileState/Repository';
+import { MongoDBFileStateRepository } from '../../../../lib/core/fileState/MongoDBFileStateRepository';
 
 describe('BucketEntriesUsecase', function () {
-  const bucketId =  'bucketIdSAMPLE';
-  const userEmail =  'sample@sample.com';
-  const fileId =  'abc123';
+  const bucketId = 'bucketIdSAMPLE';
+  const userEmail = 'sample@sample.com';
+  const fileId = 'abc123';
 
   let bucketEntriesRepository: BucketEntriesRepository = new MongoDBBucketEntriesRepository({});
   let mirrorsRepository: MirrorsRepository = new MongoDBMirrorsRepository({});
@@ -41,9 +44,10 @@ describe('BucketEntriesUsecase', function () {
   let usersRepository: UsersRepository = new MongoDBUsersRepository({});
   let bucketEntryShardsRepository: BucketEntryShardsRepository = new MongoDBBucketEntryShardsRepository({});
   let contactsRepository: ContactsRepository = new MongoDBContactsRepository({});
+  let fileStateRepository: FileStateRepository = new MongoDBFileStateRepository({} as Model<any>);
 
   let networkQueue: any = {
-    enqueueMessage: (message: any) => {}
+    enqueueMessage: (message: any) => { }
   };
 
   let shardsUseCase = new ShardsUsecase(
@@ -61,9 +65,10 @@ describe('BucketEntriesUsecase', function () {
     pointersRepository,
     mirrorsRepository,
     shardsUseCase,
-    usersRepository
+    usersRepository,
+    fileStateRepository
   );
-  
+
   beforeEach(() => {
     bucketEntriesRepository = new MongoDBBucketEntriesRepository({});
     mirrorsRepository = new MongoDBMirrorsRepository({});
@@ -72,6 +77,7 @@ describe('BucketEntriesUsecase', function () {
     bucketsRepository = new MongoDBBucketsRepository({});
     pointersRepository = new MongoDBPointersRepository({});
     contactsRepository = new MongoDBContactsRepository({});
+    fileStateRepository = new MongoDBFileStateRepository({} as Model<any>);
 
     shardsUseCase = new ShardsUsecase(
       mirrorsRepository,
@@ -88,7 +94,8 @@ describe('BucketEntriesUsecase', function () {
       pointersRepository,
       mirrorsRepository,
       shardsUseCase,
-      usersRepository
+      usersRepository,
+      fileStateRepository
     );
 
     restore();
@@ -104,11 +111,11 @@ describe('BucketEntriesUsecase', function () {
         bucketEntriesRepository,
         'deleteByIds'
       );
-    
+
       await bucketEntriesUsecase.removeFilesV1(bucketEntries);
 
       expect(findFramesByIdsStub.calledOnce).toBeTruthy();
-      expect(findPointersByIdsStub.calledOnce).toBeTruthy();        
+      expect(findPointersByIdsStub.calledOnce).toBeTruthy();
       expect(deleteBucketEntriesByIdsStub.calledOnce).toBeTruthy();
 
       expect(findPointersByIdsStub.calledAfter(findFramesByIdsStub)).toBeTruthy();
@@ -178,7 +185,7 @@ describe('BucketEntriesUsecase', function () {
 
     it('Should delete pointers and shards if they exist', async () => {
       const bucketEntries = fixtures.getBucketEntriesWithoutFrames();
-      const frames = bucketEntries.map(b => fixtures.getFrame({ id: b.frame, shards: [ fixtures.getPointer().id ] }));
+      const frames = bucketEntries.map(b => fixtures.getFrame({ id: b.frame, shards: [fixtures.getPointer().id] }));
       const pointers = frames.flatMap(f => f.shards.map(pId => fixtures.getPointer({ id: pId })));
 
       stub(framesRepository, 'findByIds').resolves(frames);
@@ -213,11 +220,14 @@ describe('BucketEntriesUsecase', function () {
         bucketEntriesRepository,
         'deleteByIds'
       );
-    
+      const deleteFileStateByEntrySub = stub(fileStateRepository, 'deleteByBucketEntryIds').resolves()
+
+
       await bucketEntriesUsecase.removeFilesV2(bucketEntries);
 
       expect(deleteBucketEntriesByIdsStub.calledOnce).toBeTruthy();
       expect(deleteBucketEntriesByIdsStub.calledWith(bucketEntries.map(b => b.id))).toBeTruthy();
+      expect(deleteFileStateByEntrySub.calledWith(bucketEntries.map(b => b.id))).toBeTruthy();
     });
 
     it('Should skip shards deletion if do not exist', async () => {
@@ -226,7 +236,8 @@ describe('BucketEntriesUsecase', function () {
       stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves([]);
       stub(shardsRepository, 'findByIds').resolves([]);
       stub(bucketEntriesRepository, 'deleteByIds').resolves();
-      
+      stub(fileStateRepository, 'deleteByBucketEntryIds').resolves()
+
       const deleteStorageStub = stub(shardsUseCase, 'deleteShardsStorageByUuids');
       const deleteShards = stub(shardsRepository, 'deleteByIds');
 
@@ -242,7 +253,8 @@ describe('BucketEntriesUsecase', function () {
       stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves([]);
       stub(shardsRepository, 'findByIds').resolves([]);
       stub(bucketEntriesRepository, 'deleteByIds').resolves()
-      
+      stub(fileStateRepository, 'deleteByBucketEntryIds').resolves()
+
       const deleteBucketEntryShardsStub = stub(bucketEntryShardsRepository, 'deleteByIds');
 
       await bucketEntriesUsecase.removeFilesV2(bucketEntries);
@@ -257,7 +269,8 @@ describe('BucketEntriesUsecase', function () {
       stub(bucketEntryShardsRepository, 'findByBucketEntries').resolves(bucketEntryShards);
       stub(shardsRepository, 'findByIds').resolves([]);
       stub(bucketEntriesRepository, 'deleteByIds').resolves()
-      
+      stub(fileStateRepository, 'deleteByBucketEntryIds').resolves()
+
       const deleteBucketEntryShardsStub = stub(bucketEntryShardsRepository, 'deleteByIds');
 
       await bucketEntriesUsecase.removeFilesV2(bucketEntries);
@@ -277,6 +290,7 @@ describe('BucketEntriesUsecase', function () {
       const findShardsStub = stub(shardsRepository, 'findByIds').resolves(shards);
       const deleteShardsStorageStub = stub(shardsUseCase, 'deleteShardsStorageByUuids').resolves();
       const deleteShardsStub = stub(shardsRepository, 'deleteByIds').resolves();
+      stub(fileStateRepository, 'deleteByBucketEntryIds').resolves()
 
       await bucketEntriesUsecase.removeFilesV2(bucketEntries);
 
@@ -314,7 +328,7 @@ describe('BucketEntriesUsecase', function () {
 
         stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
         const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1').resolves();
-  
+
         await bucketEntriesUsecase.removeFile(fileId);
 
         expect(removeFilesV1Stub.calledOnce).toBeTruthy();
@@ -330,7 +344,7 @@ describe('BucketEntriesUsecase', function () {
 
         stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
         const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1').resolves();
-  
+
         await bucketEntriesUsecase.removeFile(fileId);
 
         expect(removeFilesV1Stub.calledOnce).toBeTruthy();
@@ -439,7 +453,7 @@ describe('BucketEntriesUsecase', function () {
 
       stub(bucketEntriesRepository, 'findOne').resolves(bucketEntry);
 
-      try { 
+      try {
         await bucketEntriesUsecase.removeFile(fileId);
         expect(true).toBeFalsy();
       } catch (err) {
@@ -466,7 +480,7 @@ describe('BucketEntriesUsecase', function () {
       const nonExistentFileId = 'file-id';
       const emptyResult: BucketEntry[] = [];
 
-      stub(bucketEntriesRepository, 'findByIds').resolves(emptyResult); 
+      stub(bucketEntriesRepository, 'findByIds').resolves(emptyResult);
 
       const removeFilesV1Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV1');
       const removeFilesV2Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV2');
@@ -481,14 +495,14 @@ describe('BucketEntriesUsecase', function () {
       it('Should delete files without version (= version 1)', async () => {
         const fileId = 'file-id';
         const v1Files: BucketEntry[] = [fixtures.getBucketEntry({ id: fileId })];
-  
-        stub(bucketEntriesRepository, 'findByIds').resolves(v1Files); 
-  
+
+        stub(bucketEntriesRepository, 'findByIds').resolves(v1Files);
+
         const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1');
         const removeFilesV2Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV2');
-  
+
         await bucketEntriesUsecase.removeFiles([fileId]);
-  
+
         expect(removeFilesV1Stub.calledOnce).toBeTruthy();
         expect(removeFilesV1Stub.firstCall.args).toStrictEqual([v1Files]);
         expect(removeFilesV2Spy).not.toHaveBeenCalled();
@@ -497,14 +511,14 @@ describe('BucketEntriesUsecase', function () {
       it('Should delete files with version 1', async () => {
         const fileId = 'file-id';
         const v1Files: BucketEntry[] = [fixtures.getBucketEntry({ id: fileId, version: 1 })];
-  
-        stub(bucketEntriesRepository, 'findByIds').resolves(v1Files); 
-  
+
+        stub(bucketEntriesRepository, 'findByIds').resolves(v1Files);
+
         const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1');
         const removeFilesV2Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV2');
-  
+
         await bucketEntriesUsecase.removeFiles([fileId]);
-  
+
         expect(removeFilesV1Stub.calledOnce).toBeTruthy();
         expect(removeFilesV1Stub.firstCall.args).toStrictEqual([v1Files]);
         expect(removeFilesV2Spy).not.toHaveBeenCalled();
@@ -515,7 +529,7 @@ describe('BucketEntriesUsecase', function () {
       const fileId = 'file-id';
       const v2Files: BucketEntry[] = [fixtures.getBucketEntry({ id: fileId, version: 2 })];
 
-      stub(bucketEntriesRepository, 'findByIds').resolves(v2Files); 
+      stub(bucketEntriesRepository, 'findByIds').resolves(v2Files);
 
       const removeFilesV1Spy = jest.spyOn(bucketEntriesUsecase, 'removeFilesV1');
       const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').rejects(new Error());
@@ -536,7 +550,7 @@ describe('BucketEntriesUsecase', function () {
         fixtures.getBucketEntry({ version: 2 })
       ];
 
-      stub(bucketEntriesRepository, 'findByIds').resolves(v2Files); 
+      stub(bucketEntriesRepository, 'findByIds').resolves(v2Files);
 
       const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
       const findBucketsStub = stub(bucketsRepository, 'findByIds').rejects(new Error());
@@ -557,10 +571,10 @@ describe('BucketEntriesUsecase', function () {
       const firstUser = fixtures.getUser();
       const firstUserBucket = fixtures.getBucket({ user: firstUser.email, userId: firstUser.uuid });
       const firstUserFiles = [
-        fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 50 }), 
+        fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 50 }),
         fixtures.getBucketEntry({ version: 2, bucket: firstUserBucket.id, size: 10 })
       ];
-      
+
       const secondUser = fixtures.getUser();
       const secondUserBucket = fixtures.getBucket({ user: secondUser.email, userId: secondUser.uuid });
       const secondUserFile = fixtures.getBucketEntry({ bucket: secondUserBucket.id, version: 2, size: 2 });
@@ -569,7 +583,7 @@ describe('BucketEntriesUsecase', function () {
       const files = [...firstUserFiles, secondUserFile];
       const buckets = [firstUserBucket, secondUserBucket];
 
-      stub(bucketEntriesRepository, 'findByIds').resolves(files); 
+      stub(bucketEntriesRepository, 'findByIds').resolves(files);
 
       const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
       const findBucketsStub = stub(bucketsRepository, 'findByIds').resolves(buckets);
@@ -597,7 +611,7 @@ describe('BucketEntriesUsecase', function () {
         const totalSizeOfFilesToRemove = filesFromUser.reduce((acumm, f) => acumm + (f.size as number), 0);
 
         expect(addTotalSpaceBytesStub.getCalls()[i].args).toStrictEqual([
-          users[i].uuid, 
+          users[i].uuid,
           -totalSizeOfFilesToRemove
         ]);
       }
