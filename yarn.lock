@@ -7326,13 +7326,13 @@ statuses@~1.4.0:
     semver "^7.3.5"
     through "^2.3.8"
 
-"storj-mongodb-adapter@github:internxt/mongodb-adapter#10.0.1-beta":
+"storj-mongodb-adapter@github:internxt/mongodb-adapter#10.1.0-beta":
   version "10.0.0-beta"
-  resolved "https://codeload.github.com/internxt/mongodb-adapter/tar.gz/92a310da95d28d0f0e6368e665475d5062da654c"
+  resolved "https://codeload.github.com/internxt/mongodb-adapter/tar.gz/52a6305a2fbc1e3c5d3ddfefb905dcde31da25f6"
   dependencies:
     mongoose "^7.8.7"
     storj-lib "github:internxt/core#v8.7.3-beta"
-    storj-service-storage-models "github:internxt/service-storage-models#11.0.1"
+    storj-service-storage-models "github:internxt/service-storage-models#11.1.0"
 
 "storj-service-error-types@github:internxt/service-error-types":
   version "1.5.0"
@@ -7350,9 +7350,9 @@ statuses@~1.4.0:
     secp256k1 "^4.0.0"
     storj-service-error-types "github:internxt/service-error-types"
 
-"storj-service-storage-models@github:internxt/service-storage-models#11.0.1":
+"storj-service-storage-models@github:internxt/service-storage-models#11.1.0":
   version "11.0.1"
-  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/431719289176830d7ecf6c216c555cdb7694a7ac"
+  resolved "https://codeload.github.com/internxt/service-storage-models/tar.gz/cdfcd9b6fd844f7d454e8f58de2c5763ec3f9fa2"
   dependencies:
     bluebird "^3.4.7"
     coinpayments "^2.1.1"

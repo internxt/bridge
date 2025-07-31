@@ -13,6 +13,7 @@ import { BucketEntry } from './BucketEntry';
 import { UsersRepository } from '../users/Repository';
 import { User } from '../users/User';
 import { Bucket } from '../buckets/Bucket';
+import { FileStateRepository } from '../fileState/Repository';
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -32,10 +33,11 @@ export class BucketEntriesUsecase {
     private pointersRepository: PointersRepository,
     private mirrorsRepository: MirrorsRepository,
     private shardsUsecase: ShardsUsecase,
-    private usersRepository: UsersRepository
+    private usersRepository: UsersRepository,
+    private fileStateRepository: FileStateRepository
   ) { }
 
-  async listByBucket(bucketId: Bucket['id'], limit=20, offset=0): Promise<BucketEntry[]> {
+  async listByBucket(bucketId: Bucket['id'], limit = 20, offset = 0): Promise<BucketEntry[]> {
     const bucketEntries = await this.bucketEntriesRepository.findByBucket(bucketId, limit, offset);
 
     return bucketEntries;
@@ -56,7 +58,7 @@ export class BucketEntriesUsecase {
   async removeFileFromUser(bucketId: string, fileId: string, userId: User['uuid']) {
     const bucket = await this.bucketsRepository.findOne({ id: bucketId });
 
-    if(!bucket) {
+    if (!bucket) {
       throw new BucketNotFoundError();
     }
 
@@ -77,9 +79,9 @@ export class BucketEntriesUsecase {
     const version = bucketEntry.version;
 
     if (!version || version === 1) {
-      await this.removeFilesV1([ bucketEntry ]);
+      await this.removeFilesV1([bucketEntry]);
     } else if (version === 2) {
-      await this.removeFilesV2([ bucketEntry ]);
+      await this.removeFilesV2([bucketEntry]);
       const bucket = await this.bucketsRepository.findOne({ id: bucketEntry.bucket });
 
       if (bucket?.userId) {
@@ -98,7 +100,7 @@ export class BucketEntriesUsecase {
     const bucketEntries = await this.bucketEntriesRepository.findByIds(fileIds);
     const bucketEntriesV2 = bucketEntries.filter(b => b.version && b.version === 2);
     const bucketEntriesV1 = bucketEntries.filter(b => !b.version || b.version === 1);
-   
+
     if (bucketEntriesV1.length > 0) {
       await this.removeFilesV1(bucketEntriesV1);
     }
@@ -115,7 +117,7 @@ export class BucketEntriesUsecase {
       Object.keys(bucketsGroupedByUsers).forEach((userId) => {
         storageToModifyPerUser[userId] = 0;
       });
-      
+
       Object.keys(bucketsGroupedByUsers).forEach((userId) => {
         const buckets = bucketsGroupedByUsers[userId];
 
@@ -130,8 +132,8 @@ export class BucketEntriesUsecase {
 
         await this.usersRepository.addTotalUsedSpaceBytes(user, storageToSubstract);
       }
-    }  
-    
+    }
+
     return fileIds;
   }
 
@@ -146,7 +148,7 @@ export class BucketEntriesUsecase {
 
     if (shardsHashes.length > 0) {
       await this.shardsUsecase.deleteShardsStorageByHashes(shardsHashes);
-      await this.shardsRepository.deleteByHashes(shardsHashes);  
+      await this.shardsRepository.deleteByHashes(shardsHashes);
     }
 
     if (pointerIds.length > 0) {
@@ -156,7 +158,7 @@ export class BucketEntriesUsecase {
     if (frames.length > 0) {
       await this.framesRepository.deleteByIds(frames.map(f => f.id));
     }
-    
+
     await this.bucketEntriesRepository.deleteByIds(files.map(f => f.id));
   }
 
@@ -169,13 +171,14 @@ export class BucketEntriesUsecase {
 
     if (shards.length > 0) {
       await this.shardsUsecase.deleteShardsStorageByUuids(shards as any);
-      await this.shardsRepository.deleteByIds(shards.map(s => s.id));   
+      await this.shardsRepository.deleteByIds(shards.map(s => s.id));
     }
 
     if (bucketEntryShardsIds.length > 0) {
       await this.bucketEntryShardsRepository.deleteByIds(bucketEntryShardsIds);
     }
-    
+
     await this.bucketEntriesRepository.deleteByIds(fileIds);
+    await this.fileStateRepository.deleteByBucketEntryIds(fileIds);
   }
 }
