@@ -4,7 +4,7 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     steps:
       - name: Check Out Repo
         uses: actions/checkout@v2
@@ -24,7 +24,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-dev:preview-${{ github.event.number }}-${{ github.event.pull_request.head.sha }}
   add_ready_for_preview_label:
     if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     needs: build
     steps:
     - uses: actions-ecosystem/action-add-labels@v1
@@ -33,7 +33,7 @@ jobs:
           ready-for-preview
   dispatch_update_deployment:
     needs: add_ready_for_preview_label
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     if: ${{ contains(github.event.pull_request.labels.*.name, 'deployed') }}
     steps:
       - name: Dispatch Update Preview Repository Command
@@ -68,7 +68,7 @@ jobs:
             }
   dispatch_check_deployment:
     needs: add_ready_for_preview_label
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     if: ${{ contains(github.event.pull_request.labels.*.name, 'preview') }}
     steps:
       - name: Dispatch Check Preview Repository Command

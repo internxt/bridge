@@ -4,7 +4,7 @@ on:
     types: [closed]
 jobs:
   dispatch_cleanup_deployment:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     steps:
       - name: Dispatch Cleanup Preview Repository Command
         uses: myrotvorets/trigger-repository-dispatch-action@1.0.0

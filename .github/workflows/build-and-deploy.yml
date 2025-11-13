@@ -4,7 +4,7 @@ on:
     branches: ["master"]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     steps:
       - name: Check Out Repo
         uses: actions/checkout@v2
@@ -24,7 +24,7 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/bridge:${{ github.sha }}
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     environment:
       name: production
     steps:

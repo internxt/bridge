@@ -8561,11 +8561,12 @@ stop-iteration-iterator@^1.1.0:
     nat-upnp "^1.1.0"
     ntp-client "^0.5.3"
     portfinder "^1.0.3"
-    readable-stream "^3.6.0"
+    readable-stream "^2.0.6"
     request "^2.83.0"
     restify "^8.5.1"
     restify-clients "^3.1.0"
     rimraf "^3.0.2"
+    scrypt "^6.0.3"
     secp256k1 "^4.0.0"
     semver "^7.3.5"
     through "^2.3.8"
@@ -8576,7 +8577,7 @@ stop-iteration-iterator@^1.1.0:
   dependencies:
     mongoose "^7.8.7"
     storj-lib "github:internxt/core#v8.7.3-beta"
-    storj-service-storage-models "github:internxt/service-storage-models#11.1.0"
+    storj-service-storage-models "github:internxt/service-storage-models#11.0.0"
 
 "storj-service-error-types@github:internxt/service-error-types":
   version "1.5.0"

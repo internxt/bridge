@@ -4,7 +4,7 @@ on:
     types: [created]
 jobs:
   slash_command_dispatch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04.5
     if: ${{ contains(github.event.issue.labels.*.name, 'deployed') || contains(github.event.issue.labels.*.name, 'preview') }}
     steps:
       - name: Slash Command Dispatch
