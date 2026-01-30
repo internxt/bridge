@@ -226,6 +226,7 @@ export class BucketsUsecase {
     });
 
     if (!bucketEntry) {
+      console.warn(`[getFileInfo] Bucket entry not found in DB - bucketId: ${bucketId}, fileId: ${fileId}`);
       throw new BucketEntryNotFoundError(fileId);
     }
 
@@ -238,6 +239,7 @@ export class BucketsUsecase {
         if (axios.isAxiosError(error)) {
           const axiosError = error as AxiosError;
           if (axiosError.response?.status === 404) {
+            console.warn(`[getFileInfo] Download links returned 404 - bucketEntryId: ${bucketEntry.id}, fileId: ${fileId}, url: ${axiosError.config?.url}`);
             throw new BucketEntryNotFoundError(fileId);
           }
         }
