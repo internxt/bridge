@@ -1,5 +1,6 @@
 import _ from 'lodash';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
+import { getQueue } from '../queue/bullQueue';
 
 import { DELETING_FILE_MESSAGE } from '../../server/queues/messageTypes';
 import { BucketEntry } from "../bucketEntries/BucketEntry"
@@ -55,6 +56,21 @@ export class GatewayUsecase {
             );
           }
         });
+        try {
+          const q = getQueue();
+          if (!q) {
+            console.error('deletePointers: BullMQ queue not initialized, skipping enqueue for pointer shard %s', hash);
+          } else {
+            q.add('delete-shard', { hash, url }, {
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 1000 },
+            }).catch((err) => {
+              console.error('deletePointers: Error enqueuing BullMQ job for pointer shard %s: %s', hash, err.message);
+            });
+          }
+        } catch (err: any) {
+          console.error('deletePointers: Failed to enqueue BullMQ job for pointer shard %s: %s', hash, err.message);
+        }
       }
     }
 
@@ -84,6 +100,21 @@ export class GatewayUsecase {
               );
             }
           });
+          try {
+            const q = getQueue();
+            if (!q) {
+              console.error('deletePointers: BullMQ queue not initialized, skipping enqueue for shard %s', shard.hash);
+            } else {
+              q.add('delete-shard', { hash: shard.hash, url }, {
+                attempts: 3,
+                backoff: { type: 'exponential', delay: 1000 },
+              }).catch((err) => {
+                console.error('deletePointers: Error enqueuing BullMQ job for shard %s: %s', shard.hash, err.message);
+              });
+            }
+          } catch (err: any) {
+            console.error('deletePointers: Failed to enqueue BullMQ job for shard %s: %s', shard.hash, err.message);
+          }
         }
       }
     }
