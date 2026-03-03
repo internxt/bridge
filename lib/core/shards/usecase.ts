@@ -94,18 +94,18 @@ export class ShardsUsecase {
       try {
         const q = getQueue();
         if (!q) {
-          console.error('deleteShards: BullMQ queue not initialized, skipping enqueue for shard %s', uuid);
+          console.error('deleteShards: BullMQ queue not initialized, skipping enqueue for shard %s', shardHash);
         } else {
           console.log('adding removal of shard %s to the queue', shardHash)
           q.add('delete-shard', { key: shardHash, hash: shardHash, url }, {
             attempts: 3,
             backoff: { type: 'exponential', delay: 1000 },
           }).catch((err) => {
-            console.error('deleteShards: Error enqueuing BullMQ job for shard %s: %s', uuid, err.message);
+            console.error('deleteShards: Error enqueuing BullMQ job for shard %s: %s', shardHash, err.message);
           });
         }
       } catch (err: any) {
-        console.error('deleteShards: Failed to enqueue BullMQ job for shard %s: %s', uuid, err.message);
+        console.error('deleteShards: Failed to enqueue BullMQ job for shard %s: %s', shardHash, err.message);
       }
     }
 
