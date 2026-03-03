@@ -5,7 +5,6 @@ import log from '../../logger';
 import { ContactsRepository } from '../contacts/Repository';
 import { Contact } from '../contacts/Contact';
 import { MirrorWithContact } from '../mirrors/Mirror';
-import { getQueue } from '../queue/bullQueue';
 
 export class ShardsUsecase {
   constructor(
@@ -67,23 +66,6 @@ export class ShardsUsecase {
           );
         }
       })
-
-      try {
-        const q = getQueue();
-        if (!q) {
-          console.error('deleteShards: BullMQ queue not initialized, skipping enqueue for shard %s', uuid);
-        } else {
-          console.log('adding removal of shard %s to the queue', uuid)
-          q.add('delete-shard', { key: uuid, hash: uuid, url }, {
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 1000 },
-          }).catch((err) => {
-            console.error('deleteShards: Error enqueuing BullMQ job for shard %s: %s', uuid, err.message);
-          });
-        }
-      } catch (err: any) {
-        console.error('deleteShards: Failed to enqueue BullMQ job for shard %s: %s', uuid, err.message);
-      }
     }
 
     if (!noMirrors && stillExistentMirrors.length > 0) {
