@@ -95,7 +95,6 @@ export function bindNewRoutes(
   const shardsUsecase = new ShardsUsecase(
     mirrorsRepository,
     contactsRepository,
-    networkQueue
   );
 
   const bucketEntriesUsecase = new BucketEntriesUsecase(

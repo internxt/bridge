@@ -1,6 +1,4 @@
 import { MirrorsRepository } from '../mirrors/Repository';
-import NetworkMessageQueue from "../../server/queues/networkQueue";
-import { DELETING_FILE_MESSAGE } from "../../server/queues/messageTypes";
 import log from '../../logger';
 import { ContactsRepository } from '../contacts/Repository';
 import { Contact } from '../contacts/Contact';
@@ -11,7 +9,6 @@ export class ShardsUsecase {
   constructor(
     private readonly mirrorsRepository: MirrorsRepository,
     private readonly contactsRepository: ContactsRepository, 
-    private readonly networkQueue: NetworkMessageQueue
   ) {}
 
   async deleteShardsStorageByUuids(shards: { 
