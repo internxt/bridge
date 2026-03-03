@@ -2,7 +2,6 @@ import _ from 'lodash';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { getQueue } from '../queue/bullQueue';
 
-import { DELETING_FILE_MESSAGE } from '../../server/queues/messageTypes';
 import { BucketEntry } from "../bucketEntries/BucketEntry"
 import { BucketEntriesRepository } from "../bucketEntries/Repository";
 import { ContactsRepository } from '../contacts/Repository';
@@ -26,7 +25,6 @@ export class GatewayUsecase {
     private mirrorsRepository: MirrorsRepository,
     private contactsRepository: ContactsRepository,
     private eventBus: EventBus,
-    private networkQueue: { enqueueMessage: (msg: any, cb: (err?: Error) => void) => void }
   ) {}
 
   async deletePointers(pointers: Pointer[]): Promise<void> {
@@ -43,19 +41,6 @@ export class GatewayUsecase {
 
         const url = `http://${address}:${port}/shards/${hash}`;
 
-        this.networkQueue.enqueueMessage({
-          type: DELETING_FILE_MESSAGE,
-          payload: { key: hash, hash, url }
-        }, (err) => {
-          if (err) {
-            console.error(
-              'deletePointers: Error enqueueing pointer %s shard %s deletion task: %s',
-              id,
-              hash,
-              err.message
-            );
-          }
-        });
         try {
           const q = getQueue();
           if (!q) {
@@ -88,18 +73,6 @@ export class GatewayUsecase {
 
           const url = `http://${address}:${port}/shards/${shard.hash}`;
 
-          this.networkQueue.enqueueMessage({
-            type: DELETING_FILE_MESSAGE,
-            payload: { key: shard.hash, hash: shard.hash, url }
-          }, (err) => {
-            if (err) {
-              console.error(
-                'deletePointers: Error enqueueing shard %s deletion task: %s',
-                shard.hash,
-                err.message
-              );
-            }
-          });
           try {
             const q = getQueue();
             if (!q) {

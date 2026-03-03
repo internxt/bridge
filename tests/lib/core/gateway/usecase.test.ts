@@ -33,7 +33,6 @@ let pointersRepository: PointersRepository = new MongoDBPointersRepository({});
 let mirrorsRepository: MirrorsRepository = new MongoDBMirrorsRepository({});
 let shardsRepository: ShardsRepository = new MongoDBShardsRepository({});
 let contactsRepository: ContactsRepository = new MongoDBContactsRepository({});
-let networkQueue: any;
 let mailUsecase: MailUsecase = new SendGridMailUsecase({} as Mailer, {
   host: '',
   protocol: 'http:',
@@ -55,7 +54,6 @@ let usecase = new GatewayUsecase(
   mirrorsRepository,
   contactsRepository,
   eventBus,
-  networkQueue
 );
 
 beforeEach(() => {
@@ -75,7 +73,6 @@ beforeEach(() => {
     mirrorsRepository,
     contactsRepository,
     eventBus,
-    networkQueue
   );
   
 
