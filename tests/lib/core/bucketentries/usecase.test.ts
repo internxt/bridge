@@ -46,14 +46,9 @@ describe('BucketEntriesUsecase', function () {
   let contactsRepository: ContactsRepository = new MongoDBContactsRepository({});
   let fileStateRepository: FileStateRepository = new MongoDBFileStateRepository({} as Model<any>);
 
-  let networkQueue: any = {
-    enqueueMessage: (message: any) => { }
-  };
-
   let shardsUseCase = new ShardsUsecase(
     mirrorsRepository,
     contactsRepository,
-    networkQueue,
   );
 
   let bucketEntriesUsecase = new BucketEntriesUsecase(
@@ -82,7 +77,6 @@ describe('BucketEntriesUsecase', function () {
     shardsUseCase = new ShardsUsecase(
       mirrorsRepository,
       contactsRepository,
-      networkQueue,
     );
 
     bucketEntriesUsecase = new BucketEntriesUsecase(
