@@ -61,7 +61,7 @@ export class GatewayUsecase {
           if (!q) {
             console.error('deletePointers: BullMQ queue not initialized, skipping enqueue for pointer shard %s', hash);
           } else {
-            q.add('delete-shard', { hash, url }, {
+            q.add('delete-shard', { key: hash, hash, url }, {
               attempts: 3,
               backoff: { type: 'exponential', delay: 1000 },
             }).catch((err) => {
