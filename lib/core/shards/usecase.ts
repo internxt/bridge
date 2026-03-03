@@ -55,19 +55,6 @@ export class ShardsUsecase {
       
       const url = `http://${address}:${port}/v2/shards/${uuid}`;
 
-      this.networkQueue.enqueueMessage({
-        type: DELETING_FILE_MESSAGE,
-        payload: { key: uuid, hash: uuid, url }
-      }, (err: Error | undefined) => {
-        if (err) {
-          console.error(
-            'Error enqueuing delete shard uuid %s : %s',
-            uuid, 
-            err.message
-          );
-        }
-      })
-
       try {
         const q = getQueue();
         if (!q) {
@@ -104,18 +91,22 @@ export class ShardsUsecase {
 
       const url = `http://${address}:${port}/shards/${shardHash}`;
 
-      this.networkQueue.enqueueMessage({
-        type: DELETING_FILE_MESSAGE,
-        payload: { key: shardHash, hash: shardHash, url }
-      }, (err: Error | undefined) => {
-        if (err) {
-          console.error(
-            'Error enqueuing delete shard hash %s : %s', 
-            shardHash, 
-            err.message
-          );
+      try {
+        const q = getQueue();
+        if (!q) {
+          console.error('deleteShards: BullMQ queue not initialized, skipping enqueue for shard %s', uuid);
+        } else {
+          console.log('adding removal of shard %s to the queue', shardHash)
+          q.add('delete-shard', { key: shardHash, hash: shardHash, url }, {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+          }).catch((err) => {
+            console.error('deleteShards: Error enqueuing BullMQ job for shard %s: %s', uuid, err.message);
+          });
         }
-      })
+      } catch (err: any) {
+        console.error('deleteShards: Failed to enqueue BullMQ job for shard %s: %s', uuid, err.message);
+      }
     }
 
     if (stillExistentMirrors.length > 0) {
