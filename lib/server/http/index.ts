@@ -90,7 +90,6 @@ export function bindNewRoutes(
     mirrorsRepository,
     contactsRepository,
     eventBus,
-    networkQueue
   );
 
   const shardsUsecase = new ShardsUsecase(
