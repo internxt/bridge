@@ -43,6 +43,20 @@ export class BucketNotFoundError extends Error {
     Object.setPrototypeOf(this, BucketNotFoundError.prototype);
   }
 }
+export class UploadSizeDoesNotMatchError extends Error {
+  constructor(message?: string) {
+    super(message ?? `Size does not match`);
+
+    Object.setPrototypeOf(this, UploadSizeDoesNotMatchError.prototype);
+  }
+}
+export class UploadNotFoundInStorageError extends Error {
+  constructor() {
+    super(`Upload not found in storage`);
+
+    Object.setPrototypeOf(this, UploadNotFoundInStorageError.prototype);
+  }
+}
 
 export class BucketEntryFrameNotFoundError extends Error {
   constructor() {
@@ -664,11 +678,8 @@ export class BucketsUsecase {
       if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
       } else {
-        const storesObject = await StorageGateway.stores(contact, uuid);
-
-        if (storesObject) {
-          contactsThatStoreTheShard.push(contact);
-        }
+        await this.validateObjectInStorage(contact, uuid, data_size);
+        contactsThatStoreTheShard.push(contact);
       }
     }
 
@@ -748,4 +759,25 @@ export class BucketsUsecase {
 
     return this.bucketsRepository.create(payload);
   }
+
+    async validateObjectInStorage(
+    contact: Contact,
+    uuid: string,
+    expectedSize: number
+    ): Promise<void> {
+
+        const objectMeta = await StorageGateway.getMeta(contact, uuid);
+
+        if (!objectMeta) {
+            throw new UploadNotFoundInStorageError();
+        }
+
+        if (objectMeta.size !== expectedSize) {
+            console.warn(`validateObjectInStorage | Size mismatch for contact ${contact.id} object ${uuid}. Expected: ${expectedSize}, Got: ${objectMeta.size}`);
+
+            throw new UploadSizeDoesNotMatchError(
+            `Size does not match. Expected: ${expectedSize}, Got: ${objectMeta.size}`
+            );
+        }
+    }
 }

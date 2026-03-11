@@ -19,6 +19,23 @@ export class StorageGateway {
     });
   }
 
+
+  static async getMeta(contact: Contact, objectKey: string): Promise<{size: number} | null> {
+    const { address, port } = contact;
+
+    const httpUrl = `http://${address}:${port}/v2/shard/${objectKey}/meta`;
+
+    try {
+      const response = await axios.get(httpUrl);
+      return response.data;
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
   static async getLinks(contact: Contact, objectKeys: string[]): Promise<string[]> {
     const { address, port } = contact;
   

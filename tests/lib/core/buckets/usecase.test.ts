@@ -10,7 +10,13 @@ import { UsersRepository } from '../../../../lib/core/users/Repository';
 
 import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
-import { BucketNameAlreadyInUse, BucketNotFoundError, BucketsUsecase } from '../../../../lib/core/buckets/usecase';
+import {
+  BucketNameAlreadyInUse,
+  BucketNotFoundError,
+  BucketsUsecase,
+  UploadNotFoundInStorageError,
+  UploadSizeDoesNotMatchError,
+} from '../../../../lib/core/buckets/usecase';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
@@ -311,6 +317,58 @@ describe('findAllByUserAndCreatedSince()', () => {
     expect(result).toStrictEqual(buckets);
   });
 });
+  describe('validateObjectInStorage()', () => {
+    it('When called, then it should fetch the object metadata using the given contact and uuid', async () => {
+      const contact = fixtures.getContact();
+      const uuid = 'object-uuid-123';
+      const expectedSize = 512;
+
+      const getMetaStub = stub(StorageGateway, 'getMeta').resolves({ size: expectedSize });
+
+      await bucketsUsecase.validateObjectInStorage(contact, uuid, expectedSize);
+
+      expect(getMetaStub.calledOnce).toBeTruthy();
+      expect(getMetaStub.firstCall.args).toStrictEqual([contact, uuid]);
+    });
+
+    it('When object exists and size matches, then it should resolve successfully', async () => {
+      const contact = fixtures.getContact();
+      const uuid = 'object-uuid-123';
+      const expectedSize = 1024;
+
+      stub(StorageGateway, 'getMeta').resolves({ size: expectedSize });
+
+      await expect(
+        bucketsUsecase.validateObjectInStorage(contact, uuid, expectedSize)
+      ).resolves.toBeUndefined();
+    });
+
+    it('When getMeta returns null, then it should throw', async () => {
+      const contact = fixtures.getContact();
+      const uuid = 'missing-object';
+      const expectedSize = 512;
+
+      stub(StorageGateway, 'getMeta').resolves(null);
+
+      await expect(
+        bucketsUsecase.validateObjectInStorage(contact, uuid, expectedSize)
+      ).rejects.toThrow(UploadNotFoundInStorageError);
+    });
+
+    it('When size does not match, then it should throw', async () => {
+      const contact = fixtures.getContact();
+      const uuid = 'object-uuid-456';
+      const expectedSize = 1024;
+      const actualSize = 2048;
+
+      stub(StorageGateway, 'getMeta').resolves({ size: actualSize });
+
+      await expect(
+        bucketsUsecase.validateObjectInStorage(contact, uuid, expectedSize)
+      ).rejects.toThrow(UploadSizeDoesNotMatchError);
+    });
+  });
+
   describe('create()', () => {
     const user = fixtures.getUser();
 
