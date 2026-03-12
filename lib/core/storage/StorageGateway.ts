@@ -30,6 +30,11 @@ export class StorageGateway {
       return response.data;
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
+        const errorDetails = {
+          message: err.message,
+          stack: err.stack
+        }
+        console.error(`[StorageGateway][GetMeta] Error fetching object meta ${JSON.stringify(errorDetails)}`);
         return null;
       }
       throw err;
