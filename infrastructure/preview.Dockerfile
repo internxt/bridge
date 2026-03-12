@@ -1,4 +1,4 @@
-FROM node:16.14.2-slim
+FROM node:16-bullseye-slim
 
 # Create a non-root user
 RUN groupadd -r myuser && useradd -r -g myuser myuser -d /app
