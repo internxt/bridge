@@ -682,7 +682,7 @@ export class BucketsUsecase {
         await this.validateObjectInStorage(contact, uuid, data_size).catch((error) => {
           if (error instanceof UploadSizeDoesNotMatchError) {
             log.error(`[finishUpload][SizeDoesNotMatchError] ${JSON.stringify({ uuid, expectedSize: data_size, contactId: contact.id, message: error.message, isMultipartUpload })}`);
-            return;
+            throw error;
           }
 
           if (error instanceof UploadNotFoundInStorageError) {
