@@ -678,7 +678,17 @@ export class BucketsUsecase {
       if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
       } else {
-        await this.validateObjectInStorage(contact, uuid, data_size);
+        await this.validateObjectInStorage(contact, uuid, data_size).catch((error) => {
+          if (error instanceof UploadSizeDoesNotMatchError) {
+            console.error(`[finishUpload][SizeDoesNotMatchError] Error size match ${JSON.stringify({ uuid, expectedSize: data_size, contactId: contact.id, message: error.message })}`);
+          }
+
+          if (error instanceof UploadNotFoundInStorageError) {
+            console.error(`[finishUpload][UploadNotFoundInStorageError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack })}`);
+          }
+
+          console.error(`[finishUpload][unexpectedError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack })}`);
+        });
         contactsThatStoreTheShard.push(contact);
       }
     }
@@ -760,7 +770,7 @@ export class BucketsUsecase {
     return this.bucketsRepository.create(payload);
   }
 
-    async validateObjectInStorage(
+  async validateObjectInStorage(
     contact: Contact,
     uuid: string,
     expectedSize: number
@@ -773,8 +783,6 @@ export class BucketsUsecase {
         }
 
         if (objectMeta.size !== expectedSize) {
-            console.warn(`validateObjectInStorage | Size mismatch for contact ${contact.id} object ${uuid}. Expected: ${expectedSize}, Got: ${objectMeta.size}`);
-
             throw new UploadSizeDoesNotMatchError(
             `Size does not match. Expected: ${expectedSize}, Got: ${objectMeta.size}`
             );
