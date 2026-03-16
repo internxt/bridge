@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { v4 } from 'uuid';
 import lodash from 'lodash';
+import log from '../../logger';
 
 import { Bucket } from './Bucket';
 import { Frame } from '../frames/Frame';
@@ -240,7 +241,7 @@ export class BucketsUsecase {
     });
 
     if (!bucketEntry) {
-      console.warn(`[getFileInfo] Bucket entry not found in DB - bucketId: ${bucketId}, fileId: ${fileId}`);
+      log.warn(`[getFileInfo] Bucket entry not found in DB - bucketId: ${bucketId}, fileId: ${fileId}`);
       throw new BucketEntryNotFoundError(fileId);
     }
 
@@ -253,7 +254,7 @@ export class BucketsUsecase {
         if (axios.isAxiosError(error)) {
           const axiosError = error as AxiosError;
           if (axiosError.response?.status === 404) {
-            console.warn(`[getFileInfo] Download links returned 404 - bucketEntryId: ${bucketEntry.id}, fileId: ${fileId}, url: ${axiosError.config?.url}`);
+            log.warn(`[getFileInfo] Download links returned 404 - bucketEntryId: ${bucketEntry.id}, fileId: ${fileId}, url: ${axiosError.config?.url}`);
             throw new BucketEntryNotFoundError(fileId);
           }
         }
@@ -597,7 +598,7 @@ export class BucketsUsecase {
       .deleteManyByUuids(uploads.map((u) => u.uuid))
       .catch((err) => {
       // TODO: Move to EventBus
-        console.log(
+        log.info(
           'completeUpload/uploads-deletion: Failed due to %s. %s',
           err.message,
           err.stack
@@ -680,21 +681,23 @@ export class BucketsUsecase {
       } else {
         await this.validateObjectInStorage(contact, uuid, data_size).catch((error) => {
           if (error instanceof UploadSizeDoesNotMatchError) {
-            console.error(`[finishUpload][SizeDoesNotMatchError] Error size match ${JSON.stringify({ uuid, expectedSize: data_size, contactId: contact.id, message: error.message })}`);
+            log.error(`[finishUpload][SizeDoesNotMatchError] ${JSON.stringify({ uuid, expectedSize: data_size, contactId: contact.id, message: error.message, isMultipartUpload })}`);
+            return;
           }
 
           if (error instanceof UploadNotFoundInStorageError) {
-            console.error(`[finishUpload][UploadNotFoundInStorageError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack })}`);
+            log.error(`[finishUpload][UploadNotFoundInStorageError] ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack, isMultipartUpload, size: data_size })}`);
+            return;
           }
 
-          console.error(`[finishUpload][unexpectedError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack })}`);
+          log.error(`[finishUpload][unexpectedError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack })}`);
         });
         contactsThatStoreTheShard.push(contact);
       }
     }
 
     if (contactsThatStoreTheShard.length === 0) {
-      console.log('createShardAndMirrors | object %s NOT FOUND in contacts', uuid, contracts.map(c => c.nodeID));
+      log.error('createShardAndMirrors | object %s NOT FOUND in contacts', uuid, contracts.map(c => c.nodeID));
       throw new Error('Shard not uploaded');
     }
 
