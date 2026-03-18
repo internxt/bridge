@@ -15,6 +15,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   const ctx = {
     requestId: uuidv4(),
     clientId: req.headers['internxt-client'] as string | undefined,
+    version: req.headers['internxt-version'] as string | undefined,
   };
 
   requestContextStore.run(ctx, () => {
