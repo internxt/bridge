@@ -28,6 +28,7 @@ import { ContactsRepository } from '../contacts/Repository';
 import { StorageGateway } from '../storage/StorageGateway';
 import { Contact } from '../contacts/Contact';
 import { Upload } from '../uploads/Upload';
+import { shouldEnforceUploadValidation } from './helpers/uploadValidation';
 
 export class BucketEntryNotFoundError extends Error {
   constructor(bucketEntryId?: string) {
@@ -679,19 +680,19 @@ export class BucketsUsecase {
       if (contact.objectCheckNotRequired) {
         contactsThatStoreTheShard.push(contact);
       } else {
-        await this.validateObjectInStorage(contact, uuid, data_size).catch((error) => {
+        try {
+          await this.validateObjectInStorage(contact, uuid, data_size);
+        } catch (error) {
           if (error instanceof UploadSizeDoesNotMatchError) {
             log.error(`[finishUpload][SizeDoesNotMatchError] ${JSON.stringify({ uuid, expectedSize: data_size, contactId: contact.id, message: error.message, isMultipartUpload })}`);
             throw error;
-          }
-
-          if (error instanceof UploadNotFoundInStorageError) {
+          } else if (error instanceof UploadNotFoundInStorageError) {
             log.error(`[finishUpload][UploadNotFoundInStorageError] ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack, isMultipartUpload, size: data_size })}`);
-            return;
+          } else {
+            log.error(`[finishUpload][unexpectedError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: (error as Error).message, stack: (error as Error).stack })}`);
           }
-
-          log.error(`[finishUpload][unexpectedError] Error getting bucket meta ${JSON.stringify({ uuid, contactId: contact.id, error: error.message, stack: error.stack })}`);
-        });
+          if (shouldEnforceUploadValidation()) throw error;
+        }
         contactsThatStoreTheShard.push(contact);
       }
     }
