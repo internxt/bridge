@@ -33,8 +33,7 @@ import { MongoDBBucketEntryShardsRepository } from "../../core/bucketEntryShards
 import { Notifications } from "../notifications";
 import { FileStateRepository } from "../../core/fileState/Repository";
 import { MongoDBFileStateRepository } from "../../core/fileState/MongoDBFileStateRepository";
-
-const { authenticate } = require('storj-service-middleware');
+import authenticateFactory from "../middleware/authenticate";
 
 interface Models {
   User: any;
@@ -47,6 +46,8 @@ interface Models {
   Shard: any;
   BucketEntryShard: any;
   FileState: any;
+  PublicKey: any;
+  UserNonce: any;
 }
 
 export function bindNewRoutes(
@@ -109,8 +110,7 @@ export function bindNewRoutes(
     usersRepository,
     fileStateRepository
   );
-
-  const basicAuthMiddleware = authenticate(storage);
+  const basicAuthMiddleware = authenticateFactory({ User: storage.models.User, PublicKey: storage.models.PublicKey, UserNonce: storage.models.UserNonce });
   const secretToUtf8 = Buffer.from(getEnv().gateway.jwtSecret, 'base64').toString('utf8')
   const jwtMiddleware = buildJwtMiddleware(secretToUtf8, { algorithms: ['RS256'] });
 

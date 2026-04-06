@@ -3,7 +3,7 @@ import { HTTPUsersController } from './controller';
 
 export const createUsersHTTPRouter = (
   controller: HTTPUsersController, 
-  basicAuth: RequestHandler
+  basicAuth: RequestHandler | RequestHandler[]
 ): Router => {
   const router = Router();
 

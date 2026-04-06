@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { verify, VerifyOptions } from 'jsonwebtoken';
-import { BadRequestError, ForbiddenError, NotAuthorizedError } from "storj-service-error-types";
+import { BadRequestError, ForbiddenError, NotAuthorizedError } from '../../error-types';
 
 export function buildMiddleware(secret: string, opts: Partial<VerifyOptions>): RequestHandler {
   return (req, _, next) => {
