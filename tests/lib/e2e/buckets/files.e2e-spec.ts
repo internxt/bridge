@@ -6,6 +6,7 @@ import { type User } from '../users.fixtures';
 import { createTestUser, getAuth, shutdownEngine } from '../utils';
 import sinon from 'sinon';
 import { StorageDbManager } from '../storage-db-manager';
+import { StorageGateway } from '../../../../lib/core/storage/StorageGateway';
 
 const FAKE_UPLOAD_URL = 'http://fake-upload-url'
 const FAKE_DOWNLOAD_URL = 'http://fake-download-url'
@@ -33,8 +34,6 @@ describe('Bridge E2E Tests', () => {
   afterAll(async () => {
     await shutdownEngine()
   })
-
-
 
   beforeEach(async () => {
     jest.clearAllMocks()
@@ -161,12 +160,13 @@ describe('Bridge E2E Tests', () => {
 
         // Act: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        const responseComplete = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
-          .send({
-            index,
-            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }],
-          });
+        const responseComplete = await finishUpload(
+          getAuth(testUser),
+          bucketId,
+          index,
+          [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid }],
+          { shardSize: 1000 },
+        )
 
         // Assert
         expect(responseComplete.status).toBe(200);
@@ -204,12 +204,13 @@ describe('Bridge E2E Tests', () => {
 
         // Act: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        const responseComplete = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
-          .send({
-            index,
-            shards: (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
-          });
+        const responseComplete = await finishUpload(
+          getAuth(testUser),
+          bucketId,
+          index,
+          (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
+          { shardSize: MB100 / 2 },
+        )
 
         // Assert
         expect(responseComplete.status).toBe(200);
@@ -251,12 +252,13 @@ describe('Bridge E2E Tests', () => {
 
         // Act: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(originalUser))
-          .send({
-            index,
-            shards: (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
-          });
+        await finishUpload(
+          getAuth(originalUser),
+          bucketId,
+          index,
+          (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
+          { shardSize: MB100 / 2 },
+        )
 
         const userInDb = await databaseConnection.models.User.findOne({ uuid: originalUser.uuid });
         expect(userInDb).not.toBeNull();
@@ -307,12 +309,13 @@ describe('Bridge E2E Tests', () => {
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
         const fileHash = crypto.randomBytes(20).toString('hex')
-        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(user))
-          .send({
-            index,
-            shards: [{ hash: fileHash, uuid: upload.uuid, }],
-          });
+        const { body: file } = await finishUpload(
+          getAuth(user),
+          bucketId,
+          index,
+          [{ hash: fileHash, uuid: upload.uuid }],
+          { shardSize: 1000 },
+        )
 
         // Act
         const response = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info`)
@@ -352,17 +355,17 @@ describe('Bridge E2E Tests', () => {
         // Arrange: start the upload
         const { body: { uploads } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
           .set('Authorization', getAuth(testUser))
-          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 10000, },], })
+          .send({ uploads: [{ index: 0, size: 1000, }, { index: 1, size: 1000, },], })
 
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
-          .send({
-            index,
-            shards: (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
-          });
-
+        const { body: file } = await finishUpload(
+          getAuth(testUser),
+          bucketId,
+          index,
+          (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
+          { shardSize: 1000 },
+        )
 
         // Act: remove the file
         const response = await testServer.delete(`/buckets/${bucketId}/files/${file.id}`)
@@ -404,12 +407,13 @@ describe('Bridge E2E Tests', () => {
 
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(user))
-          .send({
-            index,
-            shards: (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
-          });
+        const { body: file } = await finishUpload(
+          getAuth(user),
+          bucketId,
+          index,
+          (uploads as any[]).map(upload => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
+          { shardSize: MB100 / 2 },
+        )
 
         // Arrange: get the user before deleting the file
         const userWithFileUploaded = await databaseConnection.models.User.findOne({ uuid: user.uuid });
@@ -468,19 +472,20 @@ describe('Bridge E2E Tests', () => {
 
         // Arrange: finish the upload
         const index = crypto.randomBytes(32).toString('hex');
-        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
-          .send({
-            index,
-            shards: [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, }],
-          });
+        const { body: file } = await finishUpload(
+          getAuth(testUser),
+          bucketId,
+          index,
+          [{ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid }],
+          { shardSize: 1000 },
+        )
 
         // Act
         const response = await testServer.post(`/buckets/${bucketId}/tokens`)
           .set('Authorization', getAuth(testUser))
           .send({ operation: 'PULL', file: file.id })
 
-        // Assert 
+        // Assert
         expect(response.status).toBe(201);
 
         const { body } = response
@@ -514,19 +519,20 @@ describe('Bridge E2E Tests', () => {
         // Arrange: Finish the upload
         const index = crypto.randomBytes(32).toString('hex');
         const fileHash = crypto.randomBytes(20).toString('hex')
-        const { body: file } = await testServer.post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(user))
-          .send({
-            index,
-            shards: [{ hash: fileHash, uuid: upload.uuid, }],
-          });
+        const { body: file } = await finishUpload(
+          getAuth(user),
+          bucketId,
+          index,
+          [{ hash: fileHash, uuid: upload.uuid }],
+          { shardSize: 1000 },
+        )
 
         // Arrange: Create a Token
         const tokenResponse = await testServer.post(`/buckets/${bucketId}/tokens`)
           .set('Authorization', getAuth(user))
           .send({ operation: 'PULL', file: file.id });
 
-        // Act: Download the file using the token 
+        // Act: Download the file using the token
         const fileInfoResponse = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info`)
           .set('x-token', tokenResponse.body.token)
 
@@ -545,7 +551,33 @@ describe('Bridge E2E Tests', () => {
       })
     })
   })
-
-
-
 });
+
+type Shard = { hash: string; uuid: string }
+type FinishUploadOpts = {
+  /** Size each shard was uploaded with. Used as the default farmer response. */
+  shardSize: number
+  /**
+   * Size the farmer reports back. Defaults to `shardSize` so validation passes.
+   * Set to a different value to test size mismatch errors, or `null` to simulate
+   * the object not found in storage.
+   */
+  farmerReportedSize?: number | null
+}
+
+const finishUpload = async (
+  auth: string,
+  bucketId: string,
+  index: string,
+  shards: Shard[],
+  { shardSize, farmerReportedSize = shardSize }: FinishUploadOpts,
+) => {
+  const mockReturnValue = farmerReportedSize === null ? null : { size: farmerReportedSize }
+  const getMetaMock = jest.spyOn(StorageGateway, 'getMeta').mockResolvedValue(mockReturnValue)
+  const response = await testServer
+    .post(`/v2/buckets/${bucketId}/files/finish`)
+    .set('Authorization', auth)
+    .send({ index, shards })
+  getMetaMock.mockRestore()
+  return response
+}

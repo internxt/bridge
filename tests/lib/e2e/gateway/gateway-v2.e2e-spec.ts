@@ -5,6 +5,9 @@ import { StorageDbManager } from '../storage-db-manager'
 import crypto from 'crypto';
 import sinon from 'sinon';
 import axios from 'axios';
+import { StorageGateway } from '../../../../lib/core/storage/StorageGateway';
+
+const MB100 = 100 * 1024 * 1024;
 
 describe('Gateway V2 e2e tests', () => {
     const databaseConnection = new StorageDbManager();
@@ -97,17 +100,14 @@ describe('Gateway V2 e2e tests', () => {
 
 const createUsersAndFiles = async (totalUsers = 1, totalFilesPerUser = 1) => {
     const results: { fileId: string; size: number, user: User }[] = [];
-    const MB100 = 100 * 1024 * 1024;
 
     for (let userIndex = 0; userIndex < totalUsers; userIndex++) {
         const user = await createTestUser();
 
-        // Create a bucket for this user
         const { body: { id: bucketId } } = await testServer
             .post('/buckets')
             .set('Authorization', getAuth(user));
 
-        // Create multiple files for this user
         for (let fileIndex = 0; fileIndex < totalFilesPerUser; fileIndex++) {
             const { body: { uploads } } = await testServer
                 .post(`/v2/buckets/${bucketId}/files/start`)
@@ -118,7 +118,10 @@ const createUsersAndFiles = async (totalUsers = 1, totalFilesPerUser = 1) => {
                         { index: 1, size: MB100 / 2 }
                     ]
                 });
+
             const index = crypto.randomBytes(32).toString('hex');
+
+            const getMetaMock = jest.spyOn(StorageGateway, 'getMeta').mockResolvedValue({ size: MB100 / 2 })
             const { body: file } = await testServer
                 .post(`/v2/buckets/${bucketId}/files/finish`)
                 .set('Authorization', getAuth(user))
@@ -126,6 +129,7 @@ const createUsersAndFiles = async (totalUsers = 1, totalFilesPerUser = 1) => {
                     index,
                     shards: (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid, })),
                 });
+            getMetaMock.mockRestore()
 
             results.push({
                 fileId: file.id,
@@ -137,4 +141,3 @@ const createUsersAndFiles = async (totalUsers = 1, totalFilesPerUser = 1) => {
 
     return results;
 };
-
