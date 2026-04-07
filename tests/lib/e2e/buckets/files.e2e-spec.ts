@@ -143,6 +143,19 @@ describe('Bridge E2E Tests', () => {
 
       })
 
+      it('When a user wants to upload a file with multiparts exceeding the maximum allowed, it should fail with 400', async () => {
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+          .expect(201)
+
+        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=10001`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: 1000 }] })
+
+        expect(response.status).toBe(400)
+        expect(response.body.error).toBe('Invalid multiparts value')
+      })
 
       it('When a user finishes to upload a file with single part upload, the user can finish the upload with a hash for the file', async () => {
 
