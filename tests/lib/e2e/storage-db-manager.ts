@@ -35,14 +35,17 @@ export class StorageDbManager {
 
         this.connection = mongooseInstance.connection;
 
-        const modelFactories = require('storj-service-storage-models/lib/models');
+        const externalModelFactories = require('storj-service-storage-models/lib/models');
+        const localModelFactories = require('../../../lib/models/database').localModels;
 
-        Object.keys(modelFactories).forEach(modelName => {
+        const allModelFactories = { ...externalModelFactories, ...localModelFactories };
+
+        Object.keys(allModelFactories).forEach(modelName => {
             if (!this.models) {
                 this.models = {} as Models;
             }
 
-            (this.models as any)[modelName] = modelFactories[modelName](this.connection);
+            (this.models as any)[modelName] = allModelFactories[modelName](this.connection);
         });
     }
 

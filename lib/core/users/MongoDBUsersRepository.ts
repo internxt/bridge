@@ -13,7 +13,6 @@ type DatabaseUser = {
   };
   totalUsedSpaceBytes: 0;
   maxSpaceBytes: 0;
-  referralPartner: null;
   subscriptionPlan: {
     isSubscribed: boolean;
   };
@@ -71,36 +70,20 @@ export class MongoDBUsersRepository implements UsersRepository {
   }
 
   async create(data: CreateUserData): Promise<BasicUser> {
-    const user = await new Promise(
-      (resolve: (newUser: BasicUser) => void, reject) => {
-        this.userModel.create(data, (err: Error, user: DatabaseUser) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({
-              id: user.id,
-              maxSpaceBytes: user.maxSpaceBytes,
-              uuid: user.uuid,
-            });
-          }
-        });
-      }
-    );
+    const createdUser = await this.userModel.create(data);
 
     // TODO: Change storage-models to insert only, avoiding updates.
     await this.userModel.updateOne(
-      {
-        _id: user.id,
-      },
+      { _id: createdUser.id },
       {
         maxSpaceBytes: data.maxSpaceBytes,
         activated: data.activated,
       }
     );
 
-    user.maxSpaceBytes = data.maxSpaceBytes;
+    createdUser.maxSpaceBytes = data.maxSpaceBytes;
 
-    return user;
+    return createdUser;
   }
 
   async updateById(id: string, update: any): Promise<User | null> {
