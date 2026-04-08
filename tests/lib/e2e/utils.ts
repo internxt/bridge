@@ -6,27 +6,23 @@ import { engine, intervalRefs } from "./setup";
 import { generateTestUserData, TestUser, User } from "./users.fixtures";
 import { sign } from "jsonwebtoken";
 
-type Args = { storage?: any, user: TestUser }
+type Args = { storage?: any; user: TestUser };
 
-const createdUsers: User[] = []
-export const createTestUser = async (args: Partial<Args> = {}): Promise<User> => {
-    const { storage = engine.storage, user = generateTestUserData() } = args
-    const payload = { email: user.email, password: user.password }
-    const createdUser: User = await new Promise((resolve, reject) => storage.models.User.create(payload, (err: Error, user: any) => {
-        err ? reject(err) : resolve(user.toObject())
-    }))
+const createdUsers: User[] = [];
+export const createTestUser = async (
+    args: Partial<Args> = {},
+): Promise<User> => {
+    const { storage = engine.storage, user = generateTestUserData() } = args;
+    const created = await storage.models.User.create({
+        email: user.email,
+        password: user.password,
+        maxSpaceBytes: user.maxSpaceBytes,
+        activated: true,
+    });
+    const createdUser: User = { ...created.toObject(), password: user.password };
 
-    await storage.models.User.updateOne(
-        { uuid: createdUser.uuid, },
-        { maxSpaceBytes: user.maxSpaceBytes, activated: true, }
-    );
-
-    createdUser.maxSpaceBytes = user.maxSpaceBytes
-    createdUser.activated = true;
-    createdUser.password = user.password
-
-    createdUsers.push(createdUser)
-    return createdUser
+    createdUsers.push(createdUser);
+    return createdUser;
 }
 
 export const cleanUpTestUsers = async (): Promise<void> => {
@@ -41,11 +37,9 @@ export const deleteTestUser = async (args: Args): Promise<void> => {
 export const getAuth = (user: Omit<TestUser, 'maxSpaceBytes'>) => {
     const credential = Buffer.from(`${user.email}:${user.password}`).toString('base64');
     return `Basic ${credential}`;
-}
-
+};
 
 export const shutdownEngine = async () => {
-
     await Promise.all([
         engine.storage.connection.close(),
         engine.networkQueue.close(),
@@ -179,7 +173,7 @@ export async function getProofOfWork(
     challenge: string,
     target: string,
     startNonce = 0,
-    maxNonce = 1000000
+    maxNonce = 1000000,
 ) {
     const scryptOpts = { N: Math.pow(2, 10), r: 1, p: 1 };
 
