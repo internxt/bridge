@@ -245,6 +245,35 @@ describe('Bridge E2E Tests', () => {
       });
 
 
+      it('When a user finishes a multipart upload without providing UploadId, then it should fail', async () => {
+        const { body: { id: bucketId } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(testUser))
+          .expect(201)
+
+        const MB100 = 100 * 1024 * 1024
+        const { body: { uploads } } = await testServer
+          .post(`/v2/buckets/${bucketId}/files/start?multiparts=2`)
+          .set('Authorization', getAuth(testUser))
+          .send({ uploads: [{ index: 0, size: MB100 / 2 }, { index: 1, size: MB100 / 2 }] })
+
+        const index = crypto.randomBytes(32).toString('hex');
+
+        //  finish without UploadId
+        const response = await testServer
+          .post(`/v2/buckets/${bucketId}/files/finish`)
+          .set('Authorization', getAuth(testUser))
+          .send({
+            index,
+            shards: (uploads as any[]).map((upload) => ({
+              hash: crypto.randomBytes(20).toString('hex'),
+              uuid: upload.uuid,
+            })),
+          })
+
+        expect(response.status).toBe(400);
+      });
+
       it('When an user finished to upload a file, then file size should be added to the used space', async () => {
         // Arrange: Create a user with some used space
         const originalUser = await createTestUser();

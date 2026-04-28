@@ -25,7 +25,6 @@ export type ShardWithPossibleMultiUpload = Pick<
   'hash' | 'uuid'
 > & {
   UploadId?: string;
-  parts?: { PartNumber: number; ETag: string }[];
 };
 
 export type ShardWithMultiUpload = Required<ShardWithPossibleMultiUpload>;
