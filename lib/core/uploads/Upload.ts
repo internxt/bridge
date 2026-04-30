@@ -5,6 +5,7 @@ export interface Upload {
   index: number;
   uuid: Required<Shard>['uuid'];
   data_size: Contract['data_size'];
+  uploadId?: string;
   contracts: {
     nodeID: Contract['farmer_id'];
     contract: Omit<Contract, 'data_hash'>;

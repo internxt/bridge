@@ -426,36 +426,40 @@ export class BucketsUsecase {
           },
         },
       ];
-
-      const uuid = v4();
-
-      const [contact] = await Promise.all([
-        this.contactsRepository.findById(nodeID),
-        this.uploadsRepository.create({
-          uuid,
-          index,
-          contracts,
-          data_size: size,
-        }),
-      ]);
+      
+      const contact = await this.contactsRepository.findById(nodeID);
 
       if (!contact) {
         throw new ContactNotFound();
       }
 
-      if (multiparts > 1) {
-        const { UploadId, urls } = await this.multiPartUpload(
-          contact,
-          uuid,
-          auth,
-          multiparts
-        );
-        return { index, uuid, url: null, urls, UploadId };
-      }
+      const uuid = v4();
 
-      const objectStorageUrl = await this.singlePartUpload(contact, uuid, auth);
-      return { index, uuid, url: objectStorageUrl, urls: null };
+      const isMultipart = multiparts > 1;
+
+      const uploadData = isMultipart
+        ? await this.multiPartUpload(contact, uuid, auth, multiparts)
+        : { urls: [await this.singlePartUpload(contact, uuid, auth)], UploadId: undefined };
+
+      const { urls, UploadId: uploadId } = uploadData;
+
+      await this.uploadsRepository.create({
+        uuid,
+        index,
+        contracts,
+        data_size: size,
+        uploadId,
+      });
+
+      return {
+        index,
+        uuid,
+        url: isMultipart ? undefined : urls[0],
+        urls: isMultipart ? urls : undefined,
+        UploadId: uploadId,
+      };
     });
+    
 
     return Promise.all(uploadPromises);
   }
