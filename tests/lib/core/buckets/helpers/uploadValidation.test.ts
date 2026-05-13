@@ -34,15 +34,20 @@ describe('shouldEnforceUploadValidation()', () => {
     });
   });
 
-  describe('When the client is drive-desktop-linux (all versions exempt)', () => {
-    it('When called with any version, then it should not enforce', () => {
-      mockContext('drive-desktop-linux', '0.0.1');
+  describe('When the client is drive-desktop-linux (exempt up to 2.5.3)', () => {
+    it('When version is below the exempt threshold, then it should not enforce', () => {
+      mockContext('drive-desktop-linux', '2.5.2');
       expect(shouldEnforceUploadValidation()).toBe(false);
     });
 
-    it('When called with a high version, then it should not enforce', () => {
-      mockContext('drive-desktop-linux', '99.99.99');
+    it('When version equals the exempt threshold, then it should not enforce', () => {
+      mockContext('drive-desktop-linux', '2.5.3');
       expect(shouldEnforceUploadValidation()).toBe(false);
+    });
+
+    it('When version is above the exempt threshold, then it should enforce', () => {
+      mockContext('drive-desktop-linux', '2.5.4');
+      expect(shouldEnforceUploadValidation()).toBe(true);
     });
   });
 

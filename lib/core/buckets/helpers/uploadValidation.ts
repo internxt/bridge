@@ -4,8 +4,7 @@ import { getContext } from "../../../requestContext";
 const EXEMPT_CLIENTS: Record<string, string> = {
     "internxt-cli": "1.6.3",
     "drive-desktop-windows": "2.6.6",
-    // All versions
-    "drive-desktop-linux": '*',
+    "drive-desktop-linux": '2.5.3',
 };
 
 export function shouldEnforceUploadValidation(): boolean {
