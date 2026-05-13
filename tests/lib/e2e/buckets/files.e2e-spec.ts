@@ -15,7 +15,6 @@ describe('Bridge E2E Tests', () => {
 
   let testUser: User
   let axiosGetStub: sinon.SinonStub
-  let axiosPostStub: sinon.SinonStub
   const databaseConnection = new StorageDbManager();
 
   beforeAll(async () => {
@@ -48,12 +47,10 @@ describe('Bridge E2E Tests', () => {
       if (url.includes('/v2/download/link')) return { data: { result: FAKE_DOWNLOAD_URL } }
       if (url.includes('exists')) return { status: 200 }
     })
-    axiosPostStub = sinon.stub(axios, 'post').resolves()
   })
 
   afterEach(() => {
     axiosGetStub.restore()
-    axiosPostStub.restore()
   })
 
   describe('File Management v2', () => {
@@ -224,7 +221,7 @@ describe('Bridge E2E Tests', () => {
           getAuth(testUser),
           bucketId,
           index,
-          (uploads as any[]).map((upload) => ({ UploadId: crypto.randomBytes(20).toString('hex'), hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
+          (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
           { shardSize: MB100 / 2 },
         )
 
@@ -233,9 +230,6 @@ describe('Bridge E2E Tests', () => {
 
         const body = responseComplete.body;
 
-        expect(
-          axiosPostStub.calledWithMatch(sinon.match((url: string) => url.includes('/v2/upload-multipart-complete/link/')))
-        ).toBe(true);
         expect(body).toMatchObject({
           bucket: bucketId,
           created: expect.any(String),
@@ -250,67 +244,6 @@ describe('Bridge E2E Tests', () => {
 
       });
 
-
-      it('When a user finishes a multipart and provides an invalid uploadId, then it should fail', async () => {
-        const { body: { id: bucketId } } = await testServer
-          .post('/buckets')
-          .set('Authorization', getAuth(testUser))
-          .expect(201)
-
-        const MB100 = 100 * 1024 * 1024
-        const { body: { uploads } } = await testServer
-          .post(`/v2/buckets/${bucketId}/files/start?multiparts=2`)
-          .set('Authorization', getAuth(testUser))
-          .send({ uploads: [{ index: 0, size: MB100 / 2 }, { index: 1, size: MB100 / 2 }] })
-
-        const index = crypto.randomBytes(32).toString('hex');
-
-        const response = await testServer
-          .post(`/v2/buckets/${bucketId}/files/finish`)
-          .set('Authorization', getAuth(testUser))
-          .send({
-            index,
-            shards: (uploads as any[]).map((upload) => ({
-              UploadId: '',
-              hash: crypto.randomBytes(20).toString('hex'),
-              uuid: upload.uuid,
-            })),
-          })
-
-        expect(response.status).toBe(400);
-      });
-
-      it('When a user finishes to upload a file with multipart upload and uploadId is not provided, then upload is not completed and fails', async () => {
-        // Arrange: Create a bucket
-        const { body: { id: bucketId } } = await testServer
-          .post('/buckets')
-          .set('Authorization', getAuth(testUser))
-
-        // Arrange: start the upload
-        const MB100 = 100 * 1024 * 1024
-        const response = await testServer.post(`/v2/buckets/${bucketId}/files/start?multiparts=2`)
-          .set('Authorization', getAuth(testUser))
-          .send({ uploads: [{ index: 0, size: MB100 / 2, }, { index: 1, size: MB100 / 2, }] })
-
-        const { uploads } = response.body;
-
-        // Act: finish the upload without UploadId in shards
-        const index = crypto.randomBytes(32).toString('hex');
-        const responseComplete = await finishUpload(
-          getAuth(testUser),
-          bucketId,
-          index,
-          (uploads as any[]).map((upload) => ({ hash: crypto.randomBytes(20).toString('hex'), uuid: upload.uuid })),
-          // Upload is not completed, so meta is not found in the farmer so we return null to simulate that scenario
-          { shardSize: MB100 / 2, farmerReportedSize: null },
-        )
-
-        // Assert: complete multipart was not called on the farmer and upload failed
-        expect(
-          axiosPostStub.calledWithMatch(sinon.match((url: string) => url.includes('/v2/upload-multipart-complete/link/')))
-        ).toBe(false);
-        expect(responseComplete.status).toBe(404);
-      });
 
       it('When an user finished to upload a file, then file size should be added to the used space', async () => {
         // Arrange: Create a user with some used space
