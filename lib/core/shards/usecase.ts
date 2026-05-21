@@ -46,27 +46,35 @@ export class ShardsUsecase {
       }
     } 
 
+    const byFarmer = new Map<string, { url: string, keys: string[] }>();
+
     for (const { contact, shardHash } of stillExistentMirrors) {
       const { address, port } = contact;
-      const { uuid } = (shards.find(s => s.hash === shardHash) as { hash: string, uuid: string });
-      
-      const url = `http://${address}:${port}/v2/shards/${uuid}`;
+      const farmerKey = `${address}:${port}`;
+      const shard = shards.find(s => s.hash === shardHash);
+      if (!shard) continue;
 
-      try {
-        const q = getQueue();
-        if (!q) {
-          console.error('deleteShards: BullMQ queue not initialized, skipping enqueue for shard %s', uuid);
-        } else {
-          console.log('adding removal of shard %s to the queue', uuid)
-          q.add('delete-shard', { key: uuid, hash: uuid, url }, {
+      if (!byFarmer.has(farmerKey)) {
+        byFarmer.set(farmerKey, { url: `http://${address}:${port}/v2/shards`, keys: [] });
+      }
+      byFarmer.get(farmerKey)!.keys.push(shard.uuid);
+    }
+
+    const q = getQueue();
+    if (!q) {
+      console.error('deleteShards: BullMQ queue not initialized');
+    } else {
+      for (const { url, keys } of Array.from(byFarmer.values())) {
+        for (let i = 0; i < keys.length; i += 50) {
+          const chunk = keys.slice(i, i + 50);
+          log.info('deleteShards: enqueuing batch of %d keys to %s: %s', chunk.length, url, chunk.join(', '));
+          q.add('delete-shards-batch', { url, keys: chunk }, {
             attempts: 3,
             backoff: { type: 'exponential', delay: 1000 },
           }).catch((err) => {
-            console.error('deleteShards: Error enqueuing BullMQ job for shard %s: %s', uuid, err.message);
+            console.error('deleteShards: Error enqueuing BullMQ batch job: %s', err.message);
           });
         }
-      } catch (err: any) {
-        console.error('deleteShards: Failed to enqueue BullMQ job for shard %s: %s', uuid, err.message);
       }
     }
 
