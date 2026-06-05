@@ -13,6 +13,9 @@ type DeleteFilesInBulkResponse = {
   } | string
 };
 
+type CreateBucketBody = { name: string };
+type CreateBucketResponse = { id: string; name: string };
+
 export class HTTPGatewayController {
   constructor(
     private gatewayUsecase: GatewayUsecase, 
@@ -126,6 +129,68 @@ export class HTTPGatewayController {
       res.status(200).send();
     } catch (err) {
       this.logger.error('GATEWAY: changeStorage error: %s. %s', (err as Error).message, (err as Error).stack || 'NO STACK');
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
+  }
+
+  async createUserBucket(
+    req: Request<{ uuid: string }, {}, Partial<CreateBucketBody>, {}>,
+    res: Response<CreateBucketResponse | { message: string }>
+  ) {
+    const { uuid } = req.params;
+    const { name } = req.body;
+
+    if (!uuid || typeof name !== 'string' || name.length === 0) {
+      return res.status(400).send({ message: 'name is required' });
+    }
+
+    try {
+      const bucket = await this.usersUsecase.findOrCreateBucket(uuid, name);
+
+      return res.status(200).send(bucket);
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+
+      this.logger.error(
+        '[GATEWAY/CREATE_BUCKET] Error creating bucket for user %s: %s. %s',
+        uuid,
+        (err as Error).message,
+        (err as Error).stack || 'NO STACK'
+      );
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
+  }
+
+  async deleteUserBucket(
+    req: Request<{ uuid: string; id: string }>,
+    res: Response<{ message: string }>
+  ) {
+    const { uuid, id } = req.params;
+
+    if (!uuid || !id) {
+      return res.status(400).send({ message: 'Missing params' });
+    }
+
+    try {
+      await this.usersUsecase.deleteBucket(uuid, id);
+
+      return res.status(204).end();
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+
+      this.logger.error(
+        '[GATEWAY/DELETE_BUCKET] Error deleting bucket %s for user %s: %s. %s',
+        id,
+        uuid,
+        (err as Error).message,
+        (err as Error).stack || 'NO STACK'
+      );
 
       return res.status(500).send({ message: 'Internal server error' });
     }

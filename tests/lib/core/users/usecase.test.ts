@@ -416,6 +416,93 @@ describe('Users usecases', () => {
     });
   });
 
+  describe('Finding or creating a bucket', () => {
+    it('When the user does not exist, then it throws UserNotFoundError', async () => {
+      const findUser = stub(usersRepository, 'findByUuid').resolves(null);
+
+      try {
+        await usecase.findOrCreateBucket('unknown-uuid', 'bucket-name');
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+
+      expect(findUser.calledOnce).toBeTruthy();
+    });
+
+    it('When no bucket with that name exists, then it creates one', async () => {
+      const user = fixtures.getUser();
+      const name = 'mail-account-id';
+      const createdBucket = { id: 'new-bucket-id', name } as any;
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      const findBucket = stub(bucketsRepository, 'findOne').resolves(null);
+      const createBucket = stub(bucketsRepository, 'create').resolves(createdBucket);
+
+      const result = await usecase.findOrCreateBucket(user.uuid, name);
+
+      expect(findBucket.calledOnce).toBeTruthy();
+      expect(findBucket.firstCall.args).toStrictEqual([{ userId: user.uuid, name }]);
+      expect(createBucket.calledOnce).toBeTruthy();
+      expect(createBucket.firstCall.args).toStrictEqual([{
+        name,
+        user: user.id,
+        userId: user.uuid,
+        status: 'Active',
+        transfer: 0,
+        storage: 0,
+        encryptionKey: '',
+      }]);
+      expect(result).toStrictEqual({ id: createdBucket.id, name: createdBucket.name });
+    });
+
+    it('When a bucket with that name already exists, then it returns the existing one without creating', async () => {
+      const user = fixtures.getUser();
+      const name = 'mail-account-id';
+      const existingBucket = { id: 'existing-bucket-id', name } as any;
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      const findBucket = stub(bucketsRepository, 'findOne').resolves(existingBucket);
+      const createBucket = stub(bucketsRepository, 'create');
+
+      const result = await usecase.findOrCreateBucket(user.uuid, name);
+
+      expect(findBucket.calledOnce).toBeTruthy();
+      expect(createBucket.called).toBeFalsy();
+      expect(result).toStrictEqual({ id: existingBucket.id, name: existingBucket.name });
+    });
+  });
+
+  describe('Deleting a bucket', () => {
+    it('When the user does not exist, then it throws UserNotFoundError', async () => {
+      const findUser = stub(usersRepository, 'findByUuid').resolves(null);
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
+
+      try {
+        await usecase.deleteBucket('unknown-uuid', 'bucket-id');
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+
+      expect(findUser.calledOnce).toBeTruthy();
+      expect(removeBucket.called).toBeFalsy();
+    });
+
+    it('When the user exists, then it removes the bucket by id and user uuid', async () => {
+      const user = fixtures.getUser();
+      const bucketId = 'bucket-id';
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
+
+      await usecase.deleteBucket(user.uuid, bucketId);
+
+      expect(removeBucket.calledOnce).toBeTruthy();
+      expect(removeBucket.firstCall.args).toStrictEqual([bucketId, user.uuid]);
+    });
+  });
+
   describe('Confirming user destruction', () => {
     it('When confirming a destruction of a user that exists, then it works', async () => {
       const user = fixtures.getUser();
