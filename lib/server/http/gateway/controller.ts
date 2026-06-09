@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Logger } from 'winston';
 import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
+import { BucketNotFoundError } from '../../../core/buckets/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
 import { EventBus, EventBusEvents, UserStorageChangedPayload } from '../../eventBus';
@@ -15,6 +16,13 @@ type DeleteFilesInBulkResponse = {
 
 type CreateBucketBody = { name: string };
 type CreateBucketResponse = { id: string; name: string };
+
+type SetBucketUsageBody = { usedSpaceBytes: number };
+
+const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i;
+
+const isValidUsedSpaceBytes = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 export class HTTPGatewayController {
   constructor(

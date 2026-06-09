@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'crypto';
 
 import { UsersRepository } from './Repository';
 import { BucketsRepository } from '../buckets/Repository';
+import { BucketNotFoundError } from '../buckets/usecase';
 import { MailUsecase } from '../mail/usecase';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { FramesRepository } from '../frames/Repository';
@@ -286,6 +287,7 @@ export class UsersUsecase {
       status: 'Active',
       transfer: 0,
       storage: 0,
+      usedSpaceBytes: 0,
       encryptionKey: '',
     });
 

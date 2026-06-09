@@ -63,6 +63,19 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     });
   }
 
+  async setUsedSpaceBytes(
+    bucketId: Bucket['id'],
+    userId: Bucket['userId'],
+    usedSpaceBytes: number
+  ): Promise<boolean> {
+    const result = await this.model.updateOne(
+      { _id: bucketId, userId },
+      { $set: { usedSpaceBytes } }
+    );
+
+    return result.matchedCount > 0;
+  }
+
   async removeByIdAndUser(bucketId: Bucket['id'], userId:  Bucket['userId']): Promise<void> {
     await this.model.deleteOne({
       userId,

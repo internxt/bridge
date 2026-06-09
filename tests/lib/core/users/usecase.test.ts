@@ -18,6 +18,7 @@ import {
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
 import { BucketsRepository } from '../../../../lib/core/buckets/Repository';
+import { BucketNotFoundError } from '../../../../lib/core/buckets/usecase';
 import { Mailer, MailUsecase, SendGridMailUsecase } from '../../../../lib/core/mail/usecase';
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { User } from '../../../../lib/core/users/User';
@@ -451,6 +452,7 @@ describe('Users usecases', () => {
         status: 'Active',
         transfer: 0,
         storage: 0,
+        usedSpaceBytes: 0,
         encryptionKey: '',
       }]);
       expect(result).toStrictEqual({ id: createdBucket.id, name: createdBucket.name });
