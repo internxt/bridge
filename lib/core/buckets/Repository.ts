@@ -12,6 +12,7 @@ export interface BucketsRepository {
     userId: Bucket['userId'],
     usedSpaceBytes: number
   ): Promise<boolean>;
+  sumUsedSpaceBytes(userId: Bucket['userId']): Promise<number>;
   destroyByUser(userId: Bucket['userId']): Promise<void>;
   removeAll(where: Partial<Bucket>): Promise<void>;
   removeByIdAndUser(bucketId: Bucket['id'], userId:  Bucket['userId']): Promise<void>

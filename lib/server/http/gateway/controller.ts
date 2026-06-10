@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
-import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UsersUsecase } from '../../../core';
+import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 import { BucketNotFoundError } from '../../../core/buckets/usecase';
 
