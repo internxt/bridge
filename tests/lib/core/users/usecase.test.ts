@@ -430,7 +430,7 @@ describe('Users usecases', () => {
       expect(findUser.calledOnce).toBeTruthy();
     });
 
-    it('When no bucket with that name exists, then it creates one', async () => {
+    it('When no bucket with that name and for that user exists, then it creates one', async () => {
       const user = fixtures.getUser();
       const name = 'mail-account-id';
       const createdBucket = { id: 'new-bucket-id', name } as any;
@@ -456,7 +456,7 @@ describe('Users usecases', () => {
       expect(result).toStrictEqual({ id: createdBucket.id, name: createdBucket.name });
     });
 
-    it('When a bucket with that name already exists, then it returns the existing one without creating', async () => {
+    it('When a bucket with that name and for that user already exists, then it returns the existing one without creating', async () => {
       const user = fixtures.getUser();
       const name = 'mail-account-id';
       const existingBucket = { id: 'existing-bucket-id', name } as any;
