@@ -57,32 +57,10 @@ export class MongoDBBucketsRepository implements BucketsRepository {
     return formatFromMongoToBucket(rawModel);
   }
 
-  async sumUsedSpaceBytes(userId: Bucket['userId']): Promise<number> {
-    const [result] = await this.model.aggregate([
-      { $match: { userId } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$usedSpaceBytes', 0] } } } }
-    ]);
-
-    return result ? result.total : 0;
-  }
-
   async destroyByUser(userId: Bucket['userId']): Promise<void> {
     await this.model.deleteMany({
       userId,
     });
-  }
-
-  async setUsedSpaceBytes(
-    bucketId: Bucket['id'],
-    userId: Bucket['userId'],
-    usedSpaceBytes: number
-  ): Promise<boolean> {
-    const result = await this.model.updateOne(
-      { _id: bucketId, userId },
-      { $set: { usedSpaceBytes } }
-    );
-
-    return result.matchedCount > 0;
   }
 
   async removeByIdAndUser(bucketId: Bucket['id'], userId:  Bucket['userId']): Promise<void> {

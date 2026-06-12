@@ -5,7 +5,6 @@ const errors = require("storj-service-error-types");
 
 interface IBucket extends Document {
     storage: number;
-    usedSpaceBytes: number;
     transfer: number;
     status: "Active" | "Inactive";
     pubkeys: string[];
@@ -21,7 +20,6 @@ interface IBucket extends Document {
 const BucketSchema = new Schema<IBucket>(
     {
         storage: { type: Number, default: 0 },
-        usedSpaceBytes: { type: Number, default: 0 },
         transfer: { type: Number, default: 0 },
         status: {
             type: String,

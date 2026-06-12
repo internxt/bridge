@@ -1,5 +1,6 @@
 import { restore, stub } from 'sinon';
 import { Model } from 'mongoose';
+import { createHash } from 'node:crypto';
 
 import { BucketEntriesRepository } from '../../../../lib/core/bucketEntries/Repository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
@@ -19,7 +20,7 @@ import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMi
 import { MongoDBPointersRepository } from '../../../../lib/core/pointers/MongoDBPointersRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
 import { MongoDBBucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/MongoDBBucketEntryShardsRepository';
-import { MongoDBUsersRepository } from '../../../../lib/core/users';
+import { MongoDBUsersRepository, UserNotFoundError } from '../../../../lib/core/users';
 import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
 
 import fixtures from '../fixtures';
@@ -656,6 +657,162 @@ describe('BucketEntriesUsecase', function () {
 
       expect(removeFileStub.calledOnce).toBeTruthy();
       expect(removeFileStub.calledWith(fileId)).toBeTruthy();
+    });
+  });
+
+  describe('createEntryByKey()', () => {
+    const entryKey = '12:345';
+    const hashedKey = createHash('sha256').update(entryKey).digest('hex');
+
+    it('When the user does not exist, then it throws UserNotFoundError', async () => {
+      stub(usersRepository, 'findByUuid').resolves(null);
+      const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate');
+
+      try {
+        await bucketEntriesUsecase.createEntryByKey('unknown-uuid', 'bucket-id', entryKey, 100);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+
+      expect(findOrCreate.called).toBeFalsy();
+    });
+
+    it('When the bucket does not belong to the user or does not exist, then it throws BucketNotFoundError', async () => {
+      const user = fixtures.getUser();
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      const findBucket = stub(bucketsRepository, 'findOne').resolves(null);
+      const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate');
+
+      try {
+        await bucketEntriesUsecase.createEntryByKey(user.uuid, 'bucket-id', entryKey, 100);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketNotFoundError);
+      }
+
+      expect(findBucket.calledOnceWithExactly({ id: 'bucket-id', userId: user.uuid })).toBeTruthy();
+      expect(findOrCreate.called).toBeFalsy();
+    });
+
+    it('When the entry is new, then it stores the hashed key and adds the size to the user total', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, index: hashedKey, size: 500 });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate').resolves({ entry, created: true });
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
+
+      const result = await bucketEntriesUsecase.createEntryByKey(user.uuid, bucket.id, entryKey, 500);
+
+      expect(findOrCreate.calledOnceWithExactly(
+        { bucket: bucket.id, index: hashedKey },
+        { bucket: bucket.id, index: hashedKey, name: entryKey, size: 500, version: 2 }
+      )).toBeTruthy();
+      expect(addUsage.calledOnceWithExactly(user.uuid, 500)).toBeTruthy();
+      expect(result).toStrictEqual({
+        id: entry.id,
+        snapshot: { maxSpaceBytes: 10000, totalUsedSpaceBytes: 4500 },
+      });
+    });
+
+    it('When the entry already exists, then it does not touch the user total', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, index: hashedKey, size: 500 });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOneOrCreate').resolves({ entry, created: false });
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
+
+      const result = await bucketEntriesUsecase.createEntryByKey(user.uuid, bucket.id, entryKey, 500);
+
+      expect(addUsage.called).toBeFalsy();
+      expect(result).toStrictEqual({
+        id: entry.id,
+        snapshot: { maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 },
+      });
+    });
+  });
+
+  describe('removeEntryByKey()', () => {
+    const entryKey = '12:345';
+    const hashedKey = createHash('sha256').update(entryKey).digest('hex');
+
+    it('When the entry does not exist, then it is a no-op and the snapshot is unchanged', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const findEntry = stub(bucketEntriesRepository, 'findOne').resolves(null);
+      const removeFile = stub(bucketEntriesUsecase, 'removeFile');
+
+      const snapshot = await bucketEntriesUsecase.removeEntryByKey(user.uuid, bucket.id, entryKey);
+
+      expect(findEntry.calledOnceWithExactly({ bucket: bucket.id, index: hashedKey })).toBeTruthy();
+      expect(removeFile.called).toBeFalsy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+    });
+
+    it('When the entry exists, then it removes it and returns the decremented snapshot', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, index: hashedKey, size: 500 });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(entry);
+      const removeFile = stub(bucketEntriesUsecase, 'removeFile').resolves();
+
+      const snapshot = await bucketEntriesUsecase.removeEntryByKey(user.uuid, bucket.id, entryKey);
+
+      expect(removeFile.calledOnceWithExactly(entry.id)).toBeTruthy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3500 });
+    });
+  });
+
+  describe('removeAllEntriesFromUserBucket()', () => {
+    it('When the bucket does not belong to the user, then it throws BucketNotFoundError', async () => {
+      const user = fixtures.getUser();
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(null);
+      const findByBucket = stub(bucketEntriesRepository, 'findByBucket');
+
+      try {
+        await bucketEntriesUsecase.removeAllEntriesFromUserBucket(user.uuid, 'bucket-id');
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketNotFoundError);
+      }
+
+      expect(findByBucket.called).toBeFalsy();
+    });
+
+    it('When the bucket has entries, then it removes them in batches until none are left', async () => {
+      const user = fixtures.getUser();
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entries = [
+        fixtures.getBucketEntry({ bucket: bucket.id }),
+        fixtures.getBucketEntry({ bucket: bucket.id }),
+      ];
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const findByBucket = stub(bucketEntriesRepository, 'findByBucket');
+      findByBucket.onFirstCall().resolves(entries);
+      findByBucket.onSecondCall().resolves([]);
+      const removeFiles = stub(bucketEntriesUsecase, 'removeFiles').resolves();
+
+      await bucketEntriesUsecase.removeAllEntriesFromUserBucket(user.uuid, bucket.id);
+
+      expect(removeFiles.calledOnceWithExactly(entries.map(e => e.id))).toBeTruthy();
+      expect(findByBucket.calledTwice).toBeTruthy();
     });
   });
 });

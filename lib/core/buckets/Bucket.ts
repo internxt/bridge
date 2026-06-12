@@ -11,7 +11,6 @@ export interface Bucket {
   status: string;
   transfer: number;
   storage: number;
-  usedSpaceBytes?: number;
   created?: Date;
   maxFrameSize?: number;
   publicPermissions?: string[];

@@ -1,4 +1,5 @@
 import lodash from 'lodash';
+import { createHash } from 'crypto';
 
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
@@ -11,6 +12,7 @@ import { PointersRepository } from '../pointers/Repository';
 import { MirrorsRepository } from '../mirrors/Repository';
 import { BucketEntry } from './BucketEntry';
 import { UsersRepository } from '../users/Repository';
+import { UserNotFoundError, UserSpaceSnapshot } from '../users';
 import { User } from '../users/User';
 import { Bucket } from '../buckets/Bucket';
 import { FileStateRepository } from '../fileState/Repository';
@@ -180,5 +182,99 @@ export class BucketEntriesUsecase {
 
     await this.bucketEntriesRepository.deleteByIds(fileIds);
     await this.fileStateRepository.deleteByBucketEntryIds(fileIds);
+  }
+
+  private hashEntryKey(key: string): string {
+    return createHash('sha256').update(key).digest('hex');
+  }
+
+  private async findUserAndOwnedBucket(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id']
+  ): Promise<User> {
+    const user = await this.usersRepository.findByUuid(userUuid);
+
+    if (!user) {
+      throw new UserNotFoundError(userUuid);
+    }
+
+    const bucket = await this.bucketsRepository.findOne({ id: bucketId, userId: userUuid });
+
+    if (!bucket) {
+      throw new BucketNotFoundError();
+    }
+
+    return user;
+  }
+
+  async createEntryByKey(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id'],
+    key: string,
+    size: number
+  ): Promise<{ id: BucketEntry['id']; snapshot: UserSpaceSnapshot }> {
+    const user = await this.findUserAndOwnedBucket(userUuid, bucketId);
+
+    const index = this.hashEntryKey(key);
+
+    const { entry, created } = await this.bucketEntriesRepository.findOneOrCreate(
+      { bucket: bucketId, index },
+      { bucket: bucketId, index, name: key, size, version: 2 }
+    );
+
+    if (created) {
+      await this.usersRepository.addTotalUsedSpaceBytes(userUuid, size);
+    }
+
+    return {
+      id: entry.id,
+      snapshot: {
+        maxSpaceBytes: user.maxSpaceBytes,
+        totalUsedSpaceBytes: created
+          ? user.totalUsedSpaceBytes + size
+          : user.totalUsedSpaceBytes,
+      },
+    };
+  }
+
+  async removeEntryByKey(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id'],
+    key: string
+  ): Promise<UserSpaceSnapshot> {
+    const user = await this.findUserAndOwnedBucket(userUuid, bucketId);
+
+    const index = this.hashEntryKey(key);
+    const entry = await this.bucketEntriesRepository.findOne({ bucket: bucketId, index });
+
+    if (!entry) {
+      return {
+        maxSpaceBytes: user.maxSpaceBytes,
+        totalUsedSpaceBytes: user.totalUsedSpaceBytes,
+      };
+    }
+
+    await this.removeFile(entry.id);
+
+    return {
+      maxSpaceBytes: user.maxSpaceBytes,
+      totalUsedSpaceBytes: user.totalUsedSpaceBytes - (entry.size || 0),
+    };
+  }
+
+  async removeAllEntriesFromUserBucket(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id']
+  ): Promise<void> {
+    await this.findUserAndOwnedBucket(userUuid, bucketId);
+
+    const batchSize = 100;
+
+    let entries = await this.bucketEntriesRepository.findByBucket(bucketId, batchSize, 0);
+
+    while (entries.length > 0) {
+      await this.removeFiles(entries.map((e) => e.id));
+      entries = await this.bucketEntriesRepository.findByBucket(bucketId, batchSize, 0);
+    }
   }
 }

@@ -115,6 +115,177 @@ describe('Gateway V2 e2e tests', () => {
         })
     })
 
+    describe('Bucket entries', () => {
+        const createBucketForUser = async (userUuid: string, jwt: string) => {
+            const { body } = await testServer
+                .post(`/v2/gateway/users/${userUuid}/buckets`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ name: `mail-account-${crypto.randomUUID()}` })
+
+            return body as { id: string; name: string }
+        }
+
+        const hashKey = (key: string) => crypto.createHash('sha256').update(key).digest('hex')
+
+        it('When creating an entry, then it is persisted with the hashed key and the user total grows by its size', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+            const key = `1:${Date.now()}`
+
+            const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key, size: 5000 })
+
+            expect(response.status).toBe(200)
+            expect(response.body.id).toBeDefined()
+
+            const entryInDatabase = await databaseConnection.models.BucketEntry.findOne({ _id: response.body.id })
+            expect(entryInDatabase).not.toBeNull()
+            expect(entryInDatabase.index).toBe(hashKey(key))
+            expect(entryInDatabase.name).toBe(key)
+            expect(entryInDatabase.size).toBe(5000)
+            expect(entryInDatabase.version).toBe(2)
+
+            const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+            expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes + 5000)
+            expect(response.body.maxSpaceBytes).toBe(userAfter.maxSpaceBytes)
+            expect(response.body.totalUsedSpaceBytes).toBe(userAfter.totalUsedSpaceBytes)
+        })
+
+        it('When creating the same entry twice, then it is counted only once', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+            const key = `1:${Date.now()}`
+
+            const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+
+            const first = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key, size: 5000 })
+
+            const second = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key, size: 5000 })
+
+            expect(first.status).toBe(200)
+            expect(second.status).toBe(200)
+            expect(second.body.id).toBe(first.body.id)
+            expect(second.body.totalUsedSpaceBytes).toBe(first.body.totalUsedSpaceBytes)
+
+            const entries = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entries.length).toBe(1)
+
+            const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+            expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes + 5000)
+        })
+
+        it('When deleting an entry, then it is removed and the user total shrinks by its size', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+            const key = `1:${Date.now()}`
+
+            const created = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key, size: 5000 })
+
+            const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+
+            const response = await testServer
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${encodeURIComponent(key)}`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(200)
+
+            const entryInDatabase = await databaseConnection.models.BucketEntry.findOne({ _id: created.body.id })
+            expect(entryInDatabase).toBeNull()
+
+            const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+            expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes - 5000)
+            expect(response.body).toEqual({
+                maxSpaceBytes: userAfter.maxSpaceBytes,
+                totalUsedSpaceBytes: userAfter.totalUsedSpaceBytes,
+            })
+        })
+
+        it('When deleting an entry that does not exist, then it is a no-op and the user total is unchanged', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+
+            const response = await testServer
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${encodeURIComponent('1:404')}`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(200)
+
+            const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+            expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes)
+        })
+
+        it('When creating an entry on a bucket of another user, then it returns 404 and changes nothing', async () => {
+            const owner = await createTestUser()
+            const otherUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(owner.uuid, jwt)
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${otherUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key: '1:1', size: 5000 })
+
+            expect(response.status).toBe(404)
+
+            const entries = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entries.length).toBe(0)
+        })
+
+        it('When the entry key or size is invalid, then it returns 400', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            const missingKey = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ size: 5000 })
+
+            const negativeSize = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key: '1:1', size: -1 })
+
+            const nonIntegerSize = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ key: '1:1', size: 10.5 })
+
+            expect(missingKey.status).toBe(400)
+            expect(negativeSize.status).toBe(400)
+            expect(nonIntegerSize.status).toBe(400)
+        })
+
+        it('When no auth token is provided, then it returns 401', async () => {
+            const testUser = await createTestUser()
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${'a'.repeat(24)}/entries`)
+                .send({ key: '1:1', size: 1000 })
+
+            expect(response.status).toBe(401)
+        })
+    })
+
     describe('Deleting user files', () => {
         let axiosGetStub: sinon.SinonStub
         const FAKE_UPLOAD_URL = 'http://fake-upload-url'

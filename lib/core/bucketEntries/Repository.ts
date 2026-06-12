@@ -10,5 +10,9 @@ export interface BucketEntriesRepository {
   findOneWithFrame(where: Partial<BucketEntry>): Promise<Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame } | null>;
   findByIdsWithFrames(ids: BucketEntry['id'][]): Promise<(Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame })[]>;
   create(data: Omit<BucketEntry, 'id'>): Promise<BucketEntry>;
+  findOneOrCreate(
+    where: Partial<BucketEntry>,
+    data: Omit<BucketEntry, 'id'>
+  ): Promise<{ entry: BucketEntry; created: boolean }>;
   deleteByIds(ids: BucketEntry['id'][]): Promise<void>;
 }
