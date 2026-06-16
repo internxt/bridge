@@ -164,35 +164,4 @@ export class HTTPGatewayController {
       return res.status(500).send({ message: 'Internal server error' });
     }
   }
-
-  async deleteUserBucket(
-    req: Request<{ uuid: string; id: string }>,
-    res: Response<{ message: string }>
-  ) {
-    const { uuid, id } = req.params;
-
-    if (!uuid || !id) {
-      return res.status(400).send({ message: 'Missing params' });
-    }
-
-    try {
-      await this.usersUsecase.deleteBucket(uuid, id);
-
-      return res.status(204).end();
-    } catch (err) {
-      if (err instanceof UserNotFoundError) {
-        return res.status(404).send({ message: err.message });
-      }
-
-      this.logger.error(
-        '[GATEWAY/DELETE_BUCKET] Error deleting bucket %s for user %s: %s. %s',
-        id,
-        uuid,
-        (err as Error).message,
-        (err as Error).stack || 'NO STACK'
-      );
-
-      return res.status(500).send({ message: 'Internal server error' });
-    }
-  }
 }

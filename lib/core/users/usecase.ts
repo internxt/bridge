@@ -291,14 +291,4 @@ export class UsersUsecase {
 
     return { id: created.id, name: created.name };
   }
-
-  async deleteBucket(uuid: User['uuid'], bucketId: string): Promise<void> {
-    const user = await this.usersRepository.findByUuid(uuid);
-
-    if (!user) {
-      throw new UserNotFoundError(uuid);
-    }
-
-    await this.bucketsRepository.removeByIdAndUser(bucketId, uuid);
-  }
 }

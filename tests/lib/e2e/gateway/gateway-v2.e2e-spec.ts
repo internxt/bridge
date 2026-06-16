@@ -115,39 +115,6 @@ describe('Gateway V2 e2e tests', () => {
         })
     })
 
-    describe('Deleting a user bucket', () => {
-        it('When deleting an existing bucket, then it is removed from the database', async () => {
-            const testUser = await createTestUser()
-            const bucketName = `mail-account-${crypto.randomUUID()}`
-
-            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
-
-            const { body: bucket } = await testServer
-                .post(`/v2/gateway/users/${testUser.uuid}/buckets`)
-                .set('Authorization', `Bearer ${jwt}`)
-                .send({ name: bucketName })
-
-            const response = await testServer
-                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}`)
-                .set('Authorization', `Bearer ${jwt}`)
-
-            expect(response.status).toBe(204)
-
-            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
-            expect(bucketInDatabase).toBeNull()
-        })
-
-        it('When deleting a bucket for an unknown user, then it returns 404', async () => {
-            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
-
-            const response = await testServer
-                .delete(`/v2/gateway/users/${crypto.randomUUID()}/buckets/${crypto.randomUUID()}`)
-                .set('Authorization', `Bearer ${jwt}`)
-
-            expect(response.status).toBe(404)
-        })
-    })
-
     describe('Deleting user files', () => {
         let axiosGetStub: sinon.SinonStub
         const FAKE_UPLOAD_URL = 'http://fake-upload-url'

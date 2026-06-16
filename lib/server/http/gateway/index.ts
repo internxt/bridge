@@ -11,7 +11,6 @@ export const createGatewayHTTPRouter = (
   router.patch('/users/:uuid', jwtMiddleware, controller.updateUserEmail.bind(controller));
   router.put('/storage/users/:uuid', jwtMiddleware, controller.changeStorage.bind(controller));
   router.post('/users/:uuid/buckets', jwtMiddleware, controller.createUserBucket.bind(controller));
-  router.delete('/users/:uuid/buckets/:id', jwtMiddleware, controller.deleteUserBucket.bind(controller));
   router.delete('/storage/files', jwtMiddleware, controller.deleteFilesInBulk.bind(controller));
   
   return router;

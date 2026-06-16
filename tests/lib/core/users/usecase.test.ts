@@ -473,36 +473,6 @@ describe('Users usecases', () => {
     });
   });
 
-  describe('Deleting a bucket', () => {
-    it('When the user does not exist, then it throws UserNotFoundError', async () => {
-      const findUser = stub(usersRepository, 'findByUuid').resolves(null);
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
-
-      try {
-        await usecase.deleteBucket('unknown-uuid', 'bucket-id');
-        expect(true).toBeFalsy();
-      } catch (err) {
-        expect(err).toBeInstanceOf(UserNotFoundError);
-      }
-
-      expect(findUser.calledOnce).toBeTruthy();
-      expect(removeBucket.called).toBeFalsy();
-    });
-
-    it('When the user exists, then it removes the bucket by id and user uuid', async () => {
-      const user = fixtures.getUser();
-      const bucketId = 'bucket-id';
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
-
-      await usecase.deleteBucket(user.uuid, bucketId);
-
-      expect(removeBucket.calledOnce).toBeTruthy();
-      expect(removeBucket.firstCall.args).toStrictEqual([bucketId, user.uuid]);
-    });
-  });
-
   describe('Confirming user destruction', () => {
     it('When confirming a destruction of a user that exists, then it works', async () => {
       const user = fixtures.getUser();
