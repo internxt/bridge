@@ -775,44 +775,4 @@ describe('BucketEntriesUsecase', function () {
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3500 });
     });
   });
-
-  describe('removeAllEntriesFromUserBucket()', () => {
-    it('When the bucket does not belong to the user, then it throws BucketNotFoundError', async () => {
-      const user = fixtures.getUser();
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(null);
-      const findByBucket = stub(bucketEntriesRepository, 'findByBucket');
-
-      try {
-        await bucketEntriesUsecase.removeAllEntriesFromUserBucket(user.uuid, 'bucket-id');
-        expect(true).toBeFalsy();
-      } catch (err) {
-        expect(err).toBeInstanceOf(BucketNotFoundError);
-      }
-
-      expect(findByBucket.called).toBeFalsy();
-    });
-
-    it('When the bucket has entries, then it removes them in batches until none are left', async () => {
-      const user = fixtures.getUser();
-      const bucket = fixtures.getBucket({ userId: user.uuid });
-      const entries = [
-        fixtures.getBucketEntry({ bucket: bucket.id }),
-        fixtures.getBucketEntry({ bucket: bucket.id }),
-      ];
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      const findByBucket = stub(bucketEntriesRepository, 'findByBucket');
-      findByBucket.onFirstCall().resolves(entries);
-      findByBucket.onSecondCall().resolves([]);
-      const removeFiles = stub(bucketEntriesUsecase, 'removeFiles').resolves();
-
-      await bucketEntriesUsecase.removeAllEntriesFromUserBucket(user.uuid, bucket.id);
-
-      expect(removeFiles.calledOnceWithExactly(entries.map(e => e.id))).toBeTruthy();
-      expect(findByBucket.calledTwice).toBeTruthy();
-    });
-  });
 });

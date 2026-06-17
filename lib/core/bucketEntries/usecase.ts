@@ -261,20 +261,4 @@ export class BucketEntriesUsecase {
       totalUsedSpaceBytes: user.totalUsedSpaceBytes - (entry.size || 0),
     };
   }
-
-  async removeAllEntriesFromUserBucket(
-    userUuid: User['uuid'],
-    bucketId: Bucket['id']
-  ): Promise<void> {
-    await this.findUserAndOwnedBucket(userUuid, bucketId);
-
-    const batchSize = 100;
-
-    let entries = await this.bucketEntriesRepository.findByBucket(bucketId, batchSize, 0);
-
-    while (entries.length > 0) {
-      await this.removeFiles(entries.map((e) => e.id));
-      entries = await this.bucketEntriesRepository.findByBucket(bucketId, batchSize, 0);
-    }
-  }
 }
