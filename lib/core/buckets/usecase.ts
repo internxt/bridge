@@ -496,11 +496,12 @@ export class BucketsUsecase {
   }
 
   async completeUpload(
-    userId: User['uuid'], 
-    bucketId: Bucket['id'], 
-    fileIndex: string, 
+    userId: User['uuid'],
+    bucketId: Bucket['id'],
+    fileIndex: string,
     shards: ShardWithPossibleMultiUpload[],
-    auth: { username: string; password: string }
+    auth: { username: string; password: string },
+    hmac?: { type: 'sha512'; value: string }
   ): Promise<BucketEntry> {
     const [bucket, user, uploads] = await Promise.all([
       this.bucketsRepository.findOne({ id: bucketId }),
@@ -576,6 +577,7 @@ export class BucketsUsecase {
       index: fileIndex,
       version: 2,
       size: bucketEntrySize,
+      hmac,
     });
 
     const [newBucketEntry, ...newShards] = await Promise.all([

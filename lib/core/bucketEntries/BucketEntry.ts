@@ -15,6 +15,7 @@ export interface BucketEntry {
   renewal?: Date;
   version?: number;
   size?: number;
+  hmac?: { type: 'sha512'; value: string };
 }
 
 export interface BucketEntryWithFrame extends Omit<BucketEntry, 'frame'> {
