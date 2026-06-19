@@ -188,7 +188,7 @@ export class BucketEntriesUsecase {
     return createHash('sha256').update(key).digest('hex');
   }
 
-  private async findUserAndOwnedBucket(
+  private async findBucketOwner(
     userUuid: User['uuid'],
     bucketId: Bucket['id']
   ): Promise<User> {
@@ -213,7 +213,7 @@ export class BucketEntriesUsecase {
     key: string,
     size: number
   ): Promise<{ id: BucketEntry['id']; snapshot: UserSpaceSnapshot }> {
-    const user = await this.findUserAndOwnedBucket(userUuid, bucketId);
+    const user = await this.findBucketOwner(userUuid, bucketId);
 
     const index = this.hashEntryKey(key);
 
@@ -222,17 +222,15 @@ export class BucketEntriesUsecase {
       { bucket: bucketId, index, name: key, size, version: 2 }
     );
 
-    if (created) {
-      await this.usersRepository.addTotalUsedSpaceBytes(userUuid, size);
-    }
+    const totalUsedSpaceBytes = created
+      ? await this.usersRepository.addTotalUsedSpaceBytes(userUuid, size)
+      : user.totalUsedSpaceBytes;
 
     return {
       id: entry.id,
       snapshot: {
         maxSpaceBytes: user.maxSpaceBytes,
-        totalUsedSpaceBytes: created
-          ? user.totalUsedSpaceBytes + size
-          : user.totalUsedSpaceBytes,
+        totalUsedSpaceBytes,
       },
     };
   }
@@ -242,7 +240,7 @@ export class BucketEntriesUsecase {
     bucketId: Bucket['id'],
     key: string
   ): Promise<UserSpaceSnapshot> {
-    const user = await this.findUserAndOwnedBucket(userUuid, bucketId);
+    const user = await this.findBucketOwner(userUuid, bucketId);
 
     const index = this.hashEntryKey(key);
     const entry = await this.bucketEntriesRepository.findOne({ bucket: bucketId, index });

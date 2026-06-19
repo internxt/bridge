@@ -7,7 +7,7 @@ export interface UsersRepository {
   findByEmail(email: User['email']): Promise<User | null>;
   findByIds(ids: User['id'][]): Promise<User[]>;
   create(data: CreateUserData): Promise<BasicUser>;
-  addTotalUsedSpaceBytes(uuid: User['uuid'], totalUsedSpaceBytes: User['totalUsedSpaceBytes']): Promise<void>;
+  addTotalUsedSpaceBytes(uuid: User['uuid'], totalUsedSpaceBytes: User['totalUsedSpaceBytes']): Promise<User['totalUsedSpaceBytes']>;
   updateById(id: User['id'], update: Partial<User>): Promise<User | null>;
   updateByEmail(email: User['email'], update: Partial<User>): Promise<User | null>;
   updateByUuid(uuid: User['uuid'], update: Partial<User>): Promise<void>;

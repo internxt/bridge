@@ -27,7 +27,7 @@ const isValidEntryKey = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= MAX_ENTRY_KEY_LENGTH;
 
 const isValidEntrySize = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 
 export class HTTPGatewayController {
   constructor(
@@ -196,7 +196,7 @@ export class HTTPGatewayController {
     if (!isValidEntrySize(size)) {
       return res
         .status(400)
-        .send({ message: 'size must be a non-negative integer' });
+        .send({ message: 'size must be a positive integer' });
     }
 
     try {

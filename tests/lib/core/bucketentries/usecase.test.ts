@@ -704,7 +704,7 @@ describe('BucketEntriesUsecase', function () {
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
       const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate').resolves({ entry, created: true });
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(4500);
 
       const result = await bucketEntriesUsecase.createEntryByKey(user.uuid, bucket.id, entryKey, 500);
 
