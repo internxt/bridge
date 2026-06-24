@@ -1,5 +1,4 @@
 import lodash from 'lodash';
-import { createHash } from 'crypto';
 
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
@@ -184,10 +183,6 @@ export class BucketEntriesUsecase {
     await this.fileStateRepository.deleteByBucketEntryIds(fileIds);
   }
 
-  private hashEntryKey(key: string): string {
-    return createHash('sha256').update(key).digest('hex');
-  }
-
   private async findBucketOwner(
     userUuid: User['uuid'],
     bucketId: Bucket['id']
@@ -207,24 +202,20 @@ export class BucketEntriesUsecase {
     return user;
   }
 
-  async createEntryByKey(
+  async createEntry(
     userUuid: User['uuid'],
     bucketId: Bucket['id'],
-    key: string,
     size: number
   ): Promise<{ id: BucketEntry['id']; snapshot: UserSpaceSnapshot }> {
     const user = await this.findBucketOwner(userUuid, bucketId);
 
-    const index = this.hashEntryKey(key);
+    const entry = await this.bucketEntriesRepository.create({
+      bucket: bucketId,
+      size,
+      version: 2,
+    });
 
-    const { entry, created } = await this.bucketEntriesRepository.findOneOrCreate(
-      { bucket: bucketId, index },
-      { bucket: bucketId, index, name: key, size, version: 2 }
-    );
-
-    const totalUsedSpaceBytes = created
-      ? await this.usersRepository.addTotalUsedSpaceBytes(userUuid, size)
-      : user.totalUsedSpaceBytes;
+    const totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(userUuid, size);
 
     return {
       id: entry.id,
@@ -235,15 +226,14 @@ export class BucketEntriesUsecase {
     };
   }
 
-  async removeEntryByKey(
+  async removeEntry(
     userUuid: User['uuid'],
     bucketId: Bucket['id'],
-    key: string
+    entryId: BucketEntry['id']
   ): Promise<UserSpaceSnapshot> {
     const user = await this.findBucketOwner(userUuid, bucketId);
 
-    const index = this.hashEntryKey(key);
-    const entry = await this.bucketEntriesRepository.findOne({ bucket: bucketId, index });
+    const entry = await this.bucketEntriesRepository.findOne({ id: entryId, bucket: bucketId });
 
     if (!entry) {
       return {

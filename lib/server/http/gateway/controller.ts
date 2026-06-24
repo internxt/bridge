@@ -17,14 +17,10 @@ type DeleteFilesInBulkResponse = {
 type CreateBucketBody = { name: string };
 type CreateBucketResponse = { id: string; name: string };
 
-type CreateBucketEntryBody = { key: string; size: number };
+type CreateBucketEntryBody = { size: number };
 type CreateBucketEntryResponse = UserSpaceSnapshot & { id: string };
 
 const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i;
-const MAX_ENTRY_KEY_LENGTH = 256;
-
-const isValidEntryKey = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0 && value.length <= MAX_ENTRY_KEY_LENGTH;
 
 const isValidEntrySize = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
@@ -183,14 +179,10 @@ export class HTTPGatewayController {
     res: Response<CreateBucketEntryResponse | { message: string }>
   ) {
     const { uuid, id } = req.params;
-    const { key, size } = req.body;
+    const { size } = req.body;
 
     if (!uuid || !id || !OBJECT_ID_PATTERN.test(id)) {
       return res.status(400).send({ message: 'Invalid params' });
-    }
-
-    if (!isValidEntryKey(key)) {
-      return res.status(400).send({ message: 'key must be a non-empty string' });
     }
 
     if (!isValidEntrySize(size)) {
@@ -200,10 +192,9 @@ export class HTTPGatewayController {
     }
 
     try {
-      const { id: entryId, snapshot } = await this.bucketEntriesUsecase.createEntryByKey(
+      const { id: entryId, snapshot } = await this.bucketEntriesUsecase.createEntry(
         uuid,
         id,
-        key,
         size
       );
 
@@ -226,17 +217,17 @@ export class HTTPGatewayController {
   }
 
   async deleteBucketEntry(
-    req: Request<{ uuid: string; id: string; key: string }>,
+    req: Request<{ uuid: string; id: string; entryId: string }>,
     res: Response<UserSpaceSnapshot | { message: string }>
   ) {
-    const { uuid, id, key } = req.params;
+    const { uuid, id, entryId } = req.params;
 
-    if (!uuid || !id || !OBJECT_ID_PATTERN.test(id) || !isValidEntryKey(key)) {
+    if (!uuid || !id || !OBJECT_ID_PATTERN.test(id) || !OBJECT_ID_PATTERN.test(entryId)) {
       return res.status(400).send({ message: 'Invalid params' });
     }
 
     try {
-      const snapshot = await this.bucketEntriesUsecase.removeEntryByKey(uuid, id, key);
+      const snapshot = await this.bucketEntriesUsecase.removeEntry(uuid, id, entryId);
 
       return res.status(200).send(snapshot);
     } catch (err) {

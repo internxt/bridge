@@ -12,7 +12,7 @@ export const createGatewayHTTPRouter = (
   router.put('/storage/users/:uuid', jwtMiddleware, controller.changeStorage.bind(controller));
   router.post('/users/:uuid/buckets', jwtMiddleware, controller.createUserBucket.bind(controller));
   router.post('/users/:uuid/buckets/:id/entries', jwtMiddleware, controller.createBucketEntry.bind(controller));
-  router.delete('/users/:uuid/buckets/:id/entries/:key', jwtMiddleware, controller.deleteBucketEntry.bind(controller));
+  router.delete('/users/:uuid/buckets/:id/entries/:entryId', jwtMiddleware, controller.deleteBucketEntry.bind(controller));
   router.delete('/storage/files', jwtMiddleware, controller.deleteFilesInBulk.bind(controller));
   
   return router;

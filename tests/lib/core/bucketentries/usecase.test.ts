@@ -1,6 +1,5 @@
 import { restore, stub } from 'sinon';
 import { Model } from 'mongoose';
-import { createHash } from 'node:crypto';
 
 import { BucketEntriesRepository } from '../../../../lib/core/bucketEntries/Repository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
@@ -660,22 +659,19 @@ describe('BucketEntriesUsecase', function () {
     });
   });
 
-  describe('createEntryByKey()', () => {
-    const entryKey = '12:345';
-    const hashedKey = createHash('sha256').update(entryKey).digest('hex');
-
+  describe('createEntry()', () => {
     it('When the user does not exist, then it throws UserNotFoundError', async () => {
       stub(usersRepository, 'findByUuid').resolves(null);
-      const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate');
+      const create = stub(bucketEntriesRepository, 'create');
 
       try {
-        await bucketEntriesUsecase.createEntryByKey('unknown-uuid', 'bucket-id', entryKey, 100);
+        await bucketEntriesUsecase.createEntry('unknown-uuid', 'bucket-id', 100);
         expect(true).toBeFalsy();
       } catch (err) {
         expect(err).toBeInstanceOf(UserNotFoundError);
       }
 
-      expect(findOrCreate.called).toBeFalsy();
+      expect(create.called).toBeFalsy();
     });
 
     it('When the bucket does not belong to the user or does not exist, then it throws BucketNotFoundError', async () => {
@@ -683,34 +679,33 @@ describe('BucketEntriesUsecase', function () {
 
       stub(usersRepository, 'findByUuid').resolves(user);
       const findBucket = stub(bucketsRepository, 'findOne').resolves(null);
-      const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate');
+      const create = stub(bucketEntriesRepository, 'create');
 
       try {
-        await bucketEntriesUsecase.createEntryByKey(user.uuid, 'bucket-id', entryKey, 100);
+        await bucketEntriesUsecase.createEntry(user.uuid, 'bucket-id', 100);
         expect(true).toBeFalsy();
       } catch (err) {
         expect(err).toBeInstanceOf(BucketNotFoundError);
       }
 
       expect(findBucket.calledOnceWithExactly({ id: 'bucket-id', userId: user.uuid })).toBeTruthy();
-      expect(findOrCreate.called).toBeFalsy();
+      expect(create.called).toBeFalsy();
     });
 
-    it('When the entry is new, then it stores the hashed key and adds the size to the user total', async () => {
+    it('When the entry is created, then it adds the size to the user total and returns the entry id', async () => {
       const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
       const bucket = fixtures.getBucket({ userId: user.uuid });
-      const entry = fixtures.getBucketEntry({ bucket: bucket.id, index: hashedKey, size: 500 });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, size: 500 });
 
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
-      const findOrCreate = stub(bucketEntriesRepository, 'findOneOrCreate').resolves({ entry, created: true });
+      const create = stub(bucketEntriesRepository, 'create').resolves(entry);
       const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(4500);
 
-      const result = await bucketEntriesUsecase.createEntryByKey(user.uuid, bucket.id, entryKey, 500);
+      const result = await bucketEntriesUsecase.createEntry(user.uuid, bucket.id, 500);
 
-      expect(findOrCreate.calledOnceWithExactly(
-        { bucket: bucket.id, index: hashedKey },
-        { bucket: bucket.id, index: hashedKey, name: entryKey, size: 500, version: 2 }
+      expect(create.calledOnceWithExactly(
+        { bucket: bucket.id, size: 500, version: 2 }
       )).toBeTruthy();
       expect(addUsage.calledOnceWithExactly(user.uuid, 500)).toBeTruthy();
       expect(result).toStrictEqual({
@@ -718,43 +713,22 @@ describe('BucketEntriesUsecase', function () {
         snapshot: { maxSpaceBytes: 10000, totalUsedSpaceBytes: 4500 },
       });
     });
-
-    it('When the entry already exists, then it does not touch the user total', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
-      const bucket = fixtures.getBucket({ userId: user.uuid });
-      const entry = fixtures.getBucketEntry({ bucket: bucket.id, index: hashedKey, size: 500 });
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      stub(bucketEntriesRepository, 'findOneOrCreate').resolves({ entry, created: false });
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves();
-
-      const result = await bucketEntriesUsecase.createEntryByKey(user.uuid, bucket.id, entryKey, 500);
-
-      expect(addUsage.called).toBeFalsy();
-      expect(result).toStrictEqual({
-        id: entry.id,
-        snapshot: { maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 },
-      });
-    });
   });
 
-  describe('removeEntryByKey()', () => {
-    const entryKey = '12:345';
-    const hashedKey = createHash('sha256').update(entryKey).digest('hex');
-
+  describe('removeEntry()', () => {
     it('When the entry does not exist, then it is a no-op and the snapshot is unchanged', async () => {
       const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
       const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entryId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
 
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
       const findEntry = stub(bucketEntriesRepository, 'findOne').resolves(null);
       const removeFile = stub(bucketEntriesUsecase, 'removeFile');
 
-      const snapshot = await bucketEntriesUsecase.removeEntryByKey(user.uuid, bucket.id, entryKey);
+      const snapshot = await bucketEntriesUsecase.removeEntry(user.uuid, bucket.id, entryId);
 
-      expect(findEntry.calledOnceWithExactly({ bucket: bucket.id, index: hashedKey })).toBeTruthy();
+      expect(findEntry.calledOnceWithExactly({ id: entryId, bucket: bucket.id })).toBeTruthy();
       expect(removeFile.called).toBeFalsy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
     });
@@ -762,14 +736,14 @@ describe('BucketEntriesUsecase', function () {
     it('When the entry exists, then it removes it and returns the decremented snapshot', async () => {
       const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
       const bucket = fixtures.getBucket({ userId: user.uuid });
-      const entry = fixtures.getBucketEntry({ bucket: bucket.id, index: hashedKey, size: 500 });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, size: 500 });
 
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
       stub(bucketEntriesRepository, 'findOne').resolves(entry);
       const removeFile = stub(bucketEntriesUsecase, 'removeFile').resolves();
 
-      const snapshot = await bucketEntriesUsecase.removeEntryByKey(user.uuid, bucket.id, entryKey);
+      const snapshot = await bucketEntriesUsecase.removeEntry(user.uuid, bucket.id, entry.id);
 
       expect(removeFile.calledOnceWithExactly(entry.id)).toBeTruthy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3500 });
