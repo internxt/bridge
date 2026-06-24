@@ -125,28 +125,26 @@ describe('Gateway V2 e2e tests', () => {
             return body as { id: string; name: string }
         }
 
-        const hashKey = (key: string) => crypto.createHash('sha256').update(key).digest('hex')
+        const randomObjectId = () => crypto.randomBytes(12).toString('hex')
 
-        it('When creating an entry, then it is persisted with the hashed key and the user total grows by its size', async () => {
+        it('When creating an entry, then it is persisted as a shard-less v2 entry and the user total grows by its size', async () => {
             const testUser = await createTestUser()
             const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
             const bucket = await createBucketForUser(testUser.uuid, jwt)
-            const key = `1:${Date.now()}`
 
             const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
 
             const response = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key, size: 5000 })
+                .send({ size: 5000 })
 
             expect(response.status).toBe(200)
             expect(response.body.id).toBeDefined()
 
             const entryInDatabase = await databaseConnection.models.BucketEntry.findOne({ _id: response.body.id })
             expect(entryInDatabase).not.toBeNull()
-            expect(entryInDatabase.index).toBe(hashKey(key))
-            expect(entryInDatabase.name).toBe(key)
+            expect(entryInDatabase.bucket.toString()).toBe(bucket.id)
             expect(entryInDatabase.size).toBe(5000)
             expect(entryInDatabase.version).toBe(2)
 
@@ -156,51 +154,48 @@ describe('Gateway V2 e2e tests', () => {
             expect(response.body.totalUsedSpaceBytes).toBe(userAfter.totalUsedSpaceBytes)
         })
 
-        it('When creating the same entry twice, then it is counted only once', async () => {
+        it('When posting the same object twice, then each call mints a distinct entry and the total grows by the sum (dedup is the caller\'s job)', async () => {
             const testUser = await createTestUser()
             const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
             const bucket = await createBucketForUser(testUser.uuid, jwt)
-            const key = `1:${Date.now()}`
 
             const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
 
             const first = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key, size: 5000 })
+                .send({ size: 5000 })
 
             const second = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key, size: 5000 })
+                .send({ size: 5000 })
 
             expect(first.status).toBe(200)
             expect(second.status).toBe(200)
-            expect(second.body.id).toBe(first.body.id)
-            expect(second.body.totalUsedSpaceBytes).toBe(first.body.totalUsedSpaceBytes)
+            expect(second.body.id).not.toBe(first.body.id)
 
             const entries = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
-            expect(entries.length).toBe(1)
+            expect(entries.length).toBe(2)
 
             const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
-            expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes + 5000)
+            expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes + 10000)
         })
 
         it('When deleting an entry, then it is removed and the user total shrinks by its size', async () => {
             const testUser = await createTestUser()
             const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
             const bucket = await createBucketForUser(testUser.uuid, jwt)
-            const key = `1:${Date.now()}`
 
             const created = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key, size: 5000 })
+                .send({ size: 5000 })
 
             const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
 
             const response = await testServer
-                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${encodeURIComponent(key)}`)
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${created.body.id}`)
                 .set('Authorization', `Bearer ${jwt}`)
 
             expect(response.status).toBe(200)
@@ -224,13 +219,25 @@ describe('Gateway V2 e2e tests', () => {
             const userBefore = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
 
             const response = await testServer
-                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${encodeURIComponent('1:404')}`)
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${randomObjectId()}`)
                 .set('Authorization', `Bearer ${jwt}`)
 
             expect(response.status).toBe(200)
 
             const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
             expect(userAfter.totalUsedSpaceBytes).toBe(userBefore.totalUsedSpaceBytes)
+        })
+
+        it('When deleting with a malformed entry id, then it returns 400', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            const response = await testServer
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries/${encodeURIComponent('1:404')}`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(400)
         })
 
         it('When creating an entry on a bucket of another user, then it returns 404 and changes nothing', async () => {
@@ -242,7 +249,7 @@ describe('Gateway V2 e2e tests', () => {
             const response = await testServer
                 .post(`/v2/gateway/users/${otherUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key: '1:1', size: 5000 })
+                .send({ size: 5000 })
 
             expect(response.status).toBe(404)
 
@@ -250,29 +257,50 @@ describe('Gateway V2 e2e tests', () => {
             expect(entries.length).toBe(0)
         })
 
-        it('When the entry key or size is invalid, then it returns 400', async () => {
+        it('When the entry size is invalid, then it returns 400 and creates nothing', async () => {
             const testUser = await createTestUser()
             const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
             const bucket = await createBucketForUser(testUser.uuid, jwt)
 
-            const missingKey = await testServer
+            const missingSize = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ size: 5000 })
+                .send({})
+
+            const zeroSize = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ size: 0 })
 
             const negativeSize = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key: '1:1', size: -1 })
+                .send({ size: -1 })
 
             const nonIntegerSize = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}/entries`)
                 .set('Authorization', `Bearer ${jwt}`)
-                .send({ key: '1:1', size: 10.5 })
+                .send({ size: 10.5 })
 
-            expect(missingKey.status).toBe(400)
+            expect(missingSize.status).toBe(400)
+            expect(zeroSize.status).toBe(400)
             expect(negativeSize.status).toBe(400)
             expect(nonIntegerSize.status).toBe(400)
+
+            const entries = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entries.length).toBe(0)
+        })
+
+        it('When the bucket id is malformed, then it returns 400', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets/not-an-object-id/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ size: 5000 })
+
+            expect(response.status).toBe(400)
         })
 
         it('When no auth token is provided, then it returns 401', async () => {
@@ -280,7 +308,7 @@ describe('Gateway V2 e2e tests', () => {
 
             const response = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${'a'.repeat(24)}/entries`)
-                .send({ key: '1:1', size: 1000 })
+                .send({ size: 1000 })
 
             expect(response.status).toBe(401)
         })

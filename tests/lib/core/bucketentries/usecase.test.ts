@@ -724,12 +724,14 @@ describe('BucketEntriesUsecase', function () {
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
       const findEntry = stub(bucketEntriesRepository, 'findOne').resolves(null);
-      const removeFile = stub(bucketEntriesUsecase, 'removeFile');
+      const removeFilesV2 = stub(bucketEntriesUsecase, 'removeFilesV2');
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
 
       const snapshot = await bucketEntriesUsecase.removeEntry(user.uuid, bucket.id, entryId);
 
       expect(findEntry.calledOnceWithExactly({ id: entryId, bucket: bucket.id })).toBeTruthy();
-      expect(removeFile.called).toBeFalsy();
+      expect(removeFilesV2.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
     });
 
@@ -741,11 +743,13 @@ describe('BucketEntriesUsecase', function () {
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
       stub(bucketEntriesRepository, 'findOne').resolves(entry);
-      const removeFile = stub(bucketEntriesUsecase, 'removeFile').resolves();
+      const removeFilesV2 = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(3500);
 
       const snapshot = await bucketEntriesUsecase.removeEntry(user.uuid, bucket.id, entry.id);
 
-      expect(removeFile.calledOnceWithExactly(entry.id)).toBeTruthy();
+      expect(removeFilesV2.calledOnceWithExactly([entry])).toBeTruthy();
+      expect(addUsage.calledOnceWithExactly(user.uuid, -500)).toBeTruthy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3500 });
     });
   });

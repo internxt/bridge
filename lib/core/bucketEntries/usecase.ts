@@ -242,11 +242,16 @@ export class BucketEntriesUsecase {
       };
     }
 
-    await this.removeFile(entry.id);
+    await this.removeFilesV2([entry]);
+
+    const totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
+      userUuid,
+      -(entry.size || 0)
+    );
 
     return {
       maxSpaceBytes: user.maxSpaceBytes,
-      totalUsedSpaceBytes: user.totalUsedSpaceBytes - (entry.size || 0),
+      totalUsedSpaceBytes,
     };
   }
 }

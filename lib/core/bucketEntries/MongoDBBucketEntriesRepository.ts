@@ -141,22 +141,6 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return rawModel.toObject();
   }
 
-  async findOneOrCreate(
-    where: Partial<BucketEntry>,
-    data: Omit<BucketEntry, 'id'>
-  ): Promise<{ entry: BucketEntry; created: boolean }> {
-    const result = await this.model.findOneAndUpdate(
-      where,
-      { $setOnInsert: { ...data, created: new Date() } },
-      { upsert: true, new: true, includeResultMetadata: true }
-    );
-
-    return {
-      entry: formatFromMongoToBucketEntry(result.value),
-      created: !result.lastErrorObject?.updatedExisting,
-    };
-  }
-
   async deleteByIds(ids: BucketEntry['id'][]): Promise<void> {
     await this.model.deleteMany({ _id: { $in: ids } });
   }
