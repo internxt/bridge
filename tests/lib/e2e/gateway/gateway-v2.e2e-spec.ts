@@ -44,6 +44,40 @@ describe('Gateway V2 e2e tests', () => {
         })
     })
 
+    describe('Getting user usage', () => {
+        it('When getting the usage of an existing user, then it should return the space snapshot', async () => {
+            const testUser = await createTestUser()
+
+            const jwt = signRS256JWT(
+                '5m',
+                engine._config.gateway.SIGN_JWT_SECRET,
+            );
+
+            const response = await testServer
+                .get(`/v2/gateway/users/${testUser.uuid}/usage`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(200)
+            expect(response.body).toStrictEqual({
+                maxSpaceBytes: testUser.maxSpaceBytes,
+                totalUsedSpaceBytes: testUser.totalUsedSpaceBytes,
+            })
+        })
+
+        it('When getting the usage of a user that does not exist, then it should return 404', async () => {
+            const jwt = signRS256JWT(
+                '5m',
+                engine._config.gateway.SIGN_JWT_SECRET,
+            );
+
+            const response = await testServer
+                .get('/v2/gateway/users/non-existent-uuid/usage')
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(404)
+        })
+    })
+
     describe('Deleting user files', () => {
         let axiosGetStub: sinon.SinonStub
         const FAKE_UPLOAD_URL = 'http://fake-upload-url'

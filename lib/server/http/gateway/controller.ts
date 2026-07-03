@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
-import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UsersUsecase } from '../../../core';
+import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
@@ -21,6 +21,36 @@ export class HTTPGatewayController {
     private logger: Logger,
     private eventBus: EventBus
   ) {}
+
+  async getUserUsage(
+    req: Request<{ uuid: string }, {}, {}, {}>,
+    res: Response<UserSpaceSnapshot | { message: string }>
+  ) {
+    const { uuid } = req.params;
+
+    if (!uuid) {
+      return res.status(400).send({ message: 'Missing params' });
+    }
+
+    try {
+      const usage = await this.usersUsecase.getUserUsage(uuid);
+
+      return res.status(200).send(usage);
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+
+      this.logger.error(
+        '[GATEWAY/GET_USAGE] Error getting usage of user %s: %s. %s',
+        uuid,
+        (err as Error).message,
+        (err as Error).stack || 'NO STACK'
+      );
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
+  }
 
   async updateUserEmail(req: Request<{ uuid: string }, {}, { email?: string }, {}>, res: Response) {
     if (!(req.body && req.body.email && req.params.uuid)) {

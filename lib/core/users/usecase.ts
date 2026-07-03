@@ -20,6 +20,11 @@ function isEmailValid(email: string) {
 export const RESET_PASSWORD_TOKEN_BYTES_LENGTH = 256;
 export const SHA256_HASH_BYTES_LENGTH = 32;
 
+export interface UserSpaceSnapshot {
+  maxSpaceBytes: number;
+  totalUsedSpaceBytes: number;
+}
+
 export class UserAlreadyExistsError extends Error {
   constructor() {
     super('User already exists');
@@ -71,6 +76,19 @@ export class UsersUsecase {
     private mailUsecase: MailUsecase,
     private eventBus: EventBus
   ) {}
+
+  async getUserUsage(uuid: User['uuid']): Promise<UserSpaceSnapshot> {
+    const user = await this.usersRepository.findByUuid(uuid);
+
+    if (!user) {
+      throw new UserNotFoundError(uuid);
+    }
+
+    return {
+      maxSpaceBytes: user.maxSpaceBytes,
+      totalUsedSpaceBytes: user.totalUsedSpaceBytes,
+    };
+  }
 
   async updateEmail(uuid: User['uuid'], newEmail: User['email']): Promise<void> {
     const [maybeAlreadyExistentUser, userToUpdate] = await Promise.all([
