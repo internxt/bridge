@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { validate as uuidValidate } from 'uuid';
 import { Logger } from 'winston';
 import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
@@ -28,8 +29,8 @@ export class HTTPGatewayController {
   ) {
     const { uuid } = req.params;
 
-    if (!uuid) {
-      return res.status(400).send({ message: 'Missing params' });
+    if (!uuid || !uuidValidate(uuid)) {
+      return res.status(400).send({ message: 'Missing or invalid uuid' });
     }
 
     try {

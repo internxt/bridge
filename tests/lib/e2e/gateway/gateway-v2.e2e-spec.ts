@@ -71,10 +71,30 @@ describe('Gateway V2 e2e tests', () => {
             );
 
             const response = await testServer
-                .get('/v2/gateway/users/non-existent-uuid/usage')
+                .get(`/v2/gateway/users/${crypto.randomUUID()}/usage`)
                 .set('Authorization', `Bearer ${jwt}`)
 
             expect(response.status).toBe(404)
+        })
+
+        it('When the uuid has an invalid format, then it should return 400', async () => {
+            const jwt = signRS256JWT(
+                '5m',
+                engine._config.gateway.SIGN_JWT_SECRET,
+            );
+
+            const response = await testServer
+                .get('/v2/gateway/users/not-a-valid-uuid/usage')
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(400)
+        })
+
+        it('When the request is not authenticated, then it should return 401', async () => {
+            const response = await testServer
+                .get(`/v2/gateway/users/${crypto.randomUUID()}/usage`)
+
+            expect(response.status).toBe(401)
         })
     })
 
