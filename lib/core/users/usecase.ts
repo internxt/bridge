@@ -20,6 +20,11 @@ function isEmailValid(email: string) {
 export const RESET_PASSWORD_TOKEN_BYTES_LENGTH = 256;
 export const SHA256_HASH_BYTES_LENGTH = 32;
 
+export interface UserSpaceSnapshot {
+  maxSpaceBytes: number;
+  totalUsedSpaceBytes: number;
+}
+
 export class UserAlreadyExistsError extends Error {
   constructor() {
     super('User already exists');

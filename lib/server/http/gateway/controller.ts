@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { Logger } from 'winston';
-import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UsersUsecase } from '../../../core';
+import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
+import { BucketNotFoundError } from '../../../core/buckets/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
 import { EventBus, EventBusEvents, UserStorageChangedPayload } from '../../eventBus';
@@ -15,6 +16,14 @@ type DeleteFilesInBulkResponse = {
 
 type CreateBucketBody = { name: string };
 type CreateBucketResponse = { id: string; name: string };
+
+type CreateBucketEntryBody = { size: number };
+type CreateBucketEntryResponse = UserSpaceSnapshot & { id: string };
+
+const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i;
+
+const isValidEntrySize = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 
 export class HTTPGatewayController {
   constructor(
@@ -156,6 +165,79 @@ export class HTTPGatewayController {
 
       this.logger.error(
         '[GATEWAY/CREATE_BUCKET] Error creating bucket for user %s: %s. %s',
+        uuid,
+        (err as Error).message,
+        (err as Error).stack || 'NO STACK'
+      );
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
+  }
+
+  async createBucketEntry(
+    req: Request<{ uuid: string; id: string }, {}, Partial<CreateBucketEntryBody>, {}>,
+    res: Response<CreateBucketEntryResponse | { message: string }>
+  ) {
+    const { uuid, id } = req.params;
+    const { size } = req.body;
+
+    if (!uuid || !id || !OBJECT_ID_PATTERN.test(id)) {
+      return res.status(400).send({ message: 'Invalid params' });
+    }
+
+    if (!isValidEntrySize(size)) {
+      return res
+        .status(400)
+        .send({ message: 'size must be a positive integer' });
+    }
+
+    try {
+      const { id: entryId, snapshot } = await this.bucketEntriesUsecase.createEntry(
+        uuid,
+        id,
+        size
+      );
+
+      return res.status(200).send({ id: entryId, ...snapshot });
+    } catch (err) {
+      if (err instanceof UserNotFoundError || err instanceof BucketNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+
+      this.logger.error(
+        '[GATEWAY/CREATE_ENTRY] Error creating entry on bucket %s of user %s: %s. %s',
+        id,
+        uuid,
+        (err as Error).message,
+        (err as Error).stack || 'NO STACK'
+      );
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
+  }
+
+  async deleteBucketEntry(
+    req: Request<{ uuid: string; id: string; entryId: string }>,
+    res: Response<UserSpaceSnapshot | { message: string }>
+  ) {
+    const { uuid, id, entryId } = req.params;
+
+    if (!uuid || !id || !OBJECT_ID_PATTERN.test(id) || !OBJECT_ID_PATTERN.test(entryId)) {
+      return res.status(400).send({ message: 'Invalid params' });
+    }
+
+    try {
+      const snapshot = await this.bucketEntriesUsecase.removeEntry(uuid, id, entryId);
+
+      return res.status(200).send(snapshot);
+    } catch (err) {
+      if (err instanceof UserNotFoundError || err instanceof BucketNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+
+      this.logger.error(
+        '[GATEWAY/DELETE_ENTRY] Error deleting entry on bucket %s of user %s: %s. %s',
+        id,
         uuid,
         (err as Error).message,
         (err as Error).stack || 'NO STACK'
