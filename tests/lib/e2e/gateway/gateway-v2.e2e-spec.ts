@@ -44,6 +44,77 @@ describe('Gateway V2 e2e tests', () => {
         })
     })
 
+    describe('Creating a user bucket', () => {
+        it('When creating a bucket for a user, then it is persisted with the user uuid and given name', async () => {
+            const testUser = await createTestUser()
+            const bucketName = `mail-account-${crypto.randomUUID()}`
+
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ name: bucketName })
+
+            expect(response.status).toBe(200)
+            expect(response.body.name).toBe(bucketName)
+            expect(response.body.id).toBeDefined()
+
+            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: response.body.id })
+            expect(bucketInDatabase).not.toBeNull()
+            expect(bucketInDatabase.userId).toBe(testUser.uuid)
+            expect(bucketInDatabase.name).toBe(bucketName)
+        })
+
+        it('When creating a bucket with a name that already exists, then it returns the existing bucket', async () => {
+            const testUser = await createTestUser()
+            const bucketName = `mail-account-${crypto.randomUUID()}`
+
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const firstResponse = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ name: bucketName })
+
+            const secondResponse = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ name: bucketName })
+
+            expect(firstResponse.status).toBe(200)
+            expect(secondResponse.status).toBe(200)
+            expect(secondResponse.body.id).toBe(firstResponse.body.id)
+
+            const buckets = await databaseConnection.models.Bucket.find({ userId: testUser.uuid, name: bucketName })
+            expect(buckets.length).toBe(1)
+        })
+
+        it('When creating a bucket without a name, then it returns 400', async () => {
+            const testUser = await createTestUser()
+
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${testUser.uuid}/buckets`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({})
+
+            expect(response.status).toBe(400)
+        })
+
+        it('When creating a bucket for an unknown user, then it returns 404', async () => {
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const response = await testServer
+                .post(`/v2/gateway/users/${crypto.randomUUID()}/buckets`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ name: 'mail-account' })
+
+            expect(response.status).toBe(404)
+        })
+    })
+
     describe('Deleting user files', () => {
         let axiosGetStub: sinon.SinonStub
         const FAKE_UPLOAD_URL = 'http://fake-upload-url'

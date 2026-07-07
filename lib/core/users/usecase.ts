@@ -262,4 +262,33 @@ export class UsersUsecase {
 
     await this.usersRepository.removeById(user.id);
   }
+
+  async findOrCreateBucket(
+    uuid: User['uuid'],
+    name: string
+  ): Promise<{ id: string; name: string }> {
+    const user = await this.usersRepository.findByUuid(uuid);
+
+    if (!user) {
+      throw new UserNotFoundError(uuid);
+    }
+
+    const existing = await this.bucketsRepository.findOne({ userId: uuid, name });
+
+    if (existing) {
+      return { id: existing.id, name: existing.name };
+    }
+
+    const created = await this.bucketsRepository.create({
+      name,
+      user: user.id,
+      userId: user.uuid,
+      status: 'Active',
+      transfer: 0,
+      storage: 0,
+      encryptionKey: '',
+    });
+
+    return { id: created.id, name: created.name };
+  }
 }
