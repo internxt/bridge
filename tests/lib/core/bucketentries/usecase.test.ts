@@ -19,7 +19,7 @@ import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMi
 import { MongoDBPointersRepository } from '../../../../lib/core/pointers/MongoDBPointersRepository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
 import { MongoDBBucketEntryShardsRepository } from '../../../../lib/core/bucketEntryShards/MongoDBBucketEntryShardsRepository';
-import { MongoDBUsersRepository } from '../../../../lib/core/users';
+import { MongoDBUsersRepository, UserNotFoundError } from '../../../../lib/core/users';
 import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
 
 import fixtures from '../fixtures';
@@ -656,6 +656,101 @@ describe('BucketEntriesUsecase', function () {
 
       expect(removeFileStub.calledOnce).toBeTruthy();
       expect(removeFileStub.calledWith(fileId)).toBeTruthy();
+    });
+  });
+
+  describe('createEntry()', () => {
+    it('When the user does not exist, then it throws UserNotFoundError', async () => {
+      stub(usersRepository, 'findByUuid').resolves(null);
+      const create = stub(bucketEntriesRepository, 'create');
+
+      try {
+        await bucketEntriesUsecase.createEntry('unknown-uuid', 'bucket-id', 100);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+
+      expect(create.called).toBeFalsy();
+    });
+
+    it('When the bucket does not belong to the user or does not exist, then it throws BucketNotFoundError', async () => {
+      const user = fixtures.getUser();
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      const findBucket = stub(bucketsRepository, 'findOne').resolves(null);
+      const create = stub(bucketEntriesRepository, 'create');
+
+      try {
+        await bucketEntriesUsecase.createEntry(user.uuid, 'bucket-id', 100);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketNotFoundError);
+      }
+
+      expect(findBucket.calledOnceWithExactly({ id: 'bucket-id', userId: user.uuid })).toBeTruthy();
+      expect(create.called).toBeFalsy();
+    });
+
+    it('When the entry is created, then it adds the size to the user total and returns the entry id', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, size: 500 });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const create = stub(bucketEntriesRepository, 'create').resolves(entry);
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(4500);
+
+      const result = await bucketEntriesUsecase.createEntry(user.uuid, bucket.id, 500);
+
+      expect(create.calledOnceWithExactly(
+        { bucket: bucket.id, size: 500, version: 2 }
+      )).toBeTruthy();
+      expect(addUsage.calledOnceWithExactly(user.uuid, 500)).toBeTruthy();
+      expect(result).toStrictEqual({
+        id: entry.id,
+        snapshot: { maxSpaceBytes: 10000, totalUsedSpaceBytes: 4500 },
+      });
+    });
+  });
+
+  describe('removeEntry()', () => {
+    it('When the entry does not exist, then it is a no-op and the snapshot is unchanged', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entryId = 'aaaaaaaaaaaaaaaaaaaaaaaa';
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const findEntry = stub(bucketEntriesRepository, 'findOne').resolves(null);
+      const removeFilesV2 = stub(bucketEntriesUsecase, 'removeFilesV2');
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
+
+      const snapshot = await bucketEntriesUsecase.removeEntry(user.uuid, bucket.id, entryId);
+
+      expect(findEntry.calledOnceWithExactly({ id: entryId, bucket: bucket.id })).toBeTruthy();
+      expect(removeFilesV2.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+    });
+
+    it('When the entry exists, then it removes it and returns the decremented snapshot', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+      const entry = fixtures.getBucketEntry({ bucket: bucket.id, size: 500 });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(entry);
+      const removeFilesV2 = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(3500);
+
+      const snapshot = await bucketEntriesUsecase.removeEntry(user.uuid, bucket.id, entry.id);
+
+      expect(removeFilesV2.calledOnceWithExactly([entry])).toBeTruthy();
+      expect(addUsage.calledOnceWithExactly(user.uuid, -500)).toBeTruthy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3500 });
     });
   });
 });

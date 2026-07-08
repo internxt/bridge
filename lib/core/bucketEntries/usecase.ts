@@ -11,6 +11,7 @@ import { PointersRepository } from '../pointers/Repository';
 import { MirrorsRepository } from '../mirrors/Repository';
 import { BucketEntry } from './BucketEntry';
 import { UsersRepository } from '../users/Repository';
+import { UserNotFoundError, UserSpaceSnapshot } from '../users';
 import { User } from '../users/User';
 import { Bucket } from '../buckets/Bucket';
 import { FileStateRepository } from '../fileState/Repository';
@@ -180,5 +181,77 @@ export class BucketEntriesUsecase {
 
     await this.bucketEntriesRepository.deleteByIds(fileIds);
     await this.fileStateRepository.deleteByBucketEntryIds(fileIds);
+  }
+
+  private async findBucketOwner(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id']
+  ): Promise<User> {
+    const user = await this.usersRepository.findByUuid(userUuid);
+
+    if (!user) {
+      throw new UserNotFoundError(userUuid);
+    }
+
+    const bucket = await this.bucketsRepository.findOne({ id: bucketId, userId: userUuid });
+
+    if (!bucket) {
+      throw new BucketNotFoundError();
+    }
+
+    return user;
+  }
+
+  async createEntry(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id'],
+    size: number
+  ): Promise<{ id: BucketEntry['id']; snapshot: UserSpaceSnapshot }> {
+    const user = await this.findBucketOwner(userUuid, bucketId);
+
+    const entry = await this.bucketEntriesRepository.create({
+      bucket: bucketId,
+      size,
+      version: 2,
+    });
+
+    const totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(userUuid, size);
+
+    return {
+      id: entry.id,
+      snapshot: {
+        maxSpaceBytes: user.maxSpaceBytes,
+        totalUsedSpaceBytes,
+      },
+    };
+  }
+
+  async removeEntry(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id'],
+    entryId: BucketEntry['id']
+  ): Promise<UserSpaceSnapshot> {
+    const user = await this.findBucketOwner(userUuid, bucketId);
+
+    const entry = await this.bucketEntriesRepository.findOne({ id: entryId, bucket: bucketId });
+
+    if (!entry) {
+      return {
+        maxSpaceBytes: user.maxSpaceBytes,
+        totalUsedSpaceBytes: user.totalUsedSpaceBytes,
+      };
+    }
+
+    await this.removeFilesV2([entry]);
+
+    const totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
+      userUuid,
+      -(entry.size || 0)
+    );
+
+    return {
+      maxSpaceBytes: user.maxSpaceBytes,
+      totalUsedSpaceBytes,
+    };
   }
 }

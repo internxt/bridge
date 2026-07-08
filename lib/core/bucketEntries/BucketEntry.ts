@@ -8,7 +8,7 @@ export interface BucketEntry {
   name?: string;
   // filename is deprecated
   filename?: string;
-  index: string;
+  index?: string;
   bucket: Bucket['id'];
   created?: Date;
   mimetype?: string;

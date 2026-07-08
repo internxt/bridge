@@ -100,14 +100,17 @@ export class MongoDBUsersRepository implements UsersRepository {
     await this.userModel.updateOne({ uuid }, { $set: update });
   }
 
-  addTotalUsedSpaceBytes(
+  async addTotalUsedSpaceBytes(
     uuid: string,
     totalUsedSpaceBytes: number
-  ): Promise<void> {
-    return this.userModel.updateOne(
+  ): Promise<number> {
+    const user = await this.userModel.findOneAndUpdate(
       { uuid },
-      { $inc: { totalUsedSpaceBytes } }
+      { $inc: { totalUsedSpaceBytes } },
+      { new: true }
     );
+
+    return user?.totalUsedSpaceBytes ?? 0;
   }
 
   removeById(id: User['id']) {
