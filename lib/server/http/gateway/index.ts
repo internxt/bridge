@@ -8,6 +8,7 @@ export const createGatewayHTTPRouter = (
   const router = Router();
 
   router.post('/users', jwtMiddleware, controller.findOrCreateUser.bind(controller));
+  router.get('/users/:uuid/usage', jwtMiddleware, controller.getUserUsage.bind(controller));
   router.patch('/users/:uuid', jwtMiddleware, controller.updateUserEmail.bind(controller));
   router.put('/storage/users/:uuid', jwtMiddleware, controller.changeStorage.bind(controller));
   router.post('/users/:uuid/buckets', jwtMiddleware, controller.createUserBucket.bind(controller));

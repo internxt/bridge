@@ -44,6 +44,60 @@ describe('Gateway V2 e2e tests', () => {
         })
     })
 
+    describe('Getting user usage', () => {
+        it('When getting the usage of an existing user, then it should return the space snapshot', async () => {
+            const testUser = await createTestUser()
+
+            const jwt = signRS256JWT(
+                '5m',
+                engine._config.gateway.SIGN_JWT_SECRET,
+            );
+
+            const response = await testServer
+                .get(`/v2/gateway/users/${testUser.uuid}/usage`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(200)
+            expect(response.body).toStrictEqual({
+                maxSpaceBytes: testUser.maxSpaceBytes,
+                totalUsedSpaceBytes: testUser.totalUsedSpaceBytes,
+            })
+        })
+
+        it('When getting the usage of a user that does not exist, then it should return 404', async () => {
+            const jwt = signRS256JWT(
+                '5m',
+                engine._config.gateway.SIGN_JWT_SECRET,
+            );
+
+            const response = await testServer
+                .get(`/v2/gateway/users/${crypto.randomUUID()}/usage`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(404)
+        })
+
+        it('When the uuid has an invalid format, then it should return 400', async () => {
+            const jwt = signRS256JWT(
+                '5m',
+                engine._config.gateway.SIGN_JWT_SECRET,
+            );
+
+            const response = await testServer
+                .get('/v2/gateway/users/not-a-valid-uuid/usage')
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(400)
+        })
+
+        it('When the request is not authenticated, then it should return 401', async () => {
+            const response = await testServer
+                .get(`/v2/gateway/users/${crypto.randomUUID()}/usage`)
+
+            expect(response.status).toBe(401)
+        })
+    })
+
     describe('Creating a user bucket', () => {
         it('When creating a bucket for a user, then it is persisted with the user uuid and given name', async () => {
             const testUser = await createTestUser()

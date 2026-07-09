@@ -68,6 +68,31 @@ const fakeUser: User = {
 }
 
 describe('Users usecases', () => {
+  describe('getUserUsage()', () => {
+    it('Should return the user space snapshot if the user exists', async () => {
+      const user = { ...fakeUser, maxSpaceBytes: 5000, totalUsedSpaceBytes: 1200 };
+      stub(usersRepository, 'findByUuid').resolves(user);
+
+      const usage = await usecase.getUserUsage(user.uuid);
+
+      expect(usage).toStrictEqual({
+        maxSpaceBytes: 5000,
+        totalUsedSpaceBytes: 1200
+      });
+    });
+
+    it('Should reject if the user does not exist', async () => {
+      stub(usersRepository, 'findByUuid').resolves(null);
+
+      try {
+        await usecase.getUserUsage('unknown-uuid');
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+    });
+  });
+
   describe('createUser()', () => {
     it(`Should work if input data is valid`, async () => {
       stub(usersRepository, 'findByEmail').resolves(null);

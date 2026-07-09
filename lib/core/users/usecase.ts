@@ -77,6 +77,19 @@ export class UsersUsecase {
     private eventBus: EventBus
   ) {}
 
+  async getUserUsage(uuid: User['uuid']): Promise<UserSpaceSnapshot> {
+    const user = await this.usersRepository.findByUuid(uuid);
+
+    if (!user) {
+      throw new UserNotFoundError(uuid);
+    }
+
+    return {
+      maxSpaceBytes: user.maxSpaceBytes,
+      totalUsedSpaceBytes: user.totalUsedSpaceBytes,
+    };
+  }
+
   async updateEmail(uuid: User['uuid'], newEmail: User['email']): Promise<void> {
     const [maybeAlreadyExistentUser, userToUpdate] = await Promise.all([
       this.usersRepository.findByEmail(newEmail),
