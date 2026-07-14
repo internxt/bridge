@@ -100,7 +100,7 @@
     "amqplib": "^0.8.0",
     "analytics-node": "^2.4.0",
     "async": "^3.2.0",
-    "axios": "0.30.2",
+    "axios": "0.32.0",
     "basic-auth": "^2.0.1",
     "bn.js": "^4.11.8",
     "bullmq": "^5.70.1",
