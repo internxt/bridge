@@ -1,9 +1,8 @@
 import { config as loadEnv } from 'dotenv';
 import Config from '../../lib/config';
+import DatabaseConnection from '../../lib/models/database';
 
 loadEnv();
-
-const Storage = require('storj-service-storage-models') as any;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -22,7 +21,7 @@ export interface Models {
     FileState: any,
 };
 
-export async function connectToDatabase(configJSON: any, mongoURL: string): Promise<Models> {
+export async function connectToDatabase(configJSON: any, mongoURL: string): Promise<any> {
     const config = new Config(process.env.NODE_ENV, configJSON, '') as {
         storage: {
             mongoUrl: string;
@@ -31,13 +30,9 @@ export async function connectToDatabase(configJSON: any, mongoURL: string): Prom
         QUEUE_USERNAME: string;
         QUEUE_PASSWORD: string;
         QUEUE_HOST: string;
-    };
+    }
 
-    const storage = new Storage(
-        mongoURL || config.storage.mongoUrl,
-        config.storage.mongoOpts,
-        null
-    );
+    const storage = DatabaseConnection.createFromConfig(config.storage);
 
     await wait(5000);
 

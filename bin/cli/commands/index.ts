@@ -6,6 +6,7 @@ import { default as emptyBucket } from "./empty-bucket.command";
 import { default as emptyBuckets } from "./empty-buckets.command";
 import { default as cleanStalledFrames } from "./clean-stalled-frames.command";
 import { default as cleanStalledBucketEntries } from "./clean-stalled-bucket-entries.command";
+import { default as emptyUsersFromCsv } from "./empty-users-from-csv.command";
 
 export default (resources: PrepareFunctionReturnType, onFinish: () => void) => ({
   [destroyUserBuckets.id]: buildCommand({
@@ -55,6 +56,18 @@ export default (resources: PrepareFunctionReturnType, onFinish: () => void) => (
     options: [],
   }).action(async () => {
     await cleanStalledBucketEntries.fn(resources);
+    onFinish();
+  }),
+
+  [emptyUsersFromCsv.id]: buildCommand({
+    version: emptyUsersFromCsv.version,
+    command: `${emptyUsersFromCsv.id} <csv_path>`,
+    description: 'Empties buckets for all users listed in a CSV file (one email per line)',
+    options: [
+      { flags: '-c, --concurrency <number>', description: 'Number of users to process in parallel', defaultValue: '3' },
+    ],
+  }).action(async (csvPath, { concurrency }) => {
+    await emptyUsersFromCsv.fn(resources, csvPath, parseInt(concurrency, 10));
     onFinish();
   }),
 });
