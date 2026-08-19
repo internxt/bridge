@@ -111,7 +111,7 @@
     "express": "^4.17.1",
     "hat": "0.0.3",
     "helmet": "^3.20.0",
-    "inxt-service-mailer": "internxt/mailer",
+    "inxt-service-mailer": "internxt/mailer#v1.5.2",
     "is-ip": "^2.0.0",
     "jsonwebtoken": "^8.5.1",
     "lodash": "4.18.1",
@@ -131,6 +131,9 @@
     "winston": "^3.2.1"
   },
   "resolutions": {
-    "@sendgrid/mail/@sendgrid/client/axios": "1.19.0"
+    "@sendgrid/mail/@sendgrid/client/axios": "1.19.0",
+    "qs": "6.15.2",
+    "bn.js": "4.12.3",
+    "axios/follow-redirects": "^1.16.0"
   }
 }
