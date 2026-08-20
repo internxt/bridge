@@ -12,7 +12,7 @@ import { UsersRepository } from '../../../../lib/core/users/Repository';
 
 import { MongoDBBucketsRepository } from '../../../../lib/core/buckets/MongoDBBucketsRepository';
 import { MongoDBBucketEntriesRepository } from '../../../../lib/core/bucketEntries/MongoDBBucketEntriesRepository';
-import { BucketEntriesUsecase, BucketEntryVersionNotFoundError } from '../../../../lib/core/bucketEntries/usecase';
+import { BucketEntriesUsecase, BucketEntryVersionNotFoundError, ShardBackedBucketError } from '../../../../lib/core/bucketEntries/usecase';
 import { BucketEntryNotFoundError, BucketForbiddenError, BucketNotFoundError } from '../../../../lib/core/buckets/usecase';
 import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFramesRepository';
 import { MongoDBMirrorsRepository } from '../../../../lib/core/mirrors/MongoDBMirrorsRepository';
@@ -751,6 +751,183 @@ describe('BucketEntriesUsecase', function () {
       expect(removeFilesV2.calledOnceWithExactly([entry])).toBeTruthy();
       expect(addUsage.calledOnceWithExactly(user.uuid, -500)).toBeTruthy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3500 });
+    });
+  });
+
+  describe('removeBucketAndEntries()', () => {
+    it('When the user does not exist, then it throws UserNotFoundError', async () => {
+      stub(usersRepository, 'findByUuid').resolves(null);
+      const findBucket = stub(bucketsRepository, 'findOne');
+
+      try {
+        await bucketEntriesUsecase.removeBucketAndEntries('unknown-uuid', 'bucket-id');
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(UserNotFoundError);
+      }
+
+      expect(findBucket.called).toBeFalsy();
+    });
+
+    it('When the bucket belongs to another user, then it throws BucketForbiddenError and removes nothing', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket();
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket');
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
+
+      try {
+        await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+        expect(true).toBeFalsy();
+      } catch (err) {
+        expect(err).toBeInstanceOf(BucketForbiddenError);
+      }
+
+      expect(deleteEntries.called).toBeFalsy();
+      expect(removeBucket.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
+    });
+
+    it.each([
+      ['a frame', { frame: 'frame-id', index: undefined, hmac: undefined }],
+      ['an index', { frame: undefined, index: 'file-index' }],
+      ['an hmac', { frame: undefined, index: undefined, hmac: { type: 'sha512' as const, value: 'v' } }],
+    ])(
+      'When the bucket holds entries with %s, then it refuses and leaves the bucket alone',
+      async (_case, entryFields) => {
+        const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+        const bucket = fixtures.getBucket({ userId: user.uuid });
+
+        stub(usersRepository, 'findByUuid').resolves(user);
+        stub(bucketsRepository, 'findOne').resolves(bucket);
+        stub(bucketEntriesRepository, 'findOne').resolves(
+          fixtures.getBucketEntry({ bucket: bucket.id, ...entryFields })
+        );
+        const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket');
+        const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
+        const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
+
+        try {
+          await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+          expect(true).toBeFalsy();
+        } catch (err) {
+          expect(err).toBeInstanceOf(ShardBackedBucketError);
+        }
+
+        expect(deleteEntries.called).toBeFalsy();
+        expect(removeBucket.called).toBeFalsy();
+        expect(addUsage.called).toBeFalsy();
+      }
+    );
+
+    it('When the bucket is empty, then it is removed and the total is untouched', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(null);
+      stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(0);
+      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(0);
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+
+      expect(deleteEntries.calledOnceWithExactly(bucket.id)).toBeTruthy();
+      expect(addUsage.called).toBeFalsy();
+      expect(removeBucket.calledOnceWithExactly(bucket.id, user.uuid)).toBeTruthy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+    });
+
+    it('When the bucket has entries, then they go in one delete and their total size is released', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(
+        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, size: 500 })
+      );
+      const sumSizes = stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(2000);
+      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(2);
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(2000);
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+
+      expect(sumSizes.calledOnceWithExactly(bucket.id)).toBeTruthy();
+      expect(deleteEntries.calledOnceWithExactly(bucket.id)).toBeTruthy();
+      expect(addUsage.calledOnceWithExactly(user.uuid, -2000)).toBeTruthy();
+      expect(removeBucket.calledOnceWithExactly(bucket.id, user.uuid)).toBeTruthy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 2000 });
+    });
+
+    it('When the bucket has entries, then the bucket document is removed before the sum is taken', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(
+        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined })
+      );
+      const sumSizes = stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(2000);
+      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(2);
+      stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(2000);
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
+
+      await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+
+      // An entry created between the sum and the delete would be removed
+      // without its size ever being released.
+      expect(removeBucket.calledBefore(sumSizes)).toBeTruthy();
+      expect(sumSizes.calledBefore(deleteEntries)).toBeTruthy();
+    });
+
+    it('When the bucket document is already gone, then it still drains the entries it left behind', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(null);
+      stub(bucketEntriesRepository, 'findOne').resolves(
+        fixtures.getBucketEntry({ bucket: 'bucket-id', frame: undefined, index: undefined })
+      );
+      stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(1000);
+      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(1);
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(3000);
+      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id');
+
+      expect(deleteEntries.calledOnceWithExactly('bucket-id')).toBeTruthy();
+      expect(addUsage.calledOnceWithExactly(user.uuid, -1000)).toBeTruthy();
+      expect(removeBucket.called).toBeFalsy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3000 });
+    });
+
+    it('When the entries carry no size, then the total is left where it was', async () => {
+      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const bucket = fixtures.getBucket({ userId: user.uuid });
+
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(
+        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, size: undefined })
+      );
+      stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(0);
+      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(1);
+      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
+      stub(bucketsRepository, 'removeByIdAndUser').resolves();
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+
+      expect(deleteEntries.calledOnce).toBeTruthy();
+      expect(addUsage.called).toBeFalsy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
     });
   });
 });

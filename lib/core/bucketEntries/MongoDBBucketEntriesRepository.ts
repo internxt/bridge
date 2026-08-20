@@ -90,6 +90,24 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return bucketEntries.map(formatFromMongoToBucketEntry);
   }
 
+  async sumSizeByBucket(bucketId: string): Promise<number> {
+    const [result] = await this.model
+      .aggregate([
+        { $match: { bucket: new ObjectId(bucketId) } },
+        { $group: { _id: null, total: { $sum: '$size' } } },
+      ])
+      .read('primary')
+      .exec();
+
+    return result?.total ?? 0;
+  }
+
+  async deleteByBucket(bucketId: string): Promise<number> {
+    const { deletedCount } = await this.model.deleteMany({ bucket: bucketId });
+
+    return deletedCount ?? 0;
+  }
+
   async findByIds(ids: string[]): Promise<BucketEntry[]> {
     const bucketEntries = await this.model.find({ _id: { $in: ids } });
 

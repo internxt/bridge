@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import { validate as uuidValidate } from 'uuid';
 import { Logger } from 'winston';
 import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
-import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
-import { BucketNotFoundError } from '../../../core/buckets/usecase';
+import { BucketEntriesUsecase, ShardBackedBucketError } from '../../../core/bucketEntries/usecase';
+import { BucketForbiddenError, BucketNotFoundError } from '../../../core/buckets/usecase';
 
 import { GatewayUsecase } from '../../../core/gateway/Usecase';
 import { EventBus, EventBusEvents, UserStorageChangedPayload } from '../../eventBus';
@@ -196,6 +196,51 @@ export class HTTPGatewayController {
 
       this.logger.error(
         '[GATEWAY/CREATE_BUCKET] Error creating bucket for user %s: %s. %s',
+        uuid,
+        (err as Error).message,
+        (err as Error).stack || 'NO STACK'
+      );
+
+      return res.status(500).send({ message: 'Internal server error' });
+    }
+  }
+
+  async deleteUserBucket(
+    req: Request<{ uuid: string; id: string }>,
+    res: Response<UserSpaceSnapshot | { message: string }>
+  ) {
+    const { uuid, id } = req.params;
+
+    if (!uuid || !uuidValidate(uuid) || !id || !OBJECT_ID_PATTERN.test(id)) {
+      return res.status(400).send({ message: 'Invalid params' });
+    }
+
+    try {
+      const snapshot = await this.bucketEntriesUsecase.removeBucketAndEntries(uuid, id);
+
+      return res.status(200).send(snapshot);
+    } catch (err) {
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+
+      if (err instanceof BucketForbiddenError) {
+        return res.status(403).send({ message: err.message });
+      }
+
+      if (err instanceof ShardBackedBucketError) {
+        this.logger.warn(
+          '[GATEWAY/DELETE_BUCKET] Refused to purge shard-backed bucket %s of user %s',
+          id,
+          uuid
+        );
+
+        return res.status(409).send({ message: err.message });
+      }
+
+      this.logger.error(
+        '[GATEWAY/DELETE_BUCKET] Error deleting bucket %s of user %s: %s. %s',
+        id,
         uuid,
         (err as Error).message,
         (err as Error).stack || 'NO STACK'

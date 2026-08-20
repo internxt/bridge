@@ -16,6 +16,27 @@ import { User } from '../users/User';
 import { Bucket } from '../buckets/Bucket';
 import { FileStateRepository } from '../fileState/Repository';
 
+
+
+/**
+ * Raised when a bucket turns out to hold entries backed by shards.
+ *
+ * removeBucketAndEntries() drops entries wholesale without walking their
+ * shards, which is only safe for the shard-less buckets this route exists to
+ * purge. Doing it to a Drive bucket would strand its shards, mirrors and the
+ * bytes on the farmers with nothing left pointing at them, so it refuses.
+ */
+export class ShardBackedBucketError extends Error {
+  constructor() {
+    super('Bucket holds shard-backed entries and cannot be purged by this route');
+
+    Object.setPrototypeOf(this, ShardBackedBucketError.prototype);
+  }
+}
+
+const isShardBackedEntry = (entry: BucketEntry): boolean =>
+  Boolean(entry.frame) || Boolean(entry.index) || Boolean(entry.hmac);
+
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
     super('BucketEntryVersion not found');
@@ -179,8 +200,8 @@ export class BucketEntriesUsecase {
       await this.bucketEntryShardsRepository.deleteByIds(bucketEntryShardsIds);
     }
 
-    await this.bucketEntriesRepository.deleteByIds(fileIds);
     await this.fileStateRepository.deleteByBucketEntryIds(fileIds);
+    await this.bucketEntriesRepository.deleteByIds(fileIds);
   }
 
   private async findBucketOwner(
@@ -254,4 +275,64 @@ export class BucketEntriesUsecase {
       totalUsedSpaceBytes,
     };
   }
+
+  /**
+   * Removes a bucket and every entry in it.
+   *
+   * The entries this purges are metadata only: createEntry() writes a row with
+   * a bucket, a size and a version, and nothing else. Nothing downstream of a
+   * bucket entry exists for them, which is what makes a wholesale delete
+   * possible instead of walking each entry and its shards. Anything else in
+   * the bucket is refused, see ShardBackedBucketError.
+   *
+   * The whole thing is three commands regardless of how many entries the
+   * bucket holds
+   */
+  async removeBucketAndEntries(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id']
+  ): Promise<UserSpaceSnapshot> {
+    const user = await this.usersRepository.findByUuid(userUuid);
+
+    if (!user) {
+      throw new UserNotFoundError(userUuid);
+    }
+
+    const bucket = await this.bucketsRepository.findOne({ id: bucketId });
+
+    if (bucket && bucket.userId !== userUuid) {
+      throw new BucketForbiddenError();
+    }
+
+    const sample = await this.bucketEntriesRepository.findOne({ bucket: bucketId });
+    if (sample && isShardBackedEntry(sample)) {
+      throw new ShardBackedBucketError();
+    }
+
+    if (bucket) {
+      await this.bucketsRepository.removeByIdAndUser(bucketId, userUuid);
+    }
+
+    const releasedBytes = await this.bucketEntriesRepository.sumSizeByBucket(bucketId);
+
+    await this.bucketEntriesRepository.deleteByBucket(bucketId);
+
+    if (releasedBytes === 0) {
+      return {
+        maxSpaceBytes: user.maxSpaceBytes,
+        totalUsedSpaceBytes: user.totalUsedSpaceBytes,
+      };
+    }
+
+    const totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
+      userUuid,
+      -releasedBytes
+    );
+
+    return {
+      maxSpaceBytes: user.maxSpaceBytes,
+      totalUsedSpaceBytes,
+    };
+  }
+
 }
