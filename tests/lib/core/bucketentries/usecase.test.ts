@@ -25,6 +25,7 @@ import { ShardsUsecase } from '../../../../lib/core/shards/usecase';
 import fixtures from '../fixtures';
 import { BucketEntry } from '../../../../lib/core/bucketEntries/BucketEntry';
 import { Bucket } from '../../../../lib/core/buckets/Bucket';
+import { User } from '../../../../lib/core/users/User';
 import { ContactsRepository } from '../../../../lib/core/contacts/Repository';
 import { MongoDBContactsRepository } from '../../../../lib/core/contacts/MongoDBContactsRepository';
 import { FileStateRepository } from '../../../../lib/core/fileState/Repository';
@@ -755,9 +756,28 @@ describe('BucketEntriesUsecase', function () {
   });
 
   describe('removeBucketAndEntries()', () => {
+    const stubRepositories = (
+      user: User | null,
+      bucket: Bucket | null,
+      entry: BucketEntry | null,
+      { releasedBytes = 0, newTotal = 0 } = {}
+    ) => {
+      stub(usersRepository, 'findByUuid').resolves(user);
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      stub(bucketEntriesRepository, 'findOne').resolves(entry);
+
+      return {
+        sumSizes: stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(releasedBytes),
+        deleteEntries: stub(bucketEntriesRepository, 'deleteByBucket').resolves(),
+        addUsage: stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(newTotal),
+        removeBucket: stub(bucketsRepository, 'removeByIdAndUser').resolves(),
+      };
+    };
+
+    const getOwner = () => fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+
     it('When the user does not exist, then it throws UserNotFoundError', async () => {
-      stub(usersRepository, 'findByUuid').resolves(null);
-      const findBucket = stub(bucketsRepository, 'findOne');
+      const { deleteEntries, removeBucket } = stubRepositories(null, null, null);
 
       try {
         await bucketEntriesUsecase.removeBucketAndEntries('unknown-uuid', 'bucket-id');
@@ -766,21 +786,16 @@ describe('BucketEntriesUsecase', function () {
         expect(err).toBeInstanceOf(UserNotFoundError);
       }
 
-      expect(findBucket.called).toBeFalsy();
+      expect(deleteEntries.called).toBeFalsy();
+      expect(removeBucket.called).toBeFalsy();
     });
 
     it('When the bucket belongs to another user, then it throws BucketForbiddenError and removes nothing', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
-      const bucket = fixtures.getBucket();
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket');
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
+      const user = getOwner();
+      const { deleteEntries, removeBucket, addUsage } = stubRepositories(user, fixtures.getBucket(), null);
 
       try {
-        await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+        await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id');
         expect(true).toBeFalsy();
       } catch (err) {
         expect(err).toBeInstanceOf(BucketForbiddenError);
@@ -798,17 +813,13 @@ describe('BucketEntriesUsecase', function () {
     ])(
       'When the bucket holds entries with %s, then it refuses and leaves the bucket alone',
       async (_case, entryFields) => {
-        const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+        const user = getOwner();
         const bucket = fixtures.getBucket({ userId: user.uuid });
-
-        stub(usersRepository, 'findByUuid').resolves(user);
-        stub(bucketsRepository, 'findOne').resolves(bucket);
-        stub(bucketEntriesRepository, 'findOne').resolves(
+        const { deleteEntries, removeBucket, addUsage } = stubRepositories(
+          user,
+          bucket,
           fixtures.getBucketEntry({ bucket: bucket.id, ...entryFields })
         );
-        const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket');
-        const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
-        const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
 
         try {
           await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
@@ -823,17 +834,17 @@ describe('BucketEntriesUsecase', function () {
       }
     );
 
-    it('When the bucket is empty, then it is removed and the total is untouched', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+    it.each([
+      ['the bucket is empty', null],
+      ['the entries carry no size', { size: undefined }],
+    ])('When %s, then it is removed and the total is untouched', async (_case, entryFields) => {
+      const user = getOwner();
       const bucket = fixtures.getBucket({ userId: user.uuid });
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      stub(bucketEntriesRepository, 'findOne').resolves(null);
-      stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(0);
-      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(0);
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
+      const { deleteEntries, addUsage, removeBucket } = stubRepositories(
+        user,
+        bucket,
+        entryFields && fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, ...entryFields })
+      );
 
       const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
 
@@ -844,18 +855,14 @@ describe('BucketEntriesUsecase', function () {
     });
 
     it('When the bucket has entries, then they go in one delete and their total size is released', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+      const user = getOwner();
       const bucket = fixtures.getBucket({ userId: user.uuid });
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      stub(bucketEntriesRepository, 'findOne').resolves(
-        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, size: 500 })
+      const { sumSizes, deleteEntries, addUsage, removeBucket } = stubRepositories(
+        user,
+        bucket,
+        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, size: 500 }),
+        { releasedBytes: 2000, newTotal: 2000 }
       );
-      const sumSizes = stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(2000);
-      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(2);
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(2000);
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
 
       const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
 
@@ -864,23 +871,6 @@ describe('BucketEntriesUsecase', function () {
       expect(addUsage.calledOnceWithExactly(user.uuid, -2000)).toBeTruthy();
       expect(removeBucket.calledOnceWithExactly(bucket.id, user.uuid)).toBeTruthy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 2000 });
-    });
-
-    it('When the bucket has entries, then the bucket document is removed before the sum is taken', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
-      const bucket = fixtures.getBucket({ userId: user.uuid });
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      stub(bucketEntriesRepository, 'findOne').resolves(
-        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined })
-      );
-      const sumSizes = stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(2000);
-      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(2);
-      stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(2000);
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser').resolves();
-
-      await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
 
       // An entry created between the sum and the delete would be removed
       // without its size ever being released.
@@ -889,45 +879,19 @@ describe('BucketEntriesUsecase', function () {
     });
 
     it('When the bucket document is already gone, then it still drains the entries it left behind', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(null);
-      stub(bucketEntriesRepository, 'findOne').resolves(
-        fixtures.getBucketEntry({ bucket: 'bucket-id', frame: undefined, index: undefined })
+      const user = getOwner();
+      const { deleteEntries, addUsage } = stubRepositories(
+        user,
+        null,
+        fixtures.getBucketEntry({ bucket: 'bucket-id', frame: undefined, index: undefined }),
+        { releasedBytes: 1000, newTotal: 3000 }
       );
-      stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(1000);
-      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(1);
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(3000);
-      const removeBucket = stub(bucketsRepository, 'removeByIdAndUser');
 
       const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id');
 
       expect(deleteEntries.calledOnceWithExactly('bucket-id')).toBeTruthy();
       expect(addUsage.calledOnceWithExactly(user.uuid, -1000)).toBeTruthy();
-      expect(removeBucket.called).toBeFalsy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3000 });
-    });
-
-    it('When the entries carry no size, then the total is left where it was', async () => {
-      const user = fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
-      const bucket = fixtures.getBucket({ userId: user.uuid });
-
-      stub(usersRepository, 'findByUuid').resolves(user);
-      stub(bucketsRepository, 'findOne').resolves(bucket);
-      stub(bucketEntriesRepository, 'findOne').resolves(
-        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, size: undefined })
-      );
-      stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(0);
-      const deleteEntries = stub(bucketEntriesRepository, 'deleteByBucket').resolves(1);
-      const addUsage = stub(usersRepository, 'addTotalUsedSpaceBytes');
-      stub(bucketsRepository, 'removeByIdAndUser').resolves();
-
-      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
-
-      expect(deleteEntries.calledOnce).toBeTruthy();
-      expect(addUsage.called).toBeFalsy();
-      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
     });
   });
 });

@@ -102,10 +102,8 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return result?.total ?? 0;
   }
 
-  async deleteByBucket(bucketId: string): Promise<number> {
-    const { deletedCount } = await this.model.deleteMany({ bucket: bucketId });
-
-    return deletedCount ?? 0;
+  async deleteByBucket(bucketId: string): Promise<void> {
+    await this.model.deleteMany({ bucket: bucketId });
   }
 
   async findByIds(ids: string[]): Promise<BucketEntry[]> {

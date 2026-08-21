@@ -16,15 +16,11 @@ import { User } from '../users/User';
 import { Bucket } from '../buckets/Bucket';
 import { FileStateRepository } from '../fileState/Repository';
 
-
-
 /**
  * Raised when a bucket turns out to hold entries backed by shards.
  *
- * removeBucketAndEntries() drops entries wholesale without walking their
- * shards, which is only safe for the shard-less buckets this route exists to
- * purge. Doing it to a Drive bucket would strand its shards, mirrors and the
- * bytes on the farmers with nothing left pointing at them, so it refuses.
+ * Dropping those entries wholesale would strand their shards, mirrors and the
+ * bytes on the farmers with nothing left pointing at them.
  */
 export class ShardBackedBucketError extends Error {
   constructor() {
@@ -284,55 +280,42 @@ export class BucketEntriesUsecase {
    * bucket entry exists for them, which is what makes a wholesale delete
    * possible instead of walking each entry and its shards. Anything else in
    * the bucket is refused, see ShardBackedBucketError.
-   *
-   * The whole thing is three commands regardless of how many entries the
-   * bucket holds
    */
   async removeBucketAndEntries(
     userUuid: User['uuid'],
     bucketId: Bucket['id']
   ): Promise<UserSpaceSnapshot> {
-    const user = await this.usersRepository.findByUuid(userUuid);
+    const [user, bucket, sample] = await Promise.all([
+      this.usersRepository.findByUuid(userUuid),
+      this.bucketsRepository.findOne({ id: bucketId }),
+      this.bucketEntriesRepository.findOne({ bucket: bucketId }),
+    ]);
 
     if (!user) {
       throw new UserNotFoundError(userUuid);
     }
 
-    const bucket = await this.bucketsRepository.findOne({ id: bucketId });
-
     if (bucket && bucket.userId !== userUuid) {
       throw new BucketForbiddenError();
     }
 
-    const sample = await this.bucketEntriesRepository.findOne({ bucket: bucketId });
     if (sample && isShardBackedEntry(sample)) {
       throw new ShardBackedBucketError();
     }
 
-    if (bucket) {
-      await this.bucketsRepository.removeByIdAndUser(bucketId, userUuid);
-    }
+    await this.bucketsRepository.removeByIdAndUser(bucketId, userUuid);
 
     const releasedBytes = await this.bucketEntriesRepository.sumSizeByBucket(bucketId);
 
     await this.bucketEntriesRepository.deleteByBucket(bucketId);
 
-    if (releasedBytes === 0) {
-      return {
-        maxSpaceBytes: user.maxSpaceBytes,
-        totalUsedSpaceBytes: user.totalUsedSpaceBytes,
-      };
-    }
-
-    const totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
-      userUuid,
-      -releasedBytes
-    );
+    const totalUsedSpaceBytes = releasedBytes === 0
+      ? user.totalUsedSpaceBytes
+      : await this.usersRepository.addTotalUsedSpaceBytes(userUuid, -releasedBytes);
 
     return {
       maxSpaceBytes: user.maxSpaceBytes,
       totalUsedSpaceBytes,
     };
   }
-
 }

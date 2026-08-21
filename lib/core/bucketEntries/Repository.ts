@@ -7,7 +7,7 @@ export interface BucketEntriesRepository {
   findOne(where: Partial<BucketEntry>): Promise<BucketEntry | null>;
   findByBucket(bucketId: Bucket['id'], limit: number, offset: number): Promise<BucketEntry[]>;
   sumSizeByBucket(bucketId: Bucket['id']): Promise<number>;
-  deleteByBucket(bucketId: Bucket['id']): Promise<number>;
+  deleteByBucket(bucketId: Bucket['id']): Promise<void>;
   findByIds(ids: BucketEntry['id'][]): Promise<BucketEntry[]>;
   findOneWithFrame(where: Partial<BucketEntry>): Promise<Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame } | null>;
   findByIdsWithFrames(ids: BucketEntry['id'][]): Promise<(Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame })[]>;
