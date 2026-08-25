@@ -1,4 +1,4 @@
-import AWS from 'aws-sdk';
+import { S3Client, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { existsSync, createReadStream } from 'fs';
 import readline from 'readline';
 import { createHash } from 'crypto';
@@ -20,16 +20,16 @@ export interface ObjectStorageReader {
 }
 
 /**
- * The source should be a list of objects listed from the object storage. 
+ * The source should be a list of objects listed from the object storage.
  * Never use a list of unfinished multiparts as the source of truth for the
  * object storage. This will cause unintended deletion of objects that are
  * still being uploaded.
  */
 export class FileListObjectStorageReader implements ObjectStorageReader {
   private readonly filename: string;
-  
+
   /**
-   * 
+   *
    * @param filename The file should be a list of objects in the format:
    * ```
    * 1234 /path/to/object
@@ -77,21 +77,20 @@ export class FileListObjectStorageReader implements ObjectStorageReader {
 }
 
 export class S3ObjectStorageReader implements ObjectStorageReader {
-  private readonly s3: AWS.S3;
+  private readonly s3: S3Client;
   private readonly bucket: string;
-  
+
   constructor(
-    endpoint: string, 
-    region: string, 
-    accessKey: string, 
+    endpoint: string,
+    region: string,
+    accessKey: string,
     secretAccessKey: string,
     bucket: string,
   ) {
-    this.s3 = new AWS.S3({
+    this.s3 = new S3Client({
       endpoint,
-      signatureVersion: 'v4',
       region,
-      s3ForcePathStyle: true,
+      forcePathStyle: true,
       credentials: {
         accessKeyId: accessKey,
         secretAccessKey: secretAccessKey
@@ -103,14 +102,19 @@ export class S3ObjectStorageReader implements ObjectStorageReader {
   async* listObjects(pageSize = 1000): AsyncGenerator<StorageObject> {
     let lastPointer: string | undefined;
     do {
-      const response = await this.s3.listObjectsV2({
+      const response = await this.s3.send(new ListObjectsV2Command({
         Bucket: this.bucket,
         MaxKeys: pageSize,
         ContinuationToken: lastPointer
-      }).promise();
+      }));
       const objects = response.Contents ?? [];
       for (const object of objects) {
-        yield object as StorageObject;
+        if (!object.Key || object.Size === undefined) continue;
+        yield {
+          Key: object.Key,
+          Size: object.Size,
+          LastModified: object.LastModified ?? new Date(),
+        };
       }
       lastPointer = response.NextContinuationToken;
     } while (lastPointer);
@@ -118,18 +122,18 @@ export class S3ObjectStorageReader implements ObjectStorageReader {
 
   async find(key: string): Promise<StorageObject | null> {
     try {
-      const response = await this.s3.headObject({
+      const response = await this.s3.send(new HeadObjectCommand({
         Bucket: this.bucket,
         Key: key,
-      }).promise();
-      
+      }));
+
       return {
         Key: key,
         Size: response.ContentLength ?? 0,
         LastModified: response.LastModified ?? new Date(),
       };
     } catch (error) {
-      if ((error as { code: string }).code === 'NotFound') {
+      if (error instanceof Error && error.name === 'NotFound') {
         return null;
       }
       throw error;
@@ -162,7 +166,7 @@ export function ripemd160(content: string) {
   return createHash('ripemd160').update(Buffer.from(content, 'hex')).digest('hex');
 }
 
-export class DatabaseShardsReader implements ShardsReader {  
+export class DatabaseShardsReader implements ShardsReader {
   constructor(private readonly shardsRepository: ShardsRepository) {}
 
   isV1(s: Shard): boolean {

@@ -1,4 +1,4 @@
-import AWS from 'aws-sdk';
+import { S3Client, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { validate } from 'uuid';
 import { program } from 'commander';
 import { MongoDBShardsRepository } from '../../lib/core/shards/MongoDBShardsRepository';
@@ -58,11 +58,10 @@ const accessKey = options.accessKey;
 const secretAccessKey = options.secretAccessKey;
 
 console.log('PARAMS', { bucket, endpoint, region, accessKey, secretAccessKey });
-const s3 = new AWS.S3({
+const s3 = new S3Client({
   endpoint,
-  signatureVersion: 'v4',
   region,
-  s3ForcePathStyle: true,
+  forcePathStyle: true,
   credentials: {
     accessKeyId: accessKey,
     secretAccessKey: secretAccessKey
@@ -74,13 +73,13 @@ const s3 = new AWS.S3({
  * @param keys list of keys to delete
  */
 async function deleteObjects(keys: string[]): Promise<void> {
-  await s3.deleteObjects({
+  await s3.send(new DeleteObjectsCommand({
     Bucket: bucket,
     Delete: {
       Objects: keys.map(Key => ({ Key }))
     }
-  }).promise();
-} 
+  }));
+}
 
 let connected = false;
 let models: Models | null = null;
