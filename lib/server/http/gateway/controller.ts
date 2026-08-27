@@ -206,21 +206,26 @@ export class HTTPGatewayController {
   }
 
   async deleteUserBucket(
-    req: Request<{ uuid: string; id: string }>,
+    req: Request<{ uuid: string; id: string }, {}, {}, { name?: unknown }>,
     res: Response<UserSpaceSnapshot | { message: string }>
   ) {
     const { uuid, id } = req.params;
+    const { name } = req.query;
 
     if (!uuid || !uuidValidate(uuid) || !id || !OBJECT_ID_PATTERN.test(id)) {
       return res.status(400).send({ message: 'Invalid params' });
     }
 
+    if (typeof name !== 'string' || name.length === 0) {
+      return res.status(400).send({ message: 'name is required' });
+    }
+
     try {
-      const snapshot = await this.bucketEntriesUsecase.removeBucketAndEntries(uuid, id);
+      const snapshot = await this.bucketEntriesUsecase.removeBucketAndEntries(uuid, id, name);
 
       return res.status(200).send(snapshot);
     } catch (err) {
-      if (err instanceof UserNotFoundError) {
+      if (err instanceof UserNotFoundError || err instanceof BucketNotFoundError) {
         return res.status(404).send({ message: err.message });
       }
 

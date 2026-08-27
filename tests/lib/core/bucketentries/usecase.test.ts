@@ -1,7 +1,7 @@
 import { restore, stub } from 'sinon';
 import { Model } from 'mongoose';
 
-import { BucketEntriesRepository } from '../../../../lib/core/bucketEntries/Repository';
+import { BucketEntriesRepository, MetadataOnlyEntry } from '../../../../lib/core/bucketEntries/Repository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
 import { MirrorsRepository } from '../../../../lib/core/mirrors/Repository';
 import { ShardsRepository } from '../../../../lib/core/shards/Repository';
@@ -759,138 +759,188 @@ describe('BucketEntriesUsecase', function () {
     const stubRepositories = (
       user: User | null,
       bucket: Bucket | null,
-      entry: BucketEntry | null,
-      { releasedBytes = 0, newTotal = 0 } = {}
+      {
+        shardBacked = false,
+        pages = [] as MetadataOnlyEntry[][],
+        remaining = false,
+        newTotal = 0,
+      } = {}
     ) => {
       stub(usersRepository, 'findByUuid').resolves(user);
       stub(bucketsRepository, 'findOne').resolves(bucket);
-      stub(bucketEntriesRepository, 'findOne').resolves(entry);
+
+      const findEntries = stub(bucketEntriesRepository, 'findMetadataOnlyByBucket');
+      pages.forEach((page, call) => findEntries.onCall(call).resolves(page));
+      findEntries.resolves([]);
 
       return {
-        sumSizes: stub(bucketEntriesRepository, 'sumSizeByBucket').resolves(releasedBytes),
-        deleteEntries: stub(bucketEntriesRepository, 'deleteByBucket').resolves(),
+        findEntries,
+        hasShardBacked: stub(bucketEntriesRepository, 'hasShardBackedEntriesByBucket').resolves(shardBacked),
+        hasRemaining: stub(bucketEntriesRepository, 'hasEntriesByBucket').resolves(remaining),
+        deleteEntries: stub(bucketEntriesRepository, 'deleteByIds').resolves(),
         addUsage: stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(newTotal),
         removeBucket: stub(bucketsRepository, 'removeByIdAndUser').resolves(),
       };
     };
 
     const getOwner = () => fixtures.getUser({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
+    const getMailBucket = (user: User) =>
+      fixtures.getBucket({ userId: user.uuid, name: 'address-uuid' });
 
     it('When the user does not exist, then it throws UserNotFoundError', async () => {
-      const { deleteEntries, removeBucket } = stubRepositories(null, null, null);
+      const { deleteEntries, removeBucket, addUsage } = stubRepositories(null, null);
 
-      try {
-        await bucketEntriesUsecase.removeBucketAndEntries('unknown-uuid', 'bucket-id');
-        expect(true).toBeFalsy();
-      } catch (err) {
-        expect(err).toBeInstanceOf(UserNotFoundError);
-      }
-
-      expect(deleteEntries.called).toBeFalsy();
-      expect(removeBucket.called).toBeFalsy();
-    });
-
-    it('When the bucket belongs to another user, then it throws BucketForbiddenError and removes nothing', async () => {
-      const user = getOwner();
-      const { deleteEntries, removeBucket, addUsage } = stubRepositories(user, fixtures.getBucket(), null);
-
-      try {
-        await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id');
-        expect(true).toBeFalsy();
-      } catch (err) {
-        expect(err).toBeInstanceOf(BucketForbiddenError);
-      }
+      await expect(
+        bucketEntriesUsecase.removeBucketAndEntries('unknown-uuid', 'bucket-id', 'address-uuid')
+      ).rejects.toBeInstanceOf(UserNotFoundError);
 
       expect(deleteEntries.called).toBeFalsy();
       expect(removeBucket.called).toBeFalsy();
       expect(addUsage.called).toBeFalsy();
     });
 
-    it.each([
-      ['a frame', { frame: 'frame-id', index: undefined, hmac: undefined }],
-      ['an index', { frame: undefined, index: 'file-index' }],
-      ['an hmac', { frame: undefined, index: undefined, hmac: { type: 'sha512' as const, value: 'v' } }],
-    ])(
-      'When the bucket holds entries with %s, then it refuses and leaves the bucket alone',
-      async (_case, entryFields) => {
-        const user = getOwner();
-        const bucket = fixtures.getBucket({ userId: user.uuid });
-        const { deleteEntries, removeBucket, addUsage } = stubRepositories(
-          user,
-          bucket,
-          fixtures.getBucketEntry({ bucket: bucket.id, ...entryFields })
-        );
-
-        try {
-          await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
-          expect(true).toBeFalsy();
-        } catch (err) {
-          expect(err).toBeInstanceOf(ShardBackedBucketError);
-        }
-
-        expect(deleteEntries.called).toBeFalsy();
-        expect(removeBucket.called).toBeFalsy();
-        expect(addUsage.called).toBeFalsy();
-      }
-    );
-
-    it.each([
-      ['the bucket is empty', null],
-      ['the entries carry no size', { size: undefined }],
-    ])('When %s, then it is removed and the total is untouched', async (_case, entryFields) => {
+    it('When the bucket document does not exist, then it throws BucketNotFoundError and drains nothing', async () => {
       const user = getOwner();
-      const bucket = fixtures.getBucket({ userId: user.uuid });
-      const { deleteEntries, addUsage, removeBucket } = stubRepositories(
+      const { deleteEntries, removeBucket, addUsage } = stubRepositories(user, null);
+
+      await expect(
+        bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id', 'address-uuid')
+      ).rejects.toBeInstanceOf(BucketNotFoundError);
+
+      expect(deleteEntries.called).toBeFalsy();
+      expect(removeBucket.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
+    });
+
+    it('When the bucket belongs to another user, then it throws BucketForbiddenError and removes nothing', async () => {
+      const user = getOwner();
+      const { deleteEntries, removeBucket, addUsage } = stubRepositories(
         user,
-        bucket,
-        entryFields && fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, ...entryFields })
+        fixtures.getBucket({ name: 'address-uuid' })
       );
 
-      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
+      await expect(
+        bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id', 'address-uuid')
+      ).rejects.toBeInstanceOf(BucketForbiddenError);
 
-      expect(deleteEntries.calledOnceWithExactly(bucket.id)).toBeTruthy();
+      expect(deleteEntries.called).toBeFalsy();
+      expect(removeBucket.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
+    });
+
+    it('When the name does not match the bucket, then it throws BucketNotFoundError and removes nothing', async () => {
+      const user = getOwner();
+      const driveBucket = fixtures.getBucket({ userId: user.uuid, name: 'Bucket-a1b2c3' });
+      const { deleteEntries, removeBucket, addUsage } = stubRepositories(user, driveBucket);
+
+      await expect(
+        bucketEntriesUsecase.removeBucketAndEntries(user.uuid, driveBucket.id, 'address-uuid')
+      ).rejects.toBeInstanceOf(BucketNotFoundError);
+
+      expect(deleteEntries.called).toBeFalsy();
+      expect(removeBucket.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
+    });
+
+    it('When a single shard-backed entry exists among many, then it refuses and leaves the bucket alone', async () => {
+      const user = getOwner();
+      const bucket = getMailBucket(user);
+      const { findEntries, deleteEntries, removeBucket, addUsage } = stubRepositories(user, bucket, {
+        shardBacked: true,
+        pages: [[{ id: 'entry-1', size: 500 }]],
+      });
+
+      await expect(
+        bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id, bucket.name)
+      ).rejects.toBeInstanceOf(ShardBackedBucketError);
+
+      expect(findEntries.called).toBeFalsy();
+      expect(deleteEntries.called).toBeFalsy();
+      expect(removeBucket.called).toBeFalsy();
+      expect(addUsage.called).toBeFalsy();
+    });
+
+    it('When entries survive the drain, then the bucket document is kept', async () => {
+      const user = getOwner();
+      const bucket = getMailBucket(user);
+      const { removeBucket } = stubRepositories(user, bucket, {
+        pages: [[{ id: 'entry-1', size: 500 }]],
+        remaining: true,
+        newTotal: 3500,
+      });
+
+      await expect(
+        bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id, bucket.name)
+      ).rejects.toBeInstanceOf(ShardBackedBucketError);
+
+      expect(removeBucket.called).toBeFalsy();
+    });
+
+    it('When the bucket is empty, then it is removed and the total is untouched', async () => {
+      const user = getOwner();
+      const bucket = getMailBucket(user);
+      const { deleteEntries, addUsage, removeBucket } = stubRepositories(user, bucket);
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(
+        user.uuid,
+        bucket.id,
+        bucket.name
+      );
+
+      expect(deleteEntries.called).toBeFalsy();
       expect(addUsage.called).toBeFalsy();
       expect(removeBucket.calledOnceWithExactly(bucket.id, user.uuid)).toBeTruthy();
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
     });
 
-    it('When the bucket has entries, then they go in one delete and their total size is released', async () => {
+    it('When the entries carry no size, then they are deleted and nothing is charged back', async () => {
       const user = getOwner();
-      const bucket = fixtures.getBucket({ userId: user.uuid });
-      const { sumSizes, deleteEntries, addUsage, removeBucket } = stubRepositories(
-        user,
-        bucket,
-        fixtures.getBucketEntry({ bucket: bucket.id, frame: undefined, index: undefined, size: 500 }),
-        { releasedBytes: 2000, newTotal: 2000 }
+      const bucket = getMailBucket(user);
+      const entry = { id: 'entry-1', size: undefined };
+      const { deleteEntries, addUsage, removeBucket } = stubRepositories(user, bucket, {
+        pages: [[entry]],
+      });
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(
+        user.uuid,
+        bucket.id,
+        bucket.name
       );
 
-      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id);
-
-      expect(sumSizes.calledOnceWithExactly(bucket.id)).toBeTruthy();
-      expect(deleteEntries.calledOnceWithExactly(bucket.id)).toBeTruthy();
-      expect(addUsage.calledOnceWithExactly(user.uuid, -2000)).toBeTruthy();
-      expect(removeBucket.calledOnceWithExactly(bucket.id, user.uuid)).toBeTruthy();
-      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 2000 });
-
-      // An entry created between the sum and the delete would be removed
-      // without its size ever being released.
-      expect(removeBucket.calledBefore(sumSizes)).toBeTruthy();
-      expect(sumSizes.calledBefore(deleteEntries)).toBeTruthy();
+      expect(deleteEntries.calledOnceWithExactly([entry.id])).toBeTruthy();
+      expect(addUsage.called).toBeFalsy();
+      expect(removeBucket.called).toBeTruthy();
+      expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 4000 });
     });
 
-    it('When the bucket document is already gone, then it still drains the entries it left behind', async () => {
+    it('When the entries span several batches, then each batch releases exactly its own bytes', async () => {
       const user = getOwner();
-      const { deleteEntries, addUsage } = stubRepositories(
-        user,
-        null,
-        fixtures.getBucketEntry({ bucket: 'bucket-id', frame: undefined, index: undefined }),
-        { releasedBytes: 1000, newTotal: 3000 }
+      const bucket = getMailBucket(user);
+      const first = [{ id: 'entry-1', size: 500 }, { id: 'entry-2', size: 300 }];
+      const second = [{ id: 'entry-3', size: 200 }];
+
+      const { deleteEntries, addUsage, removeBucket } = stubRepositories(user, bucket, {
+        pages: [first, second],
+        newTotal: 3000,
+      });
+
+      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(
+        user.uuid,
+        bucket.id,
+        bucket.name
       );
 
-      const snapshot = await bucketEntriesUsecase.removeBucketAndEntries(user.uuid, 'bucket-id');
+      expect(deleteEntries.callCount).toBe(2);
+      expect(deleteEntries.firstCall.calledWithExactly(first.map((e) => e.id))).toBeTruthy();
+      expect(deleteEntries.secondCall.calledWithExactly(second.map((e) => e.id))).toBeTruthy();
 
-      expect(deleteEntries.calledOnceWithExactly('bucket-id')).toBeTruthy();
-      expect(addUsage.calledOnceWithExactly(user.uuid, -1000)).toBeTruthy();
+      expect(addUsage.callCount).toBe(2);
+      expect(addUsage.firstCall.calledWithExactly(user.uuid, -800)).toBeTruthy();
+      expect(addUsage.secondCall.calledWithExactly(user.uuid, -200)).toBeTruthy();
+
+      expect(removeBucket.calledOnceWithExactly(bucket.id, user.uuid)).toBeTruthy();
+      expect(deleteEntries.secondCall.calledBefore(removeBucket.firstCall)).toBeTruthy();
+
       expect(snapshot).toStrictEqual({ maxSpaceBytes: 10000, totalUsedSpaceBytes: 3000 });
     });
   });

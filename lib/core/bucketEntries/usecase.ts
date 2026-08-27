@@ -30,8 +30,7 @@ export class ShardBackedBucketError extends Error {
   }
 }
 
-const isShardBackedEntry = (entry: BucketEntry): boolean =>
-  Boolean(entry.frame) || Boolean(entry.index) || Boolean(entry.hmac);
+const PURGE_BATCH_SIZE = 500;
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -278,40 +277,75 @@ export class BucketEntriesUsecase {
    * The entries this purges are metadata only: createEntry() writes a row with
    * a bucket, a size and a version, and nothing else. Nothing downstream of a
    * bucket entry exists for them, which is what makes a wholesale delete
-   * possible instead of walking each entry and its shards. Anything else in
-   * the bucket is refused, see ShardBackedBucketError.
+   * possible instead of walking each entry and its shards.
+   *
+   * A Drive bucket reaching this method would lose its files and strand their
+   * shards with nothing left to enumerate them by. The guards below read
+   * themselves, but note that the last of them - the delete only ever matching
+   * metadata-only entries - holds even if every check above it is wrong.
+   *
+   * BucketsUsecase.deleteBucketByIdAndUser is the legacy-stack equivalent; it
+   * drops the bucket document alone and does no usage accounting.
    */
   async removeBucketAndEntries(
     userUuid: User['uuid'],
-    bucketId: Bucket['id']
+    bucketId: Bucket['id'],
+    bucketName: Bucket['name']
   ): Promise<UserSpaceSnapshot> {
-    const [user, bucket, sample] = await Promise.all([
+    const [user, bucket] = await Promise.all([
       this.usersRepository.findByUuid(userUuid),
       this.bucketsRepository.findOne({ id: bucketId }),
-      this.bucketEntriesRepository.findOne({ bucket: bucketId }),
     ]);
 
     if (!user) {
       throw new UserNotFoundError(userUuid);
     }
 
-    if (bucket && bucket.userId !== userUuid) {
+    if (!bucket) {
+      throw new BucketNotFoundError();
+    }
+
+    if (bucket.userId !== userUuid) {
       throw new BucketForbiddenError();
     }
 
-    if (sample && isShardBackedEntry(sample)) {
+    if (bucket.name !== bucketName) {
+      throw new BucketNotFoundError();
+    }
+
+    if (await this.bucketEntriesRepository.hasShardBackedEntriesByBucket(bucketId)) {
+      throw new ShardBackedBucketError();
+    }
+
+    let totalUsedSpaceBytes = user.totalUsedSpaceBytes;
+
+    for (;;) {
+      const entries = await this.bucketEntriesRepository.findMetadataOnlyByBucket(
+        bucketId,
+        PURGE_BATCH_SIZE
+      );
+
+      if (entries.length === 0) {
+        break;
+      }
+
+      const releasedBytes = entries.reduce((total, entry) => total + (entry.size ?? 0), 0);
+
+      await this.bucketEntriesRepository.deleteByIds(entries.map((entry) => entry.id));
+
+      if (releasedBytes > 0) {
+        totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
+          userUuid,
+          -releasedBytes
+        );
+      }
+    }
+
+    if (await this.bucketEntriesRepository.hasEntriesByBucket(bucketId)) {
       throw new ShardBackedBucketError();
     }
 
     await this.bucketsRepository.removeByIdAndUser(bucketId, userUuid);
-
-    const releasedBytes = await this.bucketEntriesRepository.sumSizeByBucket(bucketId);
-
-    await this.bucketEntriesRepository.deleteByBucket(bucketId);
-
-    const totalUsedSpaceBytes = releasedBytes === 0
-      ? user.totalUsedSpaceBytes
-      : await this.usersRepository.addTotalUsedSpaceBytes(userUuid, -releasedBytes);
 
     return {
       maxSpaceBytes: user.maxSpaceBytes,

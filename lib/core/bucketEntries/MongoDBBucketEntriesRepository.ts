@@ -1,7 +1,20 @@
 import { Frame } from '../frames/Frame';
 import { BucketEntry, BucketEntryWithFrame } from './BucketEntry';
-import { BucketEntriesRepository } from './Repository';
+import { BucketEntriesRepository, MetadataOnlyEntry } from './Repository';
 import { ObjectId } from 'mongodb';
+
+/**
+ * The fields that mark an entry as backed by storage: `frame` on v1 entries,
+ * `index` and `hmac` on v2 uploads. Gateway entries (createEntry) set none of
+ * them, which is what makes them safe to drop wholesale.
+ */
+const SHARD_MARKERS = ['frame', 'index', 'hmac.value'];
+
+const markersExist = (exists: boolean) =>
+  SHARD_MARKERS.map((field) => ({ [field]: { $exists: exists } }));
+
+const SHARD_BACKED = { $or: markersExist(true) };
+const METADATA_ONLY = { $and: markersExist(false) };
 
 interface BucketEntryModel extends Omit<BucketEntry, 'id'> {
   _id: string;
@@ -90,20 +103,39 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return bucketEntries.map(formatFromMongoToBucketEntry);
   }
 
-  async sumSizeByBucket(bucketId: string): Promise<number> {
-    const [result] = await this.model
-      .aggregate([
-        { $match: { bucket: new ObjectId(bucketId) } },
-        { $group: { _id: null, total: { $sum: '$size' } } },
-      ])
+  private async existsByBucket(bucketId: string, filter = {}): Promise<boolean> {
+    const found = await this.model
+      .countDocuments({ bucket: bucketId, ...filter }, { limit: 1 })
       .read('primary')
       .exec();
 
-    return result?.total ?? 0;
+    return found > 0;
   }
 
-  async deleteByBucket(bucketId: string): Promise<void> {
-    await this.model.deleteMany({ bucket: bucketId });
+  hasEntriesByBucket(bucketId: string): Promise<boolean> {
+    return this.existsByBucket(bucketId);
+  }
+
+  hasShardBackedEntriesByBucket(bucketId: string): Promise<boolean> {
+    return this.existsByBucket(bucketId, SHARD_BACKED);
+  }
+
+  async findMetadataOnlyByBucket(
+    bucketId: string,
+    limit: number
+  ): Promise<MetadataOnlyEntry[]> {
+    const bucketEntries = await this.model
+      .find({ bucket: bucketId, ...METADATA_ONLY })
+      .select('_id size')
+      .limit(limit)
+      .read('primary')
+      .lean()
+      .exec();
+
+    return bucketEntries.map((entry: { _id: unknown; size?: number }) => ({
+      id: String(entry._id),
+      size: entry.size,
+    }));
   }
 
   async findByIds(ids: string[]): Promise<BucketEntry[]> {
