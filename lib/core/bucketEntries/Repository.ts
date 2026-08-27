@@ -2,7 +2,10 @@ import { Bucket } from "../buckets/Bucket";
 import { Frame } from "../frames/Frame";
 import { BucketEntry, BucketEntryWithFrame } from "./BucketEntry";
 
-export type MetadataOnlyEntry = Pick<BucketEntry, 'id' | 'size'>;
+export interface BucketEntriesSummary {
+  shardBackedCount: number;
+  metadataOnlyBytes: number;
+}
 
 export interface BucketEntriesRepository {
   count(where: Partial<BucketEntry>): Promise<number>;
@@ -10,7 +13,8 @@ export interface BucketEntriesRepository {
   findByBucket(bucketId: Bucket['id'], limit: number, offset: number): Promise<BucketEntry[]>;
   hasEntriesByBucket(bucketId: Bucket['id']): Promise<boolean>;
   hasShardBackedEntriesByBucket(bucketId: Bucket['id']): Promise<boolean>;
-  findMetadataOnlyByBucket(bucketId: Bucket['id'], limit: number): Promise<MetadataOnlyEntry[]>;
+  summarizeByBucket(bucketId: Bucket['id']): Promise<BucketEntriesSummary>;
+  deleteMetadataOnlyByBucket(bucketId: Bucket['id']): Promise<void>;
   findByIds(ids: BucketEntry['id'][]): Promise<BucketEntry[]>;
   findOneWithFrame(where: Partial<BucketEntry>): Promise<Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame } | null>;
   findByIdsWithFrames(ids: BucketEntry['id'][]): Promise<(Omit<BucketEntryWithFrame, 'frame'> & { frame?: Frame })[]>;

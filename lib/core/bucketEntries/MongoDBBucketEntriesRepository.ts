@@ -1,6 +1,6 @@
 import { Frame } from '../frames/Frame';
 import { BucketEntry, BucketEntryWithFrame } from './BucketEntry';
-import { BucketEntriesRepository, MetadataOnlyEntry } from './Repository';
+import { BucketEntriesRepository, BucketEntriesSummary } from './Repository';
 import { ObjectId } from 'mongodb';
 
 /**
@@ -10,11 +10,19 @@ import { ObjectId } from 'mongodb';
  */
 const SHARD_MARKERS = ['frame', 'index', 'hmac.value'];
 
-const markersExist = (exists: boolean) =>
-  SHARD_MARKERS.map((field) => ({ [field]: { $exists: exists } }));
+const METADATA_ONLY = {
+  $and: SHARD_MARKERS.map((field) => ({ [field]: { $exists: false } })),
+};
 
-const SHARD_BACKED = { $or: markersExist(true) };
-const METADATA_ONLY = { $and: markersExist(false) };
+const SHARD_BACKED = {
+  $or: SHARD_MARKERS.map((field) => ({ [field]: { $exists: true } })),
+};
+
+const IS_SHARD_BACKED = {
+  $or: SHARD_MARKERS.map((field) => ({
+    $ne: [{ $type: `$${field}` }, 'missing'],
+  })),
+};
 
 interface BucketEntryModel extends Omit<BucketEntry, 'id'> {
   _id: string;
@@ -103,39 +111,51 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return bucketEntries.map(formatFromMongoToBucketEntry);
   }
 
-  private async existsByBucket(bucketId: string, filter = {}): Promise<boolean> {
+  async hasEntriesByBucket(bucketId: string): Promise<boolean> {
     const found = await this.model
-      .countDocuments({ bucket: bucketId, ...filter }, { limit: 1 })
+      .countDocuments({ bucket: bucketId }, { limit: 1 })
       .read('primary')
       .exec();
 
     return found > 0;
   }
 
-  hasEntriesByBucket(bucketId: string): Promise<boolean> {
-    return this.existsByBucket(bucketId);
-  }
-
-  hasShardBackedEntriesByBucket(bucketId: string): Promise<boolean> {
-    return this.existsByBucket(bucketId, SHARD_BACKED);
-  }
-
-  async findMetadataOnlyByBucket(
-    bucketId: string,
-    limit: number
-  ): Promise<MetadataOnlyEntry[]> {
-    const bucketEntries = await this.model
-      .find({ bucket: bucketId, ...METADATA_ONLY })
-      .select('_id size')
-      .limit(limit)
+  async hasShardBackedEntriesByBucket(bucketId: string): Promise<boolean> {
+    const found = await this.model
+      .countDocuments({ bucket: bucketId, ...SHARD_BACKED }, { limit: 1 })
       .read('primary')
-      .lean()
       .exec();
 
-    return bucketEntries.map((entry: { _id: unknown; size?: number }) => ({
-      id: String(entry._id),
-      size: entry.size,
-    }));
+    return found > 0;
+  }
+
+  async summarizeByBucket(bucketId: string): Promise<BucketEntriesSummary> {
+    const [summary] = await this.model
+      .aggregate([
+        { $match: { bucket: new ObjectId(bucketId) } },
+        {
+          $group: {
+            _id: null,
+            shardBackedCount: { $sum: { $cond: [IS_SHARD_BACKED, 1, 0] } },
+            metadataOnlyBytes: {
+              $sum: {
+                $cond: [IS_SHARD_BACKED, 0, { $ifNull: ['$size', 0] }],
+              },
+            },
+          },
+        },
+      ])
+      .read('primary')
+      .exec();
+
+    return {
+      shardBackedCount: summary?.shardBackedCount ?? 0,
+      metadataOnlyBytes: summary?.metadataOnlyBytes ?? 0,
+    };
+  }
+
+  async deleteMetadataOnlyByBucket(bucketId: string): Promise<void> {
+    await this.model.deleteMany({ bucket: bucketId, ...METADATA_ONLY });
   }
 
   async findByIds(ids: string[]): Promise<BucketEntry[]> {

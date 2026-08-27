@@ -1,5 +1,6 @@
 import lodash from 'lodash';
 
+import log from '../../logger';
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
 import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError } from '../buckets/usecase';
@@ -29,8 +30,6 @@ export class ShardBackedBucketError extends Error {
     Object.setPrototypeOf(this, ShardBackedBucketError.prototype);
   }
 }
-
-const PURGE_BATCH_SIZE = 500;
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -317,29 +316,31 @@ export class BucketEntriesUsecase {
       throw new ShardBackedBucketError();
     }
 
+    const { shardBackedCount, metadataOnlyBytes } =
+      await this.bucketEntriesRepository.summarizeByBucket(bucketId);
+
+    if (shardBackedCount > 0) {
+      throw new ShardBackedBucketError();
+    }
+
     let totalUsedSpaceBytes = user.totalUsedSpaceBytes;
 
-    for (;;) {
-      const entries = await this.bucketEntriesRepository.findMetadataOnlyByBucket(
-        bucketId,
-        PURGE_BATCH_SIZE
+    log.info(
+      `[removeBucketAndEntries] purging bucket - userUuid: ${userUuid}, bucketId: ${bucketId}, metadataOnlyBytes: ${metadataOnlyBytes}`
+    );
+
+    await this.bucketEntriesRepository.deleteMetadataOnlyByBucket(bucketId);
+
+    if (metadataOnlyBytes > 0) {
+      totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
+        userUuid,
+        -metadataOnlyBytes
       );
-
-      if (entries.length === 0) {
-        break;
-      }
-
-      const releasedBytes = entries.reduce((total, entry) => total + (entry.size ?? 0), 0);
-
-      await this.bucketEntriesRepository.deleteByIds(entries.map((entry) => entry.id));
-
-      if (releasedBytes > 0) {
-        totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
-          userUuid,
-          -releasedBytes
-        );
-      }
     }
+
+    log.info(
+      `[removeBucketAndEntries] usage credited - userUuid: ${userUuid}, bucketId: ${bucketId}, releasedBytes: ${metadataOnlyBytes}, totalUsedSpaceBytes: ${totalUsedSpaceBytes}`
+    );
 
     if (await this.bucketEntriesRepository.hasEntriesByBucket(bucketId)) {
       throw new ShardBackedBucketError();
