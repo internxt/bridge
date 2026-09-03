@@ -1,5 +1,6 @@
 import lodash from 'lodash';
 
+import log from '../../logger';
 import { BucketsRepository } from '../buckets/Repository';
 import { BucketEntriesRepository } from './Repository';
 import { BucketNotFoundError, BucketForbiddenError, BucketEntryNotFoundError } from '../buckets/usecase';
@@ -15,6 +16,20 @@ import { UserNotFoundError, UserSpaceSnapshot } from '../users';
 import { User } from '../users/User';
 import { Bucket } from '../buckets/Bucket';
 import { FileStateRepository } from '../fileState/Repository';
+
+/**
+ * Raised when a bucket turns out to hold entries backed by shards.
+ *
+ * Dropping those entries wholesale would strand their shards, mirrors and the
+ * bytes on the farmers with nothing left pointing at them.
+ */
+export class ShardBackedBucketError extends Error {
+  constructor() {
+    super('Bucket holds shard-backed entries and cannot be purged by this route');
+
+    Object.setPrototypeOf(this, ShardBackedBucketError.prototype);
+  }
+}
 
 export class BucketEntryVersionNotFoundError extends Error {
   constructor() {
@@ -179,8 +194,8 @@ export class BucketEntriesUsecase {
       await this.bucketEntryShardsRepository.deleteByIds(bucketEntryShardsIds);
     }
 
-    await this.bucketEntriesRepository.deleteByIds(fileIds);
     await this.fileStateRepository.deleteByBucketEntryIds(fileIds);
+    await this.bucketEntriesRepository.deleteByIds(fileIds);
   }
 
   private async findBucketOwner(
@@ -248,6 +263,86 @@ export class BucketEntriesUsecase {
       userUuid,
       -(entry.size || 0)
     );
+
+    return {
+      maxSpaceBytes: user.maxSpaceBytes,
+      totalUsedSpaceBytes,
+    };
+  }
+
+  /**
+   * Removes a bucket and every entry in it.
+   *
+   * The entries this purges are metadata only: createEntry() writes a row with
+   * a bucket, a size and a version, and nothing else. Nothing downstream of a
+   * bucket entry exists for them, which is what makes a wholesale delete
+   * possible instead of walking each entry and its shards.
+   *
+   * A Drive bucket reaching this method would lose its files and strand their
+   * shards with nothing left to enumerate them by. The guards below read
+   * themselves, but note that the last of them - the delete only ever matching
+   * metadata-only entries - holds even if every check above it is wrong.
+   *
+   * BucketsUsecase.deleteBucketByIdAndUser is the legacy-stack equivalent; it
+   * drops the bucket document alone and does no usage accounting.
+   */
+  async removeBucketAndEntries(
+    userUuid: User['uuid'],
+    bucketId: Bucket['id'],
+    bucketName: Bucket['name']
+  ): Promise<UserSpaceSnapshot> {
+    const [user, bucket] = await Promise.all([
+      this.usersRepository.findByUuid(userUuid),
+      this.bucketsRepository.findOne({ id: bucketId }),
+    ]);
+
+    if (!user) {
+      throw new UserNotFoundError(userUuid);
+    }
+
+    if (!bucket) {
+      throw new BucketNotFoundError();
+    }
+
+    if (bucket.userId !== userUuid) {
+      throw new BucketForbiddenError();
+    }
+
+    if (bucket.name !== bucketName) {
+      throw new BucketNotFoundError();
+    }
+
+    if (await this.bucketEntriesRepository.hasShardBackedEntriesByBucket(bucketId)) {
+      throw new ShardBackedBucketError();
+    }
+
+    const metadataOnlyBytes =
+      await this.bucketEntriesRepository.sumMetadataOnlyBytesByBucket(bucketId);
+
+    let totalUsedSpaceBytes = user.totalUsedSpaceBytes;
+
+    log.info(
+      `[removeBucketAndEntries] purging bucket - userUuid: ${userUuid}, bucketId: ${bucketId}, metadataOnlyBytes: ${metadataOnlyBytes}`
+    );
+
+    await this.bucketEntriesRepository.deleteMetadataOnlyByBucket(bucketId);
+
+    if (metadataOnlyBytes > 0) {
+      totalUsedSpaceBytes = await this.usersRepository.addTotalUsedSpaceBytes(
+        userUuid,
+        -metadataOnlyBytes
+      );
+    }
+
+    log.info(
+      `[removeBucketAndEntries] usage credited - userUuid: ${userUuid}, bucketId: ${bucketId}, releasedBytes: ${metadataOnlyBytes}, totalUsedSpaceBytes: ${totalUsedSpaceBytes}`
+    );
+
+    if (await this.bucketEntriesRepository.hasEntriesByBucket(bucketId)) {
+      throw new ShardBackedBucketError();
+    }
+
+    await this.bucketsRepository.removeByIdAndUser(bucketId, userUuid);
 
     return {
       maxSpaceBytes: user.maxSpaceBytes,
