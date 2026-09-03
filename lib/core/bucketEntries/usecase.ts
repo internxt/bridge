@@ -316,12 +316,8 @@ export class BucketEntriesUsecase {
       throw new ShardBackedBucketError();
     }
 
-    const { shardBackedCount, metadataOnlyBytes } =
-      await this.bucketEntriesRepository.summarizeByBucket(bucketId);
-
-    if (shardBackedCount > 0) {
-      throw new ShardBackedBucketError();
-    }
+    const metadataOnlyBytes =
+      await this.bucketEntriesRepository.sumMetadataOnlyBytesByBucket(bucketId);
 
     let totalUsedSpaceBytes = user.totalUsedSpaceBytes;
 

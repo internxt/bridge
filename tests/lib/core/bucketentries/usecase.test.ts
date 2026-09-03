@@ -761,7 +761,6 @@ describe('BucketEntriesUsecase', function () {
       bucket: Bucket | null,
       {
         shardBacked = false,
-        shardBackedCount = 0,
         metadataOnlyBytes = 0,
         remaining = false,
         newTotal = 0,
@@ -774,10 +773,9 @@ describe('BucketEntriesUsecase', function () {
         hasShardBacked: stub(bucketEntriesRepository, 'hasShardBackedEntriesByBucket').resolves(
           shardBacked
         ),
-        summarize: stub(bucketEntriesRepository, 'summarizeByBucket').resolves({
-          shardBackedCount,
-          metadataOnlyBytes,
-        }),
+        sumBytes: stub(bucketEntriesRepository, 'sumMetadataOnlyBytesByBucket').resolves(
+          metadataOnlyBytes
+        ),
         hasRemaining: stub(bucketEntriesRepository, 'hasEntriesByBucket').resolves(remaining),
         deleteEntries: stub(bucketEntriesRepository, 'deleteMetadataOnlyByBucket').resolves(),
         addUsage: stub(usersRepository, 'addTotalUsedSpaceBytes').resolves(newTotal),
@@ -847,7 +845,7 @@ describe('BucketEntriesUsecase', function () {
     it('When a single shard-backed entry exists among many, then it refuses without scanning the bucket', async () => {
       const user = getOwner();
       const bucket = getMailBucket(user);
-      const { summarize, deleteEntries, removeBucket, addUsage } = stubRepositories(user, bucket, {
+      const { sumBytes, deleteEntries, removeBucket, addUsage } = stubRepositories(user, bucket, {
         shardBacked: true,
         metadataOnlyBytes: 500,
       });
@@ -856,24 +854,7 @@ describe('BucketEntriesUsecase', function () {
         bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id, bucket.name)
       ).rejects.toBeInstanceOf(ShardBackedBucketError);
 
-      expect(summarize.called).toBeFalsy();
-      expect(deleteEntries.called).toBeFalsy();
-      expect(removeBucket.called).toBeFalsy();
-      expect(addUsage.called).toBeFalsy();
-    });
-
-    it('When the summary still reports shard-backed entries, then it refuses before deleting anything', async () => {
-      const user = getOwner();
-      const bucket = getMailBucket(user);
-      const { deleteEntries, removeBucket, addUsage } = stubRepositories(user, bucket, {
-        shardBackedCount: 1,
-        metadataOnlyBytes: 500,
-      });
-
-      await expect(
-        bucketEntriesUsecase.removeBucketAndEntries(user.uuid, bucket.id, bucket.name)
-      ).rejects.toBeInstanceOf(ShardBackedBucketError);
-
+      expect(sumBytes.called).toBeFalsy();
       expect(deleteEntries.called).toBeFalsy();
       expect(removeBucket.called).toBeFalsy();
       expect(addUsage.called).toBeFalsy();
@@ -934,7 +915,7 @@ describe('BucketEntriesUsecase', function () {
       const user = getOwner();
       const bucket = getMailBucket(user);
 
-      const { summarize, deleteEntries, addUsage, removeBucket } = stubRepositories(user, bucket, {
+      const { sumBytes, deleteEntries, addUsage, removeBucket } = stubRepositories(user, bucket, {
         metadataOnlyBytes: 1000,
         newTotal: 3000,
       });
@@ -945,7 +926,7 @@ describe('BucketEntriesUsecase', function () {
         bucket.name
       );
 
-      expect(summarize.calledOnceWithExactly(bucket.id)).toBeTruthy();
+      expect(sumBytes.calledOnceWithExactly(bucket.id)).toBeTruthy();
       expect(deleteEntries.calledOnceWithExactly(bucket.id)).toBeTruthy();
       expect(addUsage.calledOnceWithExactly(user.uuid, -1000)).toBeTruthy();
 

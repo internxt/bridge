@@ -1,6 +1,6 @@
 import { Frame } from '../frames/Frame';
 import { BucketEntry, BucketEntryWithFrame } from './BucketEntry';
-import { BucketEntriesRepository, BucketEntriesSummary } from './Repository';
+import { BucketEntriesRepository } from './Repository';
 import { ObjectId } from 'mongodb';
 
 /**
@@ -16,12 +16,6 @@ const METADATA_ONLY = {
 
 const SHARD_BACKED = {
   $or: SHARD_MARKERS.map((field) => ({ [field]: { $exists: true } })),
-};
-
-const IS_SHARD_BACKED = {
-  $or: SHARD_MARKERS.map((field) => ({
-    $ne: [{ $type: `$${field}` }, 'missing'],
-  })),
 };
 
 interface BucketEntryModel extends Omit<BucketEntry, 'id'> {
@@ -129,29 +123,16 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     return found > 0;
   }
 
-  async summarizeByBucket(bucketId: string): Promise<BucketEntriesSummary> {
-    const [summary] = await this.model
+  async sumMetadataOnlyBytesByBucket(bucketId: string): Promise<number> {
+    const [result] = await this.model
       .aggregate([
-        { $match: { bucket: new ObjectId(bucketId) } },
-        {
-          $group: {
-            _id: null,
-            shardBackedCount: { $sum: { $cond: [IS_SHARD_BACKED, 1, 0] } },
-            metadataOnlyBytes: {
-              $sum: {
-                $cond: [IS_SHARD_BACKED, 0, { $ifNull: ['$size', 0] }],
-              },
-            },
-          },
-        },
+        { $match: { bucket: new ObjectId(bucketId), ...METADATA_ONLY } },
+        { $group: { _id: null, bytes: { $sum: '$size' } } },
       ])
       .read('primary')
       .exec();
 
-    return {
-      shardBackedCount: summary?.shardBackedCount ?? 0,
-      metadataOnlyBytes: summary?.metadataOnlyBytes ?? 0,
-    };
+    return result?.bytes ?? 0;
   }
 
   async deleteMetadataOnlyByBucket(bucketId: string): Promise<void> {
