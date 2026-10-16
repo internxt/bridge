@@ -67,11 +67,13 @@ export class BucketEntriesUsecase {
       throw new BucketForbiddenError();
     }
 
-    return this.removeFile(fileId);
+    return this.removeFile(fileId, bucketId);
   }
 
-  async removeFile(fileId: string): Promise<void> {
-    const bucketEntry = await this.bucketEntriesRepository.findOne({ id: fileId });
+  async removeFile(fileId: string, bucketId?: string): Promise<void> {
+    const bucketEntry = await this.bucketEntriesRepository.findOne(
+      bucketId ? { id: fileId, bucket: bucketId } : { id: fileId }
+    );
 
     if (!bucketEntry) {
       throw new BucketEntryNotFoundError();

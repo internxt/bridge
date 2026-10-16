@@ -655,7 +655,26 @@ describe('BucketEntriesUsecase', function () {
       expect(findBucketStub.calledWith({ id: bucket.id })).toBeTruthy();
 
       expect(removeFileStub.calledOnce).toBeTruthy();
-      expect(removeFileStub.calledWith(fileId)).toBeTruthy();
+      expect(removeFileStub.calledWith(fileId, bucket.id)).toBeTruthy();
+    });
+
+    it('When the file does not belong to the bucket, then it throws BucketEntryNotFoundError', async () => {
+      const user = fixtures.getUser();
+      const bucket = fixtures.getBucket({ user: user.email, userId: user.uuid });
+      const fileId = 'file-id';
+
+      stub(bucketsRepository, 'findOne').resolves(bucket);
+      const findEntryStub = stub(bucketEntriesRepository, 'findOne').resolves(null);
+      const removeFilesV1Stub = stub(bucketEntriesUsecase, 'removeFilesV1').resolves();
+      const removeFilesV2Stub = stub(bucketEntriesUsecase, 'removeFilesV2').resolves();
+
+      await expect(
+        bucketEntriesUsecase.removeFileFromUser(bucket.id, fileId, user.uuid)
+      ).rejects.toBeInstanceOf(BucketEntryNotFoundError);
+
+      expect(findEntryStub.calledWith({ id: fileId, bucket: bucket.id })).toBeTruthy();
+      expect(removeFilesV1Stub.called).toBeFalsy();
+      expect(removeFilesV2Stub.called).toBeFalsy();
     });
   });
 
