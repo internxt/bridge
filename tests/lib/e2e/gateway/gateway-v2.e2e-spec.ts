@@ -12,6 +12,17 @@ const MB100 = 100 * 1024 * 1024;
 describe('Gateway V2 e2e tests', () => {
     const databaseConnection = new StorageDbManager();
 
+    const randomObjectId = () => crypto.randomBytes(12).toString('hex')
+
+    const createBucketForUser = async (userUuid: string, jwt: string) => {
+        const { body } = await testServer
+            .post(`/v2/gateway/users/${userUuid}/buckets`)
+            .set('Authorization', `Bearer ${jwt}`)
+            .send({ name: `mail-account-${crypto.randomUUID()}` })
+
+        return body as { id: string; name: string }
+    }
+
     beforeEach(async () => {
         await databaseConnection.connect();
         jest.clearAllMocks()
@@ -170,17 +181,6 @@ describe('Gateway V2 e2e tests', () => {
     })
 
     describe('Bucket entries', () => {
-        const createBucketForUser = async (userUuid: string, jwt: string) => {
-            const { body } = await testServer
-                .post(`/v2/gateway/users/${userUuid}/buckets`)
-                .set('Authorization', `Bearer ${jwt}`)
-                .send({ name: `mail-account-${crypto.randomUUID()}` })
-
-            return body as { id: string; name: string }
-        }
-
-        const randomObjectId = () => crypto.randomBytes(12).toString('hex')
-
         it('When creating an entry, then it is persisted as a shard-less v2 entry and the user total grows by its size', async () => {
             const testUser = await createTestUser()
             const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
@@ -363,6 +363,238 @@ describe('Gateway V2 e2e tests', () => {
             const response = await testServer
                 .post(`/v2/gateway/users/${testUser.uuid}/buckets/${'a'.repeat(24)}/entries`)
                 .send({ size: 1000 })
+
+            expect(response.status).toBe(401)
+        })
+    })
+
+    describe('Deleting a user bucket', () => {
+        const VALID_OBJECT_ID = 'a'.repeat(24)
+
+        const deleteBucket = (userUuid: string, bucketId: string, jwt: string, name: string) =>
+            testServer
+                .delete(`/v2/gateway/users/${userUuid}/buckets/${bucketId}?name=${encodeURIComponent(name)}`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+        const usedSpaceOf = async (uuid: string): Promise<number> =>
+            (await databaseConnection.models.User.findOne({ uuid })).totalUsedSpaceBytes
+
+        const createEntryForBucket = async (userUuid: string, bucketId: string, jwt: string, size: number) => {
+            const { body } = await testServer
+                .post(`/v2/gateway/users/${userUuid}/buckets/${bucketId}/entries`)
+                .set('Authorization', `Bearer ${jwt}`)
+                .send({ size })
+
+            return body as { id: string }
+        }
+
+        it('When deleting a bucket, then its entries go with it and the user total shrinks by their sum', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            const usedBefore = await usedSpaceOf(testUser.uuid)
+
+            await createEntryForBucket(testUser.uuid, bucket.id, jwt, 5000)
+            await createEntryForBucket(testUser.uuid, bucket.id, jwt, 3000)
+
+            expect(await usedSpaceOf(testUser.uuid)).toBe(usedBefore + 8000)
+
+            const response = await deleteBucket(testUser.uuid, bucket.id, jwt, bucket.name)
+
+            expect(response.status).toBe(200)
+
+            const entriesInDatabase = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entriesInDatabase.length).toBe(0)
+
+            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
+            expect(bucketInDatabase).toBeNull()
+
+            const userAfter = await databaseConnection.models.User.findOne({ uuid: testUser.uuid })
+            expect(userAfter.totalUsedSpaceBytes).toBe(usedBefore)
+            expect(response.body).toEqual({
+                maxSpaceBytes: userAfter.maxSpaceBytes,
+                totalUsedSpaceBytes: userAfter.totalUsedSpaceBytes,
+            })
+        })
+
+        it('When deleting an empty bucket, then it is removed and the user total is unchanged', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            const usedBefore = await usedSpaceOf(testUser.uuid)
+
+            const response = await deleteBucket(testUser.uuid, bucket.id, jwt, bucket.name)
+
+            expect(response.status).toBe(200)
+
+            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
+            expect(bucketInDatabase).toBeNull()
+
+            expect(await usedSpaceOf(testUser.uuid)).toBe(usedBefore)
+        })
+
+        it('When deleting the same bucket twice, then the second call reports it gone and the total does not move again', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            await createEntryForBucket(testUser.uuid, bucket.id, jwt, 5000)
+
+            const first = await deleteBucket(testUser.uuid, bucket.id, jwt, bucket.name)
+
+            const usedAfterFirst = await usedSpaceOf(testUser.uuid)
+
+            const second = await deleteBucket(testUser.uuid, bucket.id, jwt, bucket.name)
+
+            expect(first.status).toBe(200)
+            expect(second.status).toBe(404)
+
+            expect(await usedSpaceOf(testUser.uuid)).toBe(usedAfterFirst)
+        })
+
+        it('When deleting a bucket of another user, then it returns 403 and the bucket is left alone', async () => {
+            const owner = await createTestUser()
+            const otherUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(owner.uuid, jwt)
+
+            await createEntryForBucket(owner.uuid, bucket.id, jwt, 5000)
+
+            const ownerUsedBefore = await usedSpaceOf(owner.uuid)
+
+            const response = await deleteBucket(otherUser.uuid, bucket.id, jwt, bucket.name)
+
+            expect(response.status).toBe(403)
+
+            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
+            expect(bucketInDatabase).not.toBeNull()
+
+            const entriesInDatabase = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entriesInDatabase.length).toBe(1)
+
+            expect(await usedSpaceOf(owner.uuid)).toBe(ownerUsedBefore)
+        })
+
+        it('When deleting a bucket of an unknown user, then it returns 404', async () => {
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const response = await deleteBucket(crypto.randomUUID(), VALID_OBJECT_ID, jwt, 'any-name')
+
+            expect(response.status).toBe(404)
+        })
+
+        it('When entries are left behind by a bucket that no longer exists, then they are left alone', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            await createEntryForBucket(testUser.uuid, bucket.id, jwt, 5000)
+
+            const usedBefore = await usedSpaceOf(testUser.uuid)
+
+            await databaseConnection.models.Bucket.deleteOne({ _id: bucket.id })
+
+            const response = await deleteBucket(testUser.uuid, bucket.id, jwt, bucket.name)
+
+            expect(response.status).toBe(404)
+
+            const entriesInDatabase = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entriesInDatabase.length).toBe(1)
+
+            expect(await usedSpaceOf(testUser.uuid)).toBe(usedBefore)
+        })
+
+        it('When the name does not match the bucket, then it refuses and touches nothing', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            await createEntryForBucket(testUser.uuid, bucket.id, jwt, 5000)
+
+            const usedBefore = await usedSpaceOf(testUser.uuid)
+
+            const response = await deleteBucket(testUser.uuid, bucket.id, jwt, 'Bucket-a1b2c3')
+
+            expect(response.status).toBe(404)
+
+            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
+            expect(bucketInDatabase).not.toBeNull()
+
+            const entriesInDatabase = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+            expect(entriesInDatabase.length).toBe(1)
+
+            expect(await usedSpaceOf(testUser.uuid)).toBe(usedBefore)
+        })
+
+        it.each([
+            ['an index', { index: 'a'.repeat(64) }],
+            ['a frame', { frame: randomObjectId() }],
+            ['an hmac', { hmac: { type: 'sha512', value: 'a'.repeat(128) } }],
+        ])(
+            'When one entry among several carries %s, then it refuses and every entry survives',
+            async (_case, shardBackedFields) => {
+                const testUser = await createTestUser()
+                const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+                const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+                const metadataOnly = await createEntryForBucket(testUser.uuid, bucket.id, jwt, 5000)
+                const shardBacked = await createEntryForBucket(testUser.uuid, bucket.id, jwt, 3000)
+
+                await databaseConnection.models.BucketEntry.updateOne(
+                    { _id: shardBacked.id },
+                    { $set: shardBackedFields }
+                )
+
+                const usedBefore = await usedSpaceOf(testUser.uuid)
+
+                const response = await deleteBucket(testUser.uuid, bucket.id, jwt, bucket.name)
+
+                expect(response.status).toBe(409)
+
+                const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
+                expect(bucketInDatabase).not.toBeNull()
+
+                const entriesInDatabase = await databaseConnection.models.BucketEntry.find({ bucket: bucket.id })
+                expect(entriesInDatabase.map((e: { _id: unknown }) => String(e._id)).sort())
+                    .toEqual([metadataOnly.id, shardBacked.id].sort())
+
+                expect(await usedSpaceOf(testUser.uuid)).toBe(usedBefore)
+            }
+        )
+
+        it.each([
+            ['the user uuid is malformed', 'not-a-uuid', VALID_OBJECT_ID],
+            ['the bucket id is malformed', crypto.randomUUID(), 'not-an-object-id'],
+        ])('When %s, then it returns 400', async (_case, userUuid, bucketId) => {
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+
+            const response = await deleteBucket(userUuid, bucketId, jwt, 'any-name')
+
+            expect(response.status).toBe(400)
+        })
+
+        it('When the name is missing, then it returns 400', async () => {
+            const testUser = await createTestUser()
+            const jwt = signRS256JWT('5m', engine._config.gateway.SIGN_JWT_SECRET)
+            const bucket = await createBucketForUser(testUser.uuid, jwt)
+
+            const response = await testServer
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${bucket.id}`)
+                .set('Authorization', `Bearer ${jwt}`)
+
+            expect(response.status).toBe(400)
+
+            const bucketInDatabase = await databaseConnection.models.Bucket.findOne({ _id: bucket.id })
+            expect(bucketInDatabase).not.toBeNull()
+        })
+
+        it('When no auth token is provided, then it returns 401', async () => {
+            const testUser = await createTestUser()
+
+            const response = await testServer
+                .delete(`/v2/gateway/users/${testUser.uuid}/buckets/${VALID_OBJECT_ID}?name=any-name`)
 
             expect(response.status).toBe(401)
         })
