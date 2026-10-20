@@ -1,4 +1,3 @@
-import NetworkMessageQueue from '../../lib/server/queues/networkQueue';
 import { connectToDatabase } from "../utils/database";
 
 import { MongoDBUsersRepository } from '../../lib/core/users/MongoDBUsersRepository'
@@ -32,6 +31,7 @@ import { ContactsRepository } from '../../lib/core/contacts/Repository';
 import { MongoDB } from '../delete-objects/temp-shard.model';
 import { DatabaseFramesReader, DatabaseBucketEntriesReaderWithoutBucket } from '../delete-objects/ObjectStorage';
 import { FileStateRepository } from '../../lib/core/fileState/Repository';
+import * as bullQueueModule from '../../lib/core/queue/bullQueue';
 
 const Config = require('../../lib/config');
 
@@ -63,28 +63,17 @@ export type PrepareFunctionReturnType = {
 }
 
 export async function prepare(): Promise<PrepareFunctionReturnType> {
-  const QUEUE_NAME = 'NETWORK_WORKER_TASKS_QUEUE';
-
-  const newDbConnection = new MongoDB(process.env.inxtbridge_storage__mongoUri as string);
+  const newDbConnection = new MongoDB(process.env.inxtbridge_storage__mongoUrl as string);
   await newDbConnection.connect();
   const models = await connectToDatabase('', '');
-  const { QUEUE_USERNAME, QUEUE_PASSWORD, QUEUE_HOST } = config;
+  try {
+    bullQueueModule.init(config);
+    console.log('bull queue initialized');
+  } catch (err) {
+    const error = err as any;
+    console.error('failed to initialize bull queue:', error && error.message ? error.message : error);
+  }
 
-  const networkQueue = new NetworkMessageQueue({
-    connection: {
-      url: `amqp://${QUEUE_USERNAME}:${QUEUE_PASSWORD}@${QUEUE_HOST}`,
-    },
-    exchange: {
-      name: 'exchangeName',
-      type: 'direct',
-    },
-    queue: {
-      name: QUEUE_NAME,
-    },
-    routingKey: {
-      name: 'routingKeyName',
-    },
-  });
   const bucketEntriesRepository = new MongoDBBucketEntriesRepository(models.BucketEntry);
   const bucketEntryShardsRepository = new MongoDBBucketEntryShardsRepository(models.BucketEntryShard);
   const bucketsRepository = new MongoDBBucketsRepository(models.Bucket);
@@ -101,7 +90,6 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
   const shardsUsecase = new ShardsUsecase(
     mirrorsRepository,
     contactsRepository,
-    networkQueue
   );
   const bucketEntriesUsecase = new BucketEntriesUsecase(
     bucketEntriesRepository,
@@ -133,8 +121,6 @@ export async function prepare(): Promise<PrepareFunctionReturnType> {
   const bucketEntriesReader = new DatabaseBucketEntriesReaderWithoutBucket(
     newDbConnection.getCollections().bucketEntries
   );
-  await networkQueue.connectAndRetry();
-
   return {
     readers: {
       framesReader,
