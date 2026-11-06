@@ -9,7 +9,7 @@ jobs:
   sonarcloud:
     strategy:
       matrix:
-        node-version: [16.x]
+        node-version: [24.x]
     name: SonarCloud
     runs-on: ubuntu-latest
     steps:
