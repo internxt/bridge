@@ -10,7 +10,7 @@ import { StorageGateway } from '../../../../lib/core/storage/StorageGateway';
 
 const FAKE_UPLOAD_URL = 'http://fake-upload-url'
 const FAKE_DOWNLOAD_URL = 'http://fake-download-url'
-const FAKE_MULTIPART_DOWNLOAD_URL = 'http://fake-multipart-download-url'
+const FAKE_MULTIPART_DOWNLOAD_URLS = ['http://fake-download-url/part-1', 'http://fake-download-url/part-2']
 
 describe('Bridge E2E Tests', () => {
 
@@ -50,7 +50,7 @@ describe('Bridge E2E Tests', () => {
         return { data: keys.split(',').map((key) => `${FAKE_DOWNLOAD_URL}/${key}`) }
       }
       if (url.includes('/v2/download/link')) return { data: { result: FAKE_DOWNLOAD_URL } }
-      if (url.includes('/v2/download-multipart/link')) return { data: { result: FAKE_MULTIPART_DOWNLOAD_URL } }
+      if (url.includes('/v2/download-multipart/link')) return { data: { result: FAKE_MULTIPART_DOWNLOAD_URLS } }
       if (url.includes('exists')) return { status: 200 }
     })
   })
@@ -338,7 +338,7 @@ describe('Bridge E2E Tests', () => {
         return { id: file.id as string, index, hash, uuid: upload.uuid as string }
       }
 
-      it('When a part size is requested, then it should get the file info with a multipart download link', async () => {
+      it('When a part size is requested, then it should get the file info with a download link per part', async () => {
         const user = await createTestUser();
         const bucketId = await createBucket(user)
         const file = await uploadFile(user, bucketId)
@@ -348,7 +348,7 @@ describe('Bridge E2E Tests', () => {
 
         expect(response.status).toBe(200);
         expect(response.body.shards).toStrictEqual([
-          { index: 0, hash: file.hash, url: FAKE_MULTIPART_DOWNLOAD_URL },
+          { index: 0, hash: file.hash, url: FAKE_MULTIPART_DOWNLOAD_URLS },
         ])
 
         const requestedUrls = axiosGetStub.getCalls().map((call) => call.args[0])
