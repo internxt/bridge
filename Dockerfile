@@ -1,4 +1,4 @@
-FROM node:16
+FROM node:24-slim
 
 # Create a non-root user
 RUN groupadd -r myuser && useradd -r -g myuser myuser -d /app

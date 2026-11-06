@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        node-version: [16.x]
+        node-version: [24.x]
     runs-on: ubuntu-latest
     steps:
       - name: Check Out Repo
