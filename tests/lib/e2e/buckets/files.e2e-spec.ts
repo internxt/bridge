@@ -10,6 +10,7 @@ import { StorageGateway } from '../../../../lib/core/storage/StorageGateway';
 
 const FAKE_UPLOAD_URL = 'http://fake-upload-url'
 const FAKE_DOWNLOAD_URL = 'http://fake-download-url'
+const FAKE_MULTIPART_DOWNLOAD_URL = 'http://fake-multipart-download-url'
 
 describe('Bridge E2E Tests', () => {
 
@@ -44,7 +45,12 @@ describe('Bridge E2E Tests', () => {
         const parts = Number(new URL(url).searchParams.get('parts'))
         return { data: { result: new Array(parts).fill(FAKE_UPLOAD_URL), UploadId: 'fake-id' } }
       }
+      if (url.includes('/v2/download/links')) {
+        const keys = new URL(url).searchParams.get('keys') as string
+        return { data: keys.split(',').map((key) => `${FAKE_DOWNLOAD_URL}/${key}`) }
+      }
       if (url.includes('/v2/download/link')) return { data: { result: FAKE_DOWNLOAD_URL } }
+      if (url.includes('/v2/download-multipart/link')) return { data: { result: FAKE_MULTIPART_DOWNLOAD_URL } }
       if (url.includes('exists')) return { status: 200 }
     })
   })
@@ -306,6 +312,102 @@ describe('Bridge E2E Tests', () => {
     })
 
     describe('Downloading a file', () => {
+      const createBucket = async (user: User) => {
+        const { body: { id } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(user))
+
+        return id as string
+      }
+
+      const uploadFile = async (user: User, bucketId: string) => {
+        const { body: { uploads: [upload] } } = await testServer.post(`/v2/buckets/${bucketId}/files/start`)
+          .set('Authorization', getAuth(user))
+          .send({ uploads: [{ index: 0, size: 1000, }], })
+
+        const index = crypto.randomBytes(32).toString('hex');
+        const hash = crypto.randomBytes(20).toString('hex')
+        const { body: file } = await finishUpload(
+          getAuth(user),
+          bucketId,
+          index,
+          [{ hash, uuid: upload.uuid }],
+          { shardSize: 1000 },
+        )
+
+        return { id: file.id as string, index, hash, uuid: upload.uuid as string }
+      }
+
+      it('When a part size is requested, then it should get the file info with a multipart download link', async () => {
+        const user = await createTestUser();
+        const bucketId = await createBucket(user)
+        const file = await uploadFile(user, bucketId)
+
+        const response = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info?partSize=5242880`)
+          .set('Authorization', getAuth(user))
+
+        expect(response.status).toBe(200);
+        expect(response.body.shards).toStrictEqual([
+          { index: 0, hash: file.hash, url: FAKE_MULTIPART_DOWNLOAD_URL },
+        ])
+
+        const requestedUrls = axiosGetStub.getCalls().map((call) => call.args[0])
+
+        expect(requestedUrls).toContainEqual(
+          expect.stringContaining(`/v2/download-multipart/link/${file.uuid}?partSize=5242880`)
+        )
+      })
+
+      it('When the part size is not a number, then it should fail', async () => {
+        const user = await createTestUser();
+        const bucketId = await createBucket(user)
+        const file = await uploadFile(user, bucketId)
+
+        const response = await testServer.get(`/buckets/${bucketId}/files/${file.id}/info?partSize=invalid`)
+          .set('Authorization', getAuth(user))
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Invalid "partSize" query parameter');
+      })
+
+      it('When requesting several files at once, then it should return their links in the requested order', async () => {
+        const user = await createTestUser();
+        const bucketId = await createBucket(user)
+        const firstFile = await uploadFile(user, bucketId)
+        const secondFile = await uploadFile(user, bucketId)
+
+        const response = await testServer.get(`/buckets/${bucketId}/bulk-files?fileIds=${secondFile.id},${firstFile.id}`)
+          .set('Authorization', getAuth(user))
+
+        expect(response.status).toBe(200);
+        expect(response.body).toStrictEqual([
+          { fileId: secondFile.id, link: `${FAKE_DOWNLOAD_URL}/${secondFile.uuid}`, index: secondFile.index },
+          { fileId: firstFile.id, link: `${FAKE_DOWNLOAD_URL}/${firstFile.uuid}`, index: firstFile.index },
+        ])
+      })
+
+      it('When requesting several files without their ids, then it should fail', async () => {
+        const user = await createTestUser();
+        const bucketId = await createBucket(user)
+
+        const response = await testServer.get(`/buckets/${bucketId}/bulk-files`)
+          .set('Authorization', getAuth(user))
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Fileids query parameter must be defined');
+      })
+
+      it('When the file ids parameter is repeated, then it should fail', async () => {
+        const user = await createTestUser();
+        const bucketId = await createBucket(user)
+        const file = await uploadFile(user, bucketId)
+
+        const response = await testServer.get(`/buckets/${bucketId}/bulk-files?fileIds=${file.id}&fileIds=${file.id}`)
+          .set('Authorization', getAuth(user))
+
+        expect(response.status).toBe(500);
+      })
+
       it('When a user uploads a file, then it should be able to get download links', async () => {
         const user = await createTestUser();
 
