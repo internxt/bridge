@@ -10,14 +10,14 @@ services:
         condition: service_healthy
 
   mongo:
-    image: mongo:4.4
+    image: mongo:7.0.40
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
       MONGO_INITDB_DATABASE: bridge-test
     healthcheck:
       # Uses the hostname because the init server only listens on localhost.
-      test: mongo --host "$$(hostname)" --quiet --eval "db.adminCommand('ping').ok"
+      test: mongosh --host "$$(hostname)" --quiet --eval "db.adminCommand('ping').ok"
       interval: 2s
       timeout: 5s
       retries: 30
