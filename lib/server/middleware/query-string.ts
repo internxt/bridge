@@ -3,9 +3,10 @@
  */
 import { RequestHandler } from "express";
 import queryString from "querystring";
+import url from "url";
 
 const querystring: RequestHandler = (req, res, next) => {
-    req.query = queryString.parse((req as any).query());
+    req.query = queryString.parse(url.parse(req.url).query || "");
     next();
 };
 
