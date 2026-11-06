@@ -1,0 +1,31 @@
+services:
+  bridge:
+    build: .
+    env_file: .env.test
+    command: sh -c "yarn run test && yarn run test:e2e"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:4.4
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: bridge-test
+    healthcheck:
+      # Uses the hostname because the init server only listens on localhost.
+      test: mongo --host "$$(hostname)" --quiet --eval "db.adminCommand('ping').ok"
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:latest
+    healthcheck:
+      test: redis-cli ping
+      interval: 2s
+      timeout: 5s
+      retries: 30
