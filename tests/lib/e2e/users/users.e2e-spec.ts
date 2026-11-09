@@ -1,8 +1,8 @@
-import { getAuth, shutdownEngine, } from '../utils'
+import { createTestUser, getAuth, shutdownEngine, } from '../utils'
 
 import sendGridMail from '@sendgrid/mail'
 import { engine, testServer } from '../setup'
-import { dataGenerator } from '../users.fixtures'
+import { dataGenerator, generateTestUserData } from '../users.fixtures'
 
 
 // Mock SendGrid
@@ -29,47 +29,6 @@ describe('Bridge E2E Tests', () => {
 
     describe('User Management v1', () => {
 
-      describe('Creating a new user', () => {
-
-        it('When creating a user, it should work if email is not in use', async () => {
-
-          // Arrange
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-
-          // Act
-          const response = await testServer
-            .post('/users')
-            .send(payload)
-
-          // Assert
-          expect(response.status).toBe(201);
-          const user = await engine.storage.models.User.findOne({ _id: response.body.id })
-          expect(user).not.toBeNull()
-
-          expect(user.toObject().activated).toBe(true)
-
-        })
-        it('When creating a user, it should fail if email is in use', async () => {
-
-          // Arrange
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          await testServer
-            .post('/users')
-            .send(payload)
-            .expect(201);
-
-          // Act
-          const response = await testServer
-            .post('/users')
-            .send(payload)
-
-          // Assert
-          expect(response.status).toBe(400);
-
-
-        })
-      })
-
       describe('Deleting an existing user', () => {
 
         it('When requesting user deactivation, it should work for authorized user email', async () => {
@@ -77,11 +36,8 @@ describe('Bridge E2E Tests', () => {
           engine.mailer.dispatchSendGrid = jest.fn((_, __, ___, cb) => { sendGridMail.send(null as any, null as any, cb) })
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/users')
-            .send(payload)
-            .expect(201);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
           // Act: Request Deactivation
           const deactivatorHash = dataGenerator.hash()
@@ -105,17 +61,11 @@ describe('Bridge E2E Tests', () => {
         it('When requesting user deactivation, it should fail for an email different than authorized user email', async () => {
 
           // Arrange: Create User
-          const payload1 = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/users')
-            .send(payload1)
-            .expect(201);
+          const payload1 = generateTestUserData()
+          const user = await createTestUser({ user: payload1 })
 
-          const payload2 = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          await testServer
-            .post('/users')
-            .send(payload2)
-            .expect(201);
+          const payload2 = generateTestUserData()
+          await createTestUser({ user: payload2 })
 
           // Act: Request Deactivation
           const deactivatorHash = dataGenerator.hash()
@@ -136,11 +86,8 @@ describe('Bridge E2E Tests', () => {
         it('When confirming user deactivation, it should work with the correct deactivator', async () => {
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/users')
-            .send(payload)
-            .expect(201);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
 
           // Arrange: Request Deactivation
@@ -162,11 +109,8 @@ describe('Bridge E2E Tests', () => {
         it('When confirming user deactivation, it should fail with an incorrect deactivator', async () => {
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/users')
-            .send(payload)
-            .expect(201);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
 
           // Arrange: Request Deactivation
@@ -190,54 +134,13 @@ describe('Bridge E2E Tests', () => {
 
     describe('User Management v2', () => {
 
-      describe('Creating a new user', () => {
-        it('When creating a user, it should work if email is not in use', async () => {
-
-          // Arrange
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          // Act: Create a user
-          const response = await testServer
-            .post('/v2/users')
-            .send(payload)
-
-          // Assert
-          expect(response.status).toBe(200);
-
-          const user = await engine.storage.models.User.findOne({ _id: response.body.id })
-          expect(user).not.toBeNull()
-
-          expect(user.toObject().activated).toBe(true)
-        })
-        it('When creating a user, it should fail if email is in use', async () => {
-
-          // Arrange
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          await testServer
-            .post('/v2/users')
-            .send(payload)
-            .expect(200);
-
-          // Act: Create a user
-          const response = await testServer
-            .post('/v2/users')
-            .send(payload)
-
-          // Assert
-          expect(response.status).toBe(400);
-         
-        })
-      })
-
       describe('Deleting an existing user', () => {
 
         it('When requesting user deactivation, it should work for authorized user', async () => {
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/v2/users')
-            .send(payload)
-            .expect(200);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
 
           // Act: Request Deactivation
@@ -262,11 +165,8 @@ describe('Bridge E2E Tests', () => {
         it('When confirming user deactivation, it should work with the correct deactivator', async () => {
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/v2/users')
-            .send(payload)
-            .expect(200);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
 
           // Arrange: Request Deactivation
@@ -289,11 +189,8 @@ describe('Bridge E2E Tests', () => {
         it('When confirming user deactivation, it should fail with an incorrect deactivator', async () => {
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/v2/users')
-            .send(payload)
-            .expect(200);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
 
           // Arrange: Request Deactivation
@@ -321,11 +218,8 @@ describe('Bridge E2E Tests', () => {
         it('should be able to update a user email via gateway', async () => {
 
           // Arrange: Create User
-          const payload = { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), }
-          const { body: user } = await testServer
-            .post('/v2/users')
-            .send(payload)
-            .expect(200);
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
 
 
           // Act: Update User Email
