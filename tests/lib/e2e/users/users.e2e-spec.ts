@@ -143,10 +143,13 @@ describe('Bridge E2E Tests', () => {
           const user = await createTestUser({ user: payload })
 
 
+          const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
+          const redirect = 'https://drive.internxt.com/deactivations/token'
+
           // Act: Request Deactivation
           const deactivatorHash = dataGenerator.hash()
           const response = await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${deactivatorHash}&redirect=/`)
+            .delete(`/v2/users/request-deactivate?deactivator=${deactivatorHash}&redirect=${redirect}`)
             .set('Authorization', getAuth(payload))
 
           // Assert
@@ -158,8 +161,50 @@ describe('Bridge E2E Tests', () => {
           const token = dbUser.toObject().deactivator
           expect(token).toBe(deactivatorHash)
 
-          expect(sendGridMail.send).toHaveBeenCalled()
+          expect(sendDeleteUserMail).toHaveBeenCalledWith(user.email, redirect)
 
+        })
+
+        it('When requesting user deactivation, then it success', async () => {
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
+
+          const response = await testServer
+            .delete(`/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+
+          expect(response.status).toBe(200)
+          expect(response.body).toStrictEqual({ email: user.email, uuid: user.uuid })
+        })
+
+        it('When the user has the deactivation disabled, then it fails without sending the email', async () => {
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
+          await engine.storage.models.User.collection.updateOne({ _id: user.id }, { $set: { 'configuration.disableDeactivation': true } })
+          const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
+
+          const response = await testServer
+            .delete(`/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+
+          expect(response.status).toBe(409)
+          expect(sendDeleteUserMail).not.toHaveBeenCalled()
+          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUser.toObject().deactivator).toBeNull()
+        })
+
+        it('When sending the email fails, then it fails without saving the deactivator', async () => {
+          jest.spyOn(engine.mailService, 'sendDeleteUserMail').mockRejectedValueOnce(new Error('sendgrid down'))
+          const payload = generateTestUserData()
+          const user = await createTestUser({ user: payload })
+
+          const response = await testServer
+            .delete(`/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`)
+            .set('Authorization', getAuth(payload))
+
+          expect(response.status).toBe(500)
+          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+          expect(dbUser.toObject().deactivator).toBeNull()
         })
 
         it('When confirming user deactivation, it should work with the correct deactivator', async () => {

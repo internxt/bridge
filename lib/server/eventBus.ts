@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { Logger } from 'winston';
-import { MailUsecase } from '../core/mail/usecase';
 import { Notifications } from './notifications';
 import { User } from '../core/users/User';
 
@@ -9,7 +8,6 @@ const { trackUserActivated } = require('../analytics');
 export enum EventBusEvents {
   UserCreationStarts = 'user-creation-starts',
   UserCreationEnds = 'user-creation-ends',
-  UserDestroyRequest = 'user-destroy-request',
   FilesBulkDeleteFailed = 'files-bulk-delete-failed',
   UserStorageChanged = 'user-storage-changed',
 }
@@ -21,14 +19,6 @@ interface UserCreationStartsPayload {
 interface UserCreationEndsPayload {
   email: User['email'];
   uuid: User['id'];
-}
-
-interface UserDestroyRequestPayload {
-  userRequestingDestroyEmail: User['email'];
-  mailParams: {
-    deactivator: string;
-    redirect: string;
-  };
 }
 
 interface FilesBulkDeleteFailedPayload {
@@ -44,7 +34,6 @@ export interface UserStorageChangedPayload {
 export class EventBus extends EventEmitter {
   constructor(
     logger: Logger,
-    mailer: MailUsecase,
     notifications: Notifications
   ) {
     super();
@@ -62,37 +51,6 @@ export class EventBus extends EventEmitter {
         logger.info('User %s has been created', payload.email);
 
         trackUserActivated(payload.uuid, payload.email);
-      }
-    );
-
-    this.on(
-      EventBusEvents.UserDestroyRequest,
-      (payload: UserDestroyRequestPayload) => {
-        logger.info(
-          'User %s requesting destroy',
-          payload.userRequestingDestroyEmail
-        );
-
-        mailer
-          .sendDeleteUserMail(
-            payload.userRequestingDestroyEmail,
-            payload.mailParams.deactivator,
-            payload.mailParams.redirect
-          )
-          .then(() => {
-            logger.info(
-              'User destroy email sent to %s',
-              payload.userRequestingDestroyEmail
-            );
-          })
-          .catch((err) => {
-            logger.error(
-              'Error sending user destroy email to %s: %s. %s',
-              payload.userRequestingDestroyEmail,
-              err.message,
-              err.stack
-            );
-          });
       }
     );
 

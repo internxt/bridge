@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'crypto';
 import { UsersRepository } from './Repository';
 import { BucketsRepository } from '../buckets/Repository';
 import { MailUsecase } from '../mail/usecase';
+import { MailService } from '../mail/SendGridMailService';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { FramesRepository } from '../frames/Repository';
 import { BasicUser, User } from './User';
@@ -66,13 +67,22 @@ export class ResetPasswordImpersonationError extends Error {
   }
 }
 
+export class UserDeactivationDisabledError extends Error {
+  constructor() {
+    super('This account has the deactivation disabled');
+
+    Object.setPrototypeOf(this, UserDeactivationDisabledError.prototype);
+  }
+}
+
 export class UsersUsecase {
   constructor(
     private usersRepository: UsersRepository,
     private framesRepository: FramesRepository,
     private bucketsRepository: BucketsRepository,
     private mailUsecase: MailUsecase,
-    private eventBus: EventBus
+    private eventBus: EventBus,
+    private mailService: MailService
   ) {}
 
   async getUserUsage(uuid: User['uuid']): Promise<UserSpaceSnapshot> {
@@ -227,22 +237,25 @@ export class UsersUsecase {
     return user;
   }
 
-  async requestUserDestroy(userId: string, deactivator: string, redirect: string) {
+  async requestUserDestroy(
+    userId: string,
+    deactivator: string,
+    redirect: string
+  ): Promise<Pick<User, 'email' | 'uuid'>> {
     const user = await this.usersRepository.findById(userId);
 
     if (!user) {
       throw new UserNotFoundError(userId);
     }
 
+    if (user.configuration?.disableDeactivation) {
+      throw new UserDeactivationDisabledError();
+    }
+
+    await this.mailService.sendDeleteUserMail(user.email, redirect);
     await this.usersRepository.updateById(user.id, { deactivator });
 
-    this.eventBus.emit(EventBusEvents.UserDestroyRequest, {
-      userRequestingDestroyEmail: user.email,
-      mailParams: {
-        deactivator,
-        redirect
-      }
-    });
+    return { email: user.email, uuid: user.uuid };
   }
 
   async confirmDestroyUser(deactivator: string): Promise<BasicUser> {
