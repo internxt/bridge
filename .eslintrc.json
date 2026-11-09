@@ -3,8 +3,7 @@
         "node": true,
         "browser": false,
         "commonjs": true,
-        "es2021": true,
-        "mocha": true
+        "es2021": true
     },
     "plugins": [
         "sonarjs"
