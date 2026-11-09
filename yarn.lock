@@ -3199,12 +3199,6 @@ diff@^5.0.0:
   resolved "https://registry.yarnpkg.com/diff/-/diff-5.2.2.tgz#0a4742797281d09cfa699b79ea32d27723623bad"
   integrity sha512-vtcDfH3TOjP8UekytvnHH1o1P4FcUdt4eQ1Y+Abap1tk/OB2MWQvcwS2ClCd1zuIhc3JKOx6p3kod8Vfys3E+A==
 
-disposable-email@internxt/disposable#v0.2.6:
-  version "0.2.5"
-  resolved "https://codeload.github.com/internxt/disposable/tar.gz/48c0826142783d29522e14cd7da98b8ec04358fe"
-  dependencies:
-    axios "1.19.0"
-
 doctrine@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/doctrine/-/doctrine-3.0.0.tgz#addebead72a6574db783639dc87a121773973961"

@@ -7,8 +7,6 @@ import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { FramesRepository } from '../frames/Repository';
 import { BasicUser, User } from './User';
 
-const disposable = require('disposable-email');
-
 function isEmailValid(email: string) {
   // RFC 5322 Official Standard
   // eslint-disable-next-line no-control-regex
@@ -141,13 +139,6 @@ export class UsersUsecase {
     const emailIsValid = !!emailMatch;
 
     if (!emailIsValid) {
-      throw new InvalidDataFormatError('Invalid email address provided');
-    }
-
-    const emailDomain = emailMatch[2];
-    const allowedEmail = disposable.validate(emailDomain);
-
-    if (!allowedEmail) {
       throw new InvalidDataFormatError('Invalid email address provided');
     }
 
