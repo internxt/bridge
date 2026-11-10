@@ -51,20 +51,6 @@ describe('SendGridMailService', () => {
       }, false);
     });
 
-    it('When no sender or sandbox mode are configured, then it uses the defaults', async () => {
-      const client = buildClient();
-      const usecase = new SendGridMailService(
-        { sendgrid: { api_key: 'api-key', delete_template_id: 'tpl' } },
-        client
-      );
-
-      await usecase.sendDeleteUserMail('user@internxt.com', 'redirect');
-
-      const [payload] = client.send.mock.calls[0];
-      expect(payload.from).toStrictEqual({ email: 'activate@internxt.com', name: 'Internxt' });
-      expect(payload.mailSettings).toStrictEqual({ sandboxMode: { enable: false } });
-    });
-
     it('When sendgrid fails, then the error is propagated', async () => {
       const client = buildClient();
       client.send.mockRejectedValueOnce(new Error('sendgrid down'));

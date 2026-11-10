@@ -1,10 +1,10 @@
 import sendGridMail, { MailService as SendGridClient } from '@sendgrid/mail';
 
 export interface MailerConfig {
-  from?: string;
+  from: string;
   sendgrid: {
     api_key: string;
-    sandbox_mode?: boolean;
+    sandbox_mode: boolean;
     delete_template_id: string;
   };
 }
@@ -12,8 +12,6 @@ export interface MailerConfig {
 export interface MailService {
   sendDeleteUserMail: (sendTo: string, redirect: string) => Promise<void>;
 }
-
-const DEFAULT_FROM = 'activate@internxt.com';
 
 export class SendGridMailService implements MailService {
   constructor(
@@ -29,7 +27,7 @@ export class SendGridMailService implements MailService {
     await this.client.send({
       to: sendTo,
       from: {
-        email: from || DEFAULT_FROM,
+        email: from,
         name: 'Internxt',
       },
       subject: '',
@@ -47,7 +45,7 @@ export class SendGridMailService implements MailService {
       templateId: sendgrid.delete_template_id,
       mailSettings: {
         sandboxMode: {
-          enable: sendgrid.sandbox_mode || false,
+          enable: sendgrid.sandbox_mode,
         },
       },
     }, false);

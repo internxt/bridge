@@ -1,8 +1,7 @@
-import { createHash, randomBytes } from 'crypto';
+import { createHash } from 'crypto';
 
 import { UsersRepository } from './Repository';
 import { BucketsRepository } from '../buckets/Repository';
-import { MailUsecase } from '../mail/usecase';
 import { MailService } from '../mail/SendGridMailService';
 import { EventBus, EventBusEvents } from '../../server/eventBus';
 import { FramesRepository } from '../frames/Repository';
@@ -15,9 +14,6 @@ function isEmailValid(email: string) {
   
   return email.match(emailPattern);
 }
-
-export const RESET_PASSWORD_TOKEN_BYTES_LENGTH = 256;
-export const SHA256_HASH_BYTES_LENGTH = 32;
 
 export interface UserSpaceSnapshot {
   maxSpaceBytes: number;
@@ -56,17 +52,6 @@ export class EmailIsAlreadyInUseError extends Error {
   }
 }
 
-export class ResetPasswordImpersonationError extends Error {
-  constructor(
-    userPerformingAction?: string,
-    userImpersonated?: string
-  ) {
-    super(`User ${userPerformingAction || ''} tried to impersonate ${userImpersonated || ''}`);
-
-    Object.setPrototypeOf(this, ResetPasswordImpersonationError.prototype);
-  }
-}
-
 export class UserDeactivationDisabledError extends Error {
   constructor() {
     super('This account has the deactivation disabled');
@@ -80,7 +65,6 @@ export class UsersUsecase {
     private usersRepository: UsersRepository,
     private framesRepository: FramesRepository,
     private bucketsRepository: BucketsRepository,
-    private mailUsecase: MailUsecase,
     private eventBus: EventBus,
     private mailService: MailService
   ) {}
@@ -173,68 +157,6 @@ export class UsersUsecase {
 
   async updateUserStorage(uuid: User['uuid'], bytes: User['maxSpaceBytes']): Promise<void> {
     await this.usersRepository.updateByUuid(uuid, { maxSpaceBytes: bytes });
-  }
-
-  async requestPasswordReset(
-    userRequestingResetEmail: User['email'],
-    redirect: string,
-    url?: string
-  ): Promise<BasicUser> {
-    const user = await this.usersRepository.findByEmail(userRequestingResetEmail);
-
-    if (!user) {
-      throw new UserNotFoundError();
-    }
-
-    const resetToken = randomBytes(RESET_PASSWORD_TOKEN_BYTES_LENGTH).toString('hex');
-
-    await this.usersRepository.updateById(user.id, {
-      resetter: resetToken
-    });
-
-    await this.mailUsecase.sendResetPasswordMail(
-      userRequestingResetEmail, 
-      resetToken, 
-      redirect, 
-      url
-    );
-
-    return user;
-  }
-
-  /**
-   * Confirms and applies the password reset
-   * @param password new password
-   * @param resetter token used to reset the password
-   */
-  async resetPassword(password: string, resetter: string) {
-    const isSHA256Encoded = Buffer.from(password, 'hex').length === SHA256_HASH_BYTES_LENGTH;
-
-    if (!isSHA256Encoded) {
-      throw new InvalidDataFormatError('Password must be an hex encoded SHA-256 hash');
-    }
-
-    const resetterIsHexEncoded = Buffer.from(resetter, 'hex').length === RESET_PASSWORD_TOKEN_BYTES_LENGTH;
-
-    if (!resetterIsHexEncoded) {
-      throw new InvalidDataFormatError('Resetter must be an hex encoded 256 byte string');
-    }
-
-    const user = await this.usersRepository.findOne({ resetter });
-
-    if (!user) {
-      throw new UserNotFoundError();
-    }
-
-    const hashpass = createHash('sha256').update(password).digest('hex');
-    const newResetter = null;
-
-    await this.usersRepository.updateById(user.id, {
-      resetter: newResetter,
-      hashpass
-    });
-
-    return user;
   }
 
   async requestUserDestroy(
