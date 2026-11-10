@@ -5,7 +5,6 @@ import { MongoDBBucketsRepository, MongoDBUsersRepository, UsersUsecase } from "
 import { BucketsRepository } from "../../core/buckets/Repository";
 import { UsersRepository } from "../../core/users/Repository";
 
-import { Mailer, MailUsecase, Profile, SendGridMailUsecase } from "../../core/mail/usecase";
 import { MailService } from "../../core/mail/SendGridMailService";
 import { createUsersHTTPRouter } from "./users";
 import { HTTPUsersController } from "./users/controller";
@@ -54,8 +53,6 @@ interface Models {
 export function bindNewRoutes(
   app: Application,
   storage: { models: Models },
-  mailer: Mailer,
-  profile: Profile,
   log: Logger,
   networkQueue: any,
   notifications: Notifications,
@@ -74,14 +71,12 @@ export function bindNewRoutes(
   const shardsRepository: ShardsRepository = new MongoDBShardsRepository(models.Shard);
   const fileStateRepository: FileStateRepository = new MongoDBFileStateRepository(models.FileState);
 
-  const mailUsecase: MailUsecase = new SendGridMailUsecase(mailer, profile);
   const eventBus = new EventBus(log, notifications);
 
   const usersUsecase = new UsersUsecase(
     usersRepository,
     framesRepository,
     bucketsRepository,
-    mailUsecase,
     eventBus,
     mailService
   );

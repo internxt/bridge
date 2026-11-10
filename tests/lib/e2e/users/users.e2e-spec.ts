@@ -32,9 +32,6 @@ describe('Bridge E2E Tests', () => {
       describe('Deleting an existing user', () => {
 
         it('When requesting user deactivation, it should work for authorized user email', async () => {
-          // Arrange: Mock SendGrid call
-          engine.mailer.dispatchSendGrid = jest.fn((_, __, ___, cb) => { sendGridMail.send(null as any, null as any, cb) })
-
           // Arrange: Create User
           const payload = generateTestUserData()
           const user = await createTestUser({ user: payload })

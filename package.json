@@ -94,7 +94,6 @@
     "express": "^4.22.3",
     "hat": "0.0.3",
     "helmet": "^3.20.0",
-    "inxt-service-mailer": "internxt/mailer#v1.5.2",
     "is-ip": "^2.0.0",
     "jsonwebtoken": "^8.5.1",
     "lodash": "4.18.1",
