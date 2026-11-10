@@ -11,6 +11,7 @@ import {
   InvalidDataFormatError, 
   UserAlreadyExistsError, 
   UserNotFoundError,
+  UserDeactivationDisabledError,
   RESET_PASSWORD_TOKEN_BYTES_LENGTH,
   SHA256_HASH_BYTES_LENGTH,
   EmailIsAlreadyInUseError
@@ -19,6 +20,7 @@ import { MongoDBFramesRepository } from '../../../../lib/core/frames/MongoDBFram
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
 import { BucketsRepository } from '../../../../lib/core/buckets/Repository';
 import { Mailer, MailUsecase, SendGridMailUsecase } from '../../../../lib/core/mail/usecase';
+import { MailService } from '../../../../lib/core/mail/SendGridMailService';
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
 import { User } from '../../../../lib/core/users/User';
 import { Notifications } from '../../../../lib/server/notifications';
@@ -29,6 +31,7 @@ let framesRepository: FramesRepository;
 let bucketsRepository: BucketsRepository;
 let usecase: UsersUsecase;
 let mailUsecase: MailUsecase;
+let mailService: MailService;
 let eventBus: EventBus;
 let notifications: Notifications;
 
@@ -41,14 +44,16 @@ beforeEach(() => {
     protocol: 'http:',
   });
   notifications = new Notifications('','');
-  eventBus = new EventBus(createLogger(), mailUsecase, notifications);
+  mailService = { sendDeleteUserMail: async () => {} };
+  eventBus = new EventBus(createLogger(), notifications);
   eventBus.removeAllListeners();
   usecase = new UsersUsecase(
     usersRepository, 
     framesRepository,
     bucketsRepository,
     mailUsecase,
-    eventBus
+    eventBus,
+    mailService
   );
 });
 
@@ -356,42 +361,54 @@ describe('Users usecases', () => {
   });
 
   describe('Requesting user destroy', () => {
-    it('When requesting a user destroy, it should work if the user exists', async () => {
+    const redirect = 'https://drive.internxt.com/deactivations/token';
+
+    it('When requesting a user destroy, then it sends the mail, saves the deactivator and returns the user', async () => {
       const user = fixtures.getUser();
-      const redirect = 'redirect';
       const findUser = stub(usersRepository, 'findById').resolves(user);
+      const sendMail = jest.spyOn(mailService, 'sendDeleteUserMail').mockResolvedValue();
       const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
-      const eventBusEmitterSpy = jest.spyOn(eventBus, 'emit').mockImplementation();
 
-      await usecase.requestUserDestroy(user.id, user.deactivator as string, redirect);
+      const result = await usecase.requestUserDestroy(user.id, user.deactivator as string, redirect);
 
-      expect(findUser.calledOnce).toBeTruthy();
       expect(findUser.firstCall.args).toStrictEqual([user.id]);
-      expect(updateById).toBeCalledTimes(1);
+      expect(sendMail).toBeCalledWith(user.email, redirect);
       expect(updateById).toBeCalledWith(user.id, { deactivator: user.deactivator });
-      expect(eventBusEmitterSpy).toBeCalledTimes(1);
-      expect(eventBusEmitterSpy).toBeCalledWith(EventBusEvents.UserDestroyRequest, {
-        userRequestingDestroyEmail: user.email,
-        mailParams: {
-          deactivator: user.deactivator,
-          redirect,
-        }
-      });
+      expect(sendMail.mock.invocationCallOrder[0]).toBeLessThan(updateById.mock.invocationCallOrder[0]);
+      expect(result).toStrictEqual({ email: user.email, uuid: user.uuid });
     });
 
-    it('When requesting a user destroy, it should fail if the user does not exist', async () => {
+    it('When the user does not exist, then it fails', async () => {
       const user = fixtures.getUser();
-      const redirect = 'redirect';
-      const findUser = stub(usersRepository, 'findById').resolves(null);
+      stub(usersRepository, 'findById').resolves(null);
+      const sendMail = jest.spyOn(mailService, 'sendDeleteUserMail').mockResolvedValue();
 
-      try {
-        await usecase.requestUserDestroy(user.id, user.deactivator as string, redirect);
-        expect(true).toBeFalsy();
-      } catch (err) {
-        expect(err).toBeInstanceOf(UserNotFoundError);
-        expect(findUser.calledOnce).toBeTruthy();
-        expect(findUser.firstCall.args).toStrictEqual([user.id]);
-      }
+      await expect(usecase.requestUserDestroy(user.id, user.deactivator as string, redirect))
+        .rejects.toBeInstanceOf(UserNotFoundError);
+      expect(sendMail).not.toBeCalled();
+    });
+
+    it('When the user has the deactivation disabled, then it fails without sending the mail', async () => {
+      const user = { ...fixtures.getUser(), configuration: { disableDeactivation: true } };
+      stub(usersRepository, 'findById').resolves(user);
+      const sendMail = jest.spyOn(mailService, 'sendDeleteUserMail').mockResolvedValue();
+      const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
+
+      await expect(usecase.requestUserDestroy(user.id, user.deactivator as string, redirect))
+        .rejects.toBeInstanceOf(UserDeactivationDisabledError);
+      expect(sendMail).not.toBeCalled();
+      expect(updateById).not.toBeCalled();
+    });
+
+    it('When sending the mail fails, then it fails without saving the deactivator', async () => {
+      const user = fixtures.getUser();
+      stub(usersRepository, 'findById').resolves(user);
+      jest.spyOn(mailService, 'sendDeleteUserMail').mockRejectedValue(new Error('sendgrid down'));
+      const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
+
+      await expect(usecase.requestUserDestroy(user.id, user.deactivator as string, redirect))
+        .rejects.toThrow('sendgrid down');
+      expect(updateById).not.toBeCalled();
     });
   });
 

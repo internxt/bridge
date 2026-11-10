@@ -18,6 +18,9 @@ export interface User {
   preferences?: {
     dnt: boolean;
   };
+  configuration?: {
+    disableDeactivation?: boolean;
+  };
   created?: Date;
   // Following attributes are deleted in toObject() from  storj-service-storage-models:
   // pendingHashPass?: string | null;

@@ -3,6 +3,7 @@ import { Logger } from 'winston';
 
 import { 
   InvalidDataFormatError, 
+  UserDeactivationDisabledError,
   UserNotFoundError, 
   UsersUsecase 
 } from '../../../core';
@@ -103,6 +104,9 @@ export class HTTPUsersController {
     } catch (err) {
       if (err instanceof UserNotFoundError) {
         return res.status(404).send({ error: err.message });
+      }
+      if (err instanceof UserDeactivationDisabledError) {
+        return res.status(409).send({ error: err.message });
       }
       this.logger.error(
         'Error requesting user destroy for user %s: %s. %s',

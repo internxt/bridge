@@ -6,6 +6,7 @@ import { BucketsRepository } from "../../core/buckets/Repository";
 import { UsersRepository } from "../../core/users/Repository";
 
 import { Mailer, MailUsecase, Profile, SendGridMailUsecase } from "../../core/mail/usecase";
+import { MailService } from "../../core/mail/SendGridMailService";
 import { createUsersHTTPRouter } from "./users";
 import { HTTPUsersController } from "./users/controller";
 import { EventBus } from "../eventBus";
@@ -57,7 +58,8 @@ export function bindNewRoutes(
   profile: Profile,
   log: Logger,
   networkQueue: any,
-  notifications: Notifications
+  notifications: Notifications,
+  mailService: MailService
 ): void {
   const { models } = storage;
 
@@ -73,14 +75,15 @@ export function bindNewRoutes(
   const fileStateRepository: FileStateRepository = new MongoDBFileStateRepository(models.FileState);
 
   const mailUsecase: MailUsecase = new SendGridMailUsecase(mailer, profile);
-  const eventBus = new EventBus(log, mailUsecase, notifications);
+  const eventBus = new EventBus(log, notifications);
 
   const usersUsecase = new UsersUsecase(
     usersRepository,
     framesRepository,
     bucketsRepository,
     mailUsecase,
-    eventBus
+    eventBus,
+    mailService
   );
 
   const gatewayUsecase = new GatewayUsecase(

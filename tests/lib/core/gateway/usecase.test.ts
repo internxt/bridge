@@ -1,6 +1,5 @@
 import { stub, restore } from 'sinon';
 import { createLogger } from 'winston';
-import Mailer from 'inxt-service-mailer';
 
 import { BucketEntriesRepository } from '../../../../lib/core/bucketEntries/Repository';
 import { FramesRepository } from '../../../../lib/core/frames/Repository';
@@ -20,7 +19,6 @@ import {
 } from './fixtures';
 import { Pointer } from '../../../../lib/core/pointers/Pointer';
 import { EventBus, EventBusEvents } from '../../../../lib/server/eventBus';
-import { MailUsecase, SendGridMailUsecase } from '../../../../lib/core/mail/usecase';
 import { ShardsRepository } from '../../../../lib/core/shards/Repository';
 import { MongoDBShardsRepository } from '../../../../lib/core/shards/MongoDBShardsRepository';
 import { ContactsRepository } from '../../../../lib/core/contacts/Repository';
@@ -33,10 +31,6 @@ let pointersRepository: PointersRepository = new MongoDBPointersRepository({});
 let mirrorsRepository: MirrorsRepository = new MongoDBMirrorsRepository({});
 let shardsRepository: ShardsRepository = new MongoDBShardsRepository({});
 let contactsRepository: ContactsRepository = new MongoDBContactsRepository({});
-let mailUsecase: MailUsecase = new SendGridMailUsecase({} as Mailer, {
-  host: '',
-  protocol: 'http:',
-});
 
 let logger = createLogger({
   silent: true
@@ -44,7 +38,7 @@ let logger = createLogger({
 
 let notifications = new Notifications('','');
 
-let eventBus = new EventBus(logger, mailUsecase, notifications);
+let eventBus = new EventBus(logger, notifications);
 
 let usecase = new GatewayUsecase(
   bucketEntriesRepository, 
@@ -63,7 +57,7 @@ beforeEach(() => {
   mirrorsRepository = new MongoDBMirrorsRepository({});
   shardsRepository = new MongoDBShardsRepository({});
   contactsRepository = new MongoDBContactsRepository({});
-  eventBus = new EventBus(logger, mailUsecase, notifications);
+  eventBus = new EventBus(logger, notifications);
 
   usecase = new GatewayUsecase(
     bucketEntriesRepository, 
