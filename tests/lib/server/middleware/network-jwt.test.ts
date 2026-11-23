@@ -1,85 +1,74 @@
-import { Request, Response } from 'express';
 import { sign } from 'jsonwebtoken';
 
-import { buildNetworkJwtMiddleware, getNetworkToken } from '../../../../lib/server/middleware/network-jwt';
+import {
+  isNetworkTokenUsername,
+  NETWORK_TOKEN_AUDIENCE,
+  verifyNetworkToken,
+} from '../../../../lib/server/middleware/network-jwt';
 
-const basicAuth = (username: string, password: string) =>
-  `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
-
-describe('Network JWT middleware', () => {
+describe('Network JWT', () => {
   const secret = 'network-secret';
-  const bucketId = 'bucket-id';
-  const userUuid = 'user-uuid';
-  const user = { uuid: userUuid, activated: true };
+  const userUuid = '0b1f3c4e-5a6d-4e7f-8a9b-1c2d3e4f5a6b';
+  const bucket = '5f8d0d55b54764421b7156c9';
 
   const buildToken = (payload: object = {}, options: object = {}, key: string = secret) =>
-    sign({ uuid: userUuid, ...payload }, key, {
+    sign({ uuid: userUuid, bucket, ...payload }, key, {
       algorithm: 'HS256',
       expiresIn: 60,
+      audience: NETWORK_TOKEN_AUDIENCE,
       ...options,
     });
 
-  const run = async (token: string, { foundUser = user as unknown, key = secret as string | null } = {}) => {
-    const User = { findOne: jest.fn().mockResolvedValue(foundUser) };
-    const req = { headers: { authorization: basicAuth('network-token', token) }, params: { id: bucketId } } as unknown as Request;
-    const next = jest.fn();
+  describe('Token verification', () => {
+    it('When the token is valid, then it returns the token user and bucket', () => {
+      expect(verifyNetworkToken(buildToken(), secret)).toStrictEqual({ uuid: userUuid, bucket });
+    });
 
-    await buildNetworkJwtMiddleware(User, key ?? undefined)(req, {} as Response, next);
-
-    return { req: req as Request & { user?: unknown }, next, User };
-  };
-
-  it('When the token is valid, then the request is authenticated as the token user', async () => {
-    const { req, next, User } = await run(buildToken());
-
-    expect(User.findOne).toHaveBeenCalledWith({ uuid: userUuid });
-    expect(req.user).toBe(user);
-    expect(next).toHaveBeenCalledWith();
-  });
-
-  it.each([
-    ['has expired', () => buildToken({}, { expiresIn: -10 })],
-    ['has no user', () => buildToken({ uuid: undefined })],
-    ['is signed with another secret', () => buildToken({}, {}, 'another-secret')],
-  ])('When the token %s, then it is not authorized', async (_, buildInvalidToken) => {
-    const { next, User } = await run(buildInvalidToken());
-
-    expect(User.findOne).not.toHaveBeenCalled();
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 401 }));
-  });
-
-  it('When no secret is configured, then network tokens are not accepted', async () => {
-    const { next } = await run(buildToken(), { key: null });
-
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 401 }));
-  });
-
-  it('When the token user does not exist, then it is not authorized', async () => {
-    const { next } = await run(buildToken(), { foundUser: null });
-
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 401 }));
-  });
-
-  it('When the token user is not activated, then it is forbidden', async () => {
-    const { next } = await run(buildToken(), { foundUser: { activated: false } });
-
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 403 }));
-  });
-
-  describe('Network token extraction', () => {
-    const requestWith = (authorization?: string) => ({ headers: { authorization } }) as unknown as Request;
-
-    it('When basic auth uses the network token username, then the password is the token', () => {
-      expect(getNetworkToken(requestWith(basicAuth('network-token', 'a.b.c')))).toBe('a.b.c');
+    it('When the token lives as long as the emitted 90 minutes, then it returns the token user and bucket', () => {
+      expect(verifyNetworkToken(buildToken({}, { expiresIn: 90 * 60 }), secret)).toStrictEqual({ uuid: userUuid, bucket });
     });
 
     it.each([
-      ['regular basic credentials', basicAuth('user@internxt.com', 'hashed-pass')],
-      ['an empty token', basicAuth('network-token', '')],
-      ['a bearer token', 'Bearer a.b.c'],
-      ['no authorization', undefined],
-    ])('When the request has %s, then there is no network token', (_, authorization) => {
-      expect(getNetworkToken(requestWith(authorization))).toBeNull();
+      ['has expired beyond the clock tolerance', () => buildToken({}, { expiresIn: -120 })],
+      ['was issued more than 2 hours ago', () => buildToken({ iat: Math.floor(Date.now() / 1000) - 3 * 60 * 60 }, { expiresIn: 4 * 60 * 60 })],
+      ['has no issued at date', () => buildToken({}, { noTimestamp: true })],
+      ['has no user', () => buildToken({ uuid: undefined })],
+      ['is signed with another secret', () => buildToken({}, {}, 'another-secret')],
+      ['has another audience', () => buildToken({}, { audience: 'bridge' })],
+      ['has no audience', () => sign({ uuid: userUuid, bucket }, secret, { algorithm: 'HS256', expiresIn: 60 })],
+      ['is signed with another algorithm', () => sign({ uuid: userUuid, bucket }, secret, {
+        algorithm: 'HS512', expiresIn: 60, audience: NETWORK_TOKEN_AUDIENCE,
+      })],
+      ['is unsigned', () => sign({ uuid: userUuid, bucket }, '', {
+        algorithm: 'none', expiresIn: 60, audience: NETWORK_TOKEN_AUDIENCE,
+      })],
+      ['has a non uuid user', () => buildToken({ uuid: 'user-uuid' })],
+      ['has a query object as user', () => buildToken({ uuid: { $ne: null } })],
+      ['has no bucket', () => buildToken({ bucket: undefined })],
+      ['is malformed', () => 'not-a-jwt'],
+    ])('When the token %s, then it returns null', (_, buildInvalidToken) => {
+      expect(verifyNetworkToken(buildInvalidToken(), secret)).toBeNull();
+    });
+
+    it('When no secret is configured, then it returns null', () => {
+      expect(verifyNetworkToken(buildToken(), undefined)).toBeNull();
+    });
+
+    it('When there is no token, then it returns null', () => {
+      expect(verifyNetworkToken(undefined, secret)).toBeNull();
+    });
+  });
+
+  describe('Network token username', () => {
+    it('When the username is the network token one, then it is recognized', () => {
+      expect(isNetworkTokenUsername('network-token')).toBe(true);
+    });
+
+    it.each([
+      ['a regular user email', 'user@internxt.com'],
+      ['no username', undefined],
+    ])('When the username is %s, then it is not recognized', (_, username) => {
+      expect(isNetworkTokenUsername(username)).toBe(false);
     });
   });
 });

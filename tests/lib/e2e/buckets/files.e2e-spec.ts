@@ -7,6 +7,8 @@ import { createTestUser, getAuth, shutdownEngine } from '../utils';
 import sinon from 'sinon';
 import { StorageDbManager } from '../storage-db-manager';
 import { StorageGateway } from '../../../../lib/core/storage/StorageGateway';
+import { sign } from 'jsonwebtoken';
+import { NETWORK_TOKEN_AUDIENCE } from '../../../../lib/server/middleware/network-jwt';
 
 const FAKE_UPLOAD_URL = 'http://fake-upload-url'
 const FAKE_DOWNLOAD_URL = 'http://fake-download-url'
@@ -452,6 +454,191 @@ describe('Bridge E2E Tests', () => {
           size: 1000,
           version: 2,
           shards: [{ index: 0, hash: fileHash, url: expect.any(String), }]
+        })
+      })
+    })
+
+    describe('Using a network token', () => {
+      const networkTokenSecret: string = engine._config.network?.JWT_SECRET
+
+      let owner: User
+      let ownerBucketId: string
+
+      const buildNetworkToken = (
+        claims: { uuid?: string, bucket?: string, iat?: number } = {},
+        { key = networkTokenSecret, expiresIn = 60 * 60 }: { key?: string, expiresIn?: number } = {},
+      ) => sign({ uuid: owner.uuid, bucket: ownerBucketId, ...claims }, key, {
+        algorithm: 'HS256',
+        audience: NETWORK_TOKEN_AUDIENCE,
+        expiresIn,
+      })
+
+      const networkAuth = (token: string) => `Basic ${Buffer.from(`network-token:${token}`).toString('base64')}`
+
+      const createBucket = async (user: User): Promise<string> => {
+        const { body: { id } } = await testServer
+          .post('/buckets')
+          .set('Authorization', getAuth(user))
+          .expect(201)
+
+        return id
+      }
+
+      const startUpload = (auth: string, bucketId: string) => testServer
+        .post(`/v2/buckets/${bucketId}/files/start`)
+        .set('Authorization', auth)
+        .send({ uploads: [{ index: 0, size: 1000 }] })
+
+      const finishSinglePartUpload = (auth: string, bucketId: string, uuid: string) => finishUpload(
+        auth,
+        bucketId,
+        crypto.randomBytes(32).toString('hex'),
+        [{ hash: crypto.randomBytes(20).toString('hex'), uuid }],
+        { shardSize: 1000 },
+      )
+
+      const uploadFile = async (auth: string, bucketId: string): Promise<string> => {
+        const { body: { uploads: [upload] } } = await startUpload(auth, bucketId).expect(200)
+        const { status, body: file } = await finishSinglePartUpload(auth, bucketId, upload.uuid)
+
+        if (status !== 200) {
+          throw new Error(`Upload could not be finished: ${status}`)
+        }
+
+        return file.id
+      }
+
+      beforeAll(async () => {
+        if (!networkTokenSecret) {
+          throw new Error('Missing inxtbridge_network__JWT_SECRET for network token e2e tests')
+        }
+
+        owner = await createTestUser()
+        ownerBucketId = await createBucket(owner)
+      })
+
+      describe('Uploading a file', () => {
+        it('When the token is valid for the bucket, then the user can start and finish the upload', async () => {
+          const auth = networkAuth(buildNetworkToken())
+
+          const startResponse = await startUpload(auth, ownerBucketId)
+
+          expect(startResponse.status).toBe(200)
+          const [upload] = startResponse.body.uploads
+          expect(upload).toMatchObject({ url: FAKE_UPLOAD_URL, uuid: expect.any(String) })
+
+          const finishResponse = await finishSinglePartUpload(auth, ownerBucketId, upload.uuid)
+
+          expect(finishResponse.status).toBe(200)
+          expect(finishResponse.body).toMatchObject({ bucket: ownerBucketId, size: 1000, version: 2 })
+        })
+
+        it('When the token was issued for another bucket, then the upload is forbidden', async () => {
+          const anotherBucketId = await createBucket(owner)
+          const auth = networkAuth(buildNetworkToken())
+
+          const startResponse = await startUpload(auth, anotherBucketId)
+          const finishResponse = await finishSinglePartUpload(auth, anotherBucketId, crypto.randomUUID())
+
+          expect(startResponse.status).toBe(403)
+          expect(finishResponse.status).toBe(403)
+        })
+
+        it('When the token user does not own the bucket, then the upload is forbidden', async () => {
+          const attacker = await createTestUser()
+
+          const response = await startUpload(networkAuth(buildNetworkToken({ uuid: attacker.uuid })), ownerBucketId)
+
+          expect(response.status).toBe(403)
+        })
+      })
+
+      describe('Getting file info', () => {
+        it('When the token is valid for the bucket, then the user gets the file info with download links', async () => {
+          const fileId = await uploadFile(getAuth(owner), ownerBucketId)
+
+          const response = await testServer
+            .get(`/buckets/${ownerBucketId}/files/${fileId}/info`)
+            .set('Authorization', networkAuth(buildNetworkToken()))
+
+          expect(response.status).toBe(200)
+          expect(response.body).toMatchObject({
+            bucket: ownerBucketId,
+            id: fileId,
+            shards: [{ index: 0, hash: expect.any(String), url: expect.any(String) }],
+          })
+        })
+
+        it('When the token was issued for another bucket, then getting the file info is forbidden', async () => {
+          const anotherBucketId = await createBucket(owner)
+          const fileId = await uploadFile(getAuth(owner), anotherBucketId)
+
+          const response = await testServer
+            .get(`/buckets/${anotherBucketId}/files/${fileId}/info`)
+            .set('Authorization', networkAuth(buildNetworkToken()))
+
+          expect(response.status).toBe(403)
+        })
+
+        it('When the token user does not own the bucket, then the file is not found', async () => {
+          const fileId = await uploadFile(getAuth(owner), ownerBucketId)
+          const attacker = await createTestUser()
+
+          const response = await testServer
+            .get(`/buckets/${ownerBucketId}/files/${fileId}/info`)
+            .set('Authorization', networkAuth(buildNetworkToken({ uuid: attacker.uuid })))
+
+          expect(response.status).toBe(404)
+        })
+      })
+
+      describe('Rejecting invalid tokens', () => {
+        const nowInSeconds = () => Math.floor(Date.now() / 1000)
+
+        it.each([
+          ['has expired', () => buildNetworkToken({}, { expiresIn: -120 })],
+          ['was issued more than 2 hours ago', () => buildNetworkToken({ iat: nowInSeconds() - 3 * 60 * 60 }, { expiresIn: 4 * 60 * 60 })],
+          ['is signed with another secret', () => buildNetworkToken({}, { key: 'another-secret' })],
+          ['belongs to a user that does not exist', () => buildNetworkToken({ uuid: crypto.randomUUID() })],
+          ['is malformed', () => 'not-a-jwt'],
+        ])('When the token %s, then the upload is not authorized', async (_: string, buildInvalidToken: () => string) => {
+          const response = await startUpload(networkAuth(buildInvalidToken()), ownerBucketId)
+
+          expect(response.status).toBe(401)
+        })
+      })
+
+      describe('Routes that do not accept network tokens', () => {
+        it('When listing buckets with a valid token, then it is not authorized', async () => {
+          const response = await testServer
+            .get('/buckets')
+            .set('Authorization', networkAuth(buildNetworkToken()))
+
+          expect(response.status).toBe(401)
+        })
+
+        it('When deleting a file with a valid token, then it is not authorized and the file is kept', async () => {
+          const fileId = await uploadFile(getAuth(owner), ownerBucketId)
+
+          const response = await testServer
+            .delete(`/buckets/${ownerBucketId}/files/${fileId}`)
+            .set('Authorization', networkAuth(buildNetworkToken()))
+
+          expect(response.status).toBe(401)
+          await testServer
+            .get(`/buckets/${ownerBucketId}/files/${fileId}/info`)
+            .set('Authorization', getAuth(owner))
+            .expect(200)
+        })
+
+        it('When getting the v2 download links with a valid token, then it is not authorized', async () => {
+          const fileId = await uploadFile(getAuth(owner), ownerBucketId)
+
+          const response = await testServer
+            .get(`/v2/buckets/${ownerBucketId}/files/${fileId}/mirrors`)
+            .set('Authorization', networkAuth(buildNetworkToken()))
+
+          expect(response.status).toBe(401)
         })
       })
     })
