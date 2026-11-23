@@ -3,6 +3,21 @@ import { BucketEntry, BucketEntryWithFrame } from './BucketEntry';
 import { BucketEntriesRepository } from './Repository';
 import { ObjectId } from 'mongodb';
 
+/**
+ * The fields that mark an entry as backed by storage: `frame` on v1 entries,
+ * `index` and `hmac` on v2 uploads. Gateway entries (createEntry) set none of
+ * them, which is what makes them safe to drop wholesale.
+ */
+const SHARD_MARKERS = ['frame', 'index', 'hmac.value'];
+
+const METADATA_ONLY = {
+  $and: SHARD_MARKERS.map((field) => ({ [field]: { $exists: false } })),
+};
+
+const SHARD_BACKED = {
+  $or: SHARD_MARKERS.map((field) => ({ [field]: { $exists: true } })),
+};
+
 interface BucketEntryModel extends Omit<BucketEntry, 'id'> {
   _id: string;
   created: Date;
@@ -88,6 +103,40 @@ export class MongoDBBucketEntriesRepository implements BucketEntriesRepository {
     const bucketEntries = await this.model.find({ bucket: bucketId }).skip(skip).limit(limit).exec();
 
     return bucketEntries.map(formatFromMongoToBucketEntry);
+  }
+
+  async hasEntriesByBucket(bucketId: string): Promise<boolean> {
+    const found = await this.model
+      .countDocuments({ bucket: bucketId }, { limit: 1 })
+      .read('primary')
+      .exec();
+
+    return found > 0;
+  }
+
+  async hasShardBackedEntriesByBucket(bucketId: string): Promise<boolean> {
+    const found = await this.model
+      .countDocuments({ bucket: bucketId, ...SHARD_BACKED }, { limit: 1 })
+      .read('primary')
+      .exec();
+
+    return found > 0;
+  }
+
+  async sumMetadataOnlyBytesByBucket(bucketId: string): Promise<number> {
+    const [result] = await this.model
+      .aggregate([
+        { $match: { bucket: new ObjectId(bucketId), ...METADATA_ONLY } },
+        { $group: { _id: null, bytes: { $sum: '$size' } } },
+      ])
+      .read('primary')
+      .exec();
+
+    return result?.bytes ?? 0;
+  }
+
+  async deleteMetadataOnlyByBucket(bucketId: string): Promise<void> {
+    await this.model.deleteMany({ bucket: bucketId, ...METADATA_ONLY });
   }
 
   async findByIds(ids: string[]): Promise<BucketEntry[]> {
