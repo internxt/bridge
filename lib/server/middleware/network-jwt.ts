@@ -10,10 +10,8 @@ interface UserModel {
   findOne(where: { uuid: string }): Promise<{ activated: boolean } | null>;
 }
 
-export function getNetworkJwtPublicKey(): string | undefined {
-  const key = process.env.inxtbridge_network__JWT_PUBLIC_KEY;
-
-  return key ? Buffer.from(key, 'base64').toString('utf8') : undefined;
+export function getNetworkJwtSecret(): string | undefined {
+  return process.env.inxtbridge_network__JWT_SECRET || undefined;
 }
 
 const NETWORK_TOKEN_USERNAME = 'network-token';
@@ -35,17 +33,17 @@ export function getNetworkToken(req: Request): string | null {
   return credentials.slice(separatorIndex + 1) || null;
 }
 
-export function buildNetworkJwtMiddleware(User: UserModel, publicKey: string | undefined): RequestHandler {
+export function buildNetworkJwtMiddleware(User: UserModel, secret: string | undefined): RequestHandler {
   return async (req, _, next) => {
     const token = getNetworkToken(req);
 
-    if (!publicKey || !token) {
+    if (!secret || !token) {
       return next(NotAuthorizedError('Invalid network token'));
     }
 
     let payload: NetworkTokenPayload;
     try {
-      payload = verify(token, publicKey, { algorithms: ['RS256'] }) as NetworkTokenPayload;
+      payload = verify(token, secret, { algorithms: ['HS256'] }) as NetworkTokenPayload;
     } catch {
       return next(NotAuthorizedError('Invalid network token'));
     }

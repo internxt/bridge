@@ -1,4 +1,3 @@
-import { generateKeyPairSync } from 'crypto';
 import { Request, Response } from 'express';
 import { sign } from 'jsonwebtoken';
 
@@ -8,23 +7,19 @@ const basicAuth = (username: string, password: string) =>
   `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 
 describe('Network JWT middleware', () => {
-  const { privateKey, publicKey } = generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-    publicKeyEncoding: { type: 'spki', format: 'pem' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-  });
+  const secret = 'network-secret';
   const bucketId = 'bucket-id';
   const userUuid = 'user-uuid';
   const user = { uuid: userUuid, activated: true };
 
-  const buildToken = (payload: object = {}, options: object = {}, key: string = privateKey) =>
+  const buildToken = (payload: object = {}, options: object = {}, key: string = secret) =>
     sign({ uuid: userUuid, ...payload }, key, {
-      algorithm: 'RS256',
+      algorithm: 'HS256',
       expiresIn: 60,
       ...options,
     });
 
-  const run = async (token: string, { foundUser = user as unknown, key = publicKey as string | null } = {}) => {
+  const run = async (token: string, { foundUser = user as unknown, key = secret as string | null } = {}) => {
     const User = { findOne: jest.fn().mockResolvedValue(foundUser) };
     const req = { headers: { authorization: basicAuth('network-token', token) }, params: { id: bucketId } } as unknown as Request;
     const next = jest.fn();
@@ -45,11 +40,7 @@ describe('Network JWT middleware', () => {
   it.each([
     ['has expired', () => buildToken({}, { expiresIn: -10 })],
     ['has no user', () => buildToken({ uuid: undefined })],
-    ['is signed with another key', () => buildToken({}, {}, generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-      publicKeyEncoding: { type: 'spki', format: 'pem' },
-    }).privateKey)],
+    ['is signed with another secret', () => buildToken({}, {}, 'another-secret')],
   ])('When the token %s, then it is not authorized', async (_, buildInvalidToken) => {
     const { next, User } = await run(buildInvalidToken());
 
@@ -57,7 +48,7 @@ describe('Network JWT middleware', () => {
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 401 }));
   });
 
-  it('When no public key is configured, then network tokens are not accepted', async () => {
+  it('When no secret is configured, then network tokens are not accepted', async () => {
     const { next } = await run(buildToken(), { key: null });
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ code: 401 }));
