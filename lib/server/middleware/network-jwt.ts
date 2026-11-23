@@ -16,7 +16,7 @@ export function getNetworkJwtPublicKey(): string | undefined {
   return key ? Buffer.from(key, 'base64').toString('utf8') : undefined;
 }
 
-export const NETWORK_TOKEN_USERNAME = 'network-token';
+const NETWORK_TOKEN_USERNAME = 'network-token';
 
 export function getNetworkToken(req: Request): string | null {
   const auth = req.headers['authorization'];
