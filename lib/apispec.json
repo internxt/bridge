@@ -237,57 +237,6 @@
         }
       }
     },
-    "/users/{email}": {
-      "delete": {
-        "tags": ["users"],
-        "summary": "Requests the deletion of the account",
-        "parameters": [
-          {
-            "name": "email",
-            "in": "path",
-            "type": "string",
-            "description": "The email address of the account to delete (yours)",
-            "required": true
-          },
-          {
-            "name": "options",
-            "in": "body",
-            "required": false,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "redirect": {
-                  "description": "Optional redirect URL for successful deletion",
-                  "type": "string"
-                }
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Account deletion email sent",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "email": {
-                  "type": "string",
-                  "example": "hello@internxt.com"
-                },
-                "created": {
-                  "type": "string",
-                  "example": "2016-03-04T17:01:02.629Z"
-                },
-                "activated": {
-                  "type": "boolean",
-                  "example": true
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/resets/{token}": {
       "get": {
         "tags": ["users"],

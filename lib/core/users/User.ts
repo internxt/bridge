@@ -40,4 +40,4 @@ export type CreateUserData = Pick<
   User,
   'password' | 'maxSpaceBytes' | 'activated'
 > & { email: string };
-export type BasicUser = Pick<User, 'id' | 'uuid' | 'maxSpaceBytes'>;
+export type BasicUser = Pick<User, 'id' | 'uuid' | 'maxSpaceBytes' | 'configuration'>;

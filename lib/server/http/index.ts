@@ -33,7 +33,6 @@ import { MongoDBBucketEntryShardsRepository } from "../../core/bucketEntryShards
 import { Notifications } from "../notifications";
 import { FileStateRepository } from "../../core/fileState/Repository";
 import { MongoDBFileStateRepository } from "../../core/fileState/MongoDBFileStateRepository";
-import authenticateFactory from "../middleware/authenticate";
 
 interface Models {
   User: any;
@@ -108,7 +107,6 @@ export function bindNewRoutes(
     usersRepository,
     fileStateRepository
   );
-  const basicAuthMiddleware = authenticateFactory({ User: storage.models.User, PublicKey: storage.models.PublicKey, UserNonce: storage.models.UserNonce });
   const secretToUtf8 = Buffer.from(getEnv().gateway.jwtSecret, 'base64').toString('utf8')
   const jwtMiddleware = buildJwtMiddleware(secretToUtf8, { algorithms: ['RS256'] });
 
@@ -121,7 +119,7 @@ export function bindNewRoutes(
     eventBus
   );
 
-  const usersRouter = createUsersHTTPRouter(usersController, basicAuthMiddleware);
+  const usersRouter = createUsersHTTPRouter(usersController);
   const gatewayRouter = createGatewayHTTPRouter(gatewayController, jwtMiddleware);
 
   app.use('/v2/users', usersRouter);

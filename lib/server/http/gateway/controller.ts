@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { validate as uuidValidate } from 'uuid';
 import { Logger } from 'winston';
-import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
+import { EmailIsAlreadyInUseError, InvalidDataFormatError, UserAlreadyExistsError, UserDeactivationDisabledError, UserNotFoundError, UserSpaceSnapshot, UsersUsecase } from '../../../core';
 import { BucketEntriesUsecase } from '../../../core/bucketEntries/usecase';
 import { BucketNotFoundError } from '../../../core/buckets/usecase';
 
@@ -93,6 +93,37 @@ export class HTTPGatewayController {
         err.stack
       );
     
+      res.status(500).send({ message: 'Internal Server Error' });
+    }
+  }
+
+  async requestUserDeactivation(req: Request<{ uuid: string }, {}, { redirect?: string }, {}>, res: Response) {
+    const redirect = req.body?.redirect;
+
+    if (!redirect) {
+      return res.status(400).send({ message: 'Missing params' });
+    }
+
+    try {
+      const user = await this.usersUsecase.requestUserDestroy(req.params.uuid, redirect);
+
+      res.status(200).send(user);
+    } catch (error) {
+      const err = error as Error;
+
+      if (err instanceof UserNotFoundError) {
+        return res.status(404).send({ message: err.message });
+      }
+      if (err instanceof UserDeactivationDisabledError) {
+        return res.status(409).send({ message: err.message });
+      }
+      this.logger.error(
+        '[GATEWAY/REQUEST_DEACTIVATION] Error requesting user %s deactivation: %s. %s',
+        req.params.uuid,
+        err.message,
+        err.stack
+      );
+
       res.status(500).send({ message: 'Internal Server Error' });
     }
   }

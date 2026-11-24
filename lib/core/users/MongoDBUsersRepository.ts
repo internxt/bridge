@@ -16,6 +16,9 @@ type DatabaseUser = {
   subscriptionPlan: {
     isSubscribed: boolean;
   };
+  configuration?: {
+    disableDeactivation?: boolean;
+  };
 };
 export const formatFromMongoToUser = (mongoUser: any): User => {
   const id = mongoUser._id;
@@ -65,6 +68,7 @@ export class MongoDBUsersRepository implements UsersRepository {
         uuid: user.uuid,
         id: user.id,
         maxSpaceBytes: user.maxSpaceBytes,
+        configuration: user.configuration,
       }
     );
   }

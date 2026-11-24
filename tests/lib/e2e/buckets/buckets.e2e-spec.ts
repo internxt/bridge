@@ -220,6 +220,26 @@ describe('Bridge E2E Tests', () => {
           expect(response.status).toBe(404)
 
         })
+
+        it('When the user has the bucket deletion disabled, then it fails and the bucket is kept', async () => {
+          const user = await createTestUser({ user: { email: dataGenerator.email(), password: dataGenerator.hash({ length: 64 }), maxSpaceBytes: 321312313 } })
+          const { body: bucket } = await testServer
+            .post('/buckets')
+            .set('Authorization', getAuth(user))
+            .send({
+              pubkeys: ['031a259ee122414f57a63bbd6887ee17960e9106b0adcf89a298cdad2108adf4d9'],
+              name: dataGenerator.word({ length: 7 })
+            })
+            .expect(201);
+          await databaseConnection.models.User.updateOne({ _id: user.id }, { $set: { 'configuration.disableBucketDeletion': true } })
+
+          const response = await testServer
+            .delete(`/buckets/${bucket.id}`)
+            .set('Authorization', getAuth(user))
+
+          expect(response.status).toBe(409)
+          expect(await databaseConnection.models.Bucket.findOne({ _id: bucket.id })).not.toBeNull()
+        })
       })
     })
   })

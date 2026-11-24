@@ -1,6 +1,5 @@
 import { createTestUser, getAuth, shutdownEngine, } from '../utils'
 
-import sendGridMail from '@sendgrid/mail'
 import { engine, testServer } from '../setup'
 import { dataGenerator, generateTestUserData } from '../users.fixtures'
 
@@ -14,6 +13,21 @@ jest.mock('@sendgrid/mail', () => ({
 // Mock JWT verification
 jest.mock('jsonwebtoken', () => ({ verify: jest.fn((_, __, ___, cb) => cb(null, {})) }))
 
+const redirect = 'https://drive.internxt.com/deactivations'
+
+const getUser = (id: string) => engine.storage.models.User.findOne({ _id: id })
+
+const setUserFields = (id: string, fields: Record<string, unknown>) =>
+  engine.storage.models.User.collection.updateOne({ _id: id } as any, { $set: fields })
+
+const createUserPendingDeactivation = async () => {
+  const user = await createTestUser({ user: generateTestUserData() })
+  const token = dataGenerator.hash()
+  await setUserFields(user.id, { deactivator: token })
+
+  return { user, token }
+}
+
 describe('Bridge E2E Tests', () => {
 
   beforeEach(() => {
@@ -26,265 +40,157 @@ describe('Bridge E2E Tests', () => {
 
   describe('Users Management', () => {
 
+    describe('Requesting a user deactivation via gateway', () => {
 
-    describe('User Management v1', () => {
+      it('When requesting the deactivation, then it sends the mail with a generated token and saves it', async () => {
+        const user = await createTestUser({ user: generateTestUserData() })
+        const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
 
-      describe('Deleting an existing user', () => {
+        const response = await testServer
+          .post(`/v2/gateway/users/${user.uuid}/deactivation`)
+          .set('Authorization', 'Bearer fake-token')
+          .send({ redirect })
 
-        it('When requesting user deactivation, it should work for authorized user email', async () => {
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
+        expect(response.status).toBe(200)
+        expect(response.body).toStrictEqual({ email: user.email, uuid: user.uuid })
+        const token = (await getUser(user.id)).toObject().deactivator
+        expect(token).toMatch(/^[0-9a-f]{512}$/)
+        expect(sendDeleteUserMail).toHaveBeenCalledWith(user.email, `${redirect}/${token}`)
+      })
 
-          // Act: Request Deactivation
-          const deactivatorHash = dataGenerator.hash()
-          const response = await testServer
-            .delete(`/users/${user.email}?deactivator=${deactivatorHash}&redirect=/`)
-            .set('Authorization', getAuth(payload))
+      it('When the redirect is missing, then it fails without sending the mail', async () => {
+        const user = await createTestUser({ user: generateTestUserData() })
+        const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
 
-          // Assert
-          expect(response.status).toBe(200)
-          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUser).not.toBeNull()
+        const response = await testServer
+          .post(`/v2/gateway/users/${user.uuid}/deactivation`)
+          .set('Authorization', 'Bearer fake-token')
+          .send({})
 
-          const token = dbUser.toObject().deactivator
-          expect(token).toBe(deactivatorHash)
+        expect(response.status).toBe(400)
+        expect(sendDeleteUserMail).not.toHaveBeenCalled()
+      })
 
-          expect(sendGridMail.send).toHaveBeenCalled()
+      it('When the user does not exist, then it fails', async () => {
+        const response = await testServer
+          .post(`/v2/gateway/users/${dataGenerator.guid({ version: 4 })}/deactivation`)
+          .set('Authorization', 'Bearer fake-token')
+          .send({ redirect })
 
+        expect(response.status).toBe(404)
+      })
 
-        })
+      it('When the user has the deactivation disabled, then it fails without sending the mail', async () => {
+        const user = await createTestUser({ user: generateTestUserData() })
+        await setUserFields(user.id, { 'configuration.disableDeactivation': true })
+        const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
 
-        it('When requesting user deactivation, it should fail for an email different than authorized user email', async () => {
+        const response = await testServer
+          .post(`/v2/gateway/users/${user.uuid}/deactivation`)
+          .set('Authorization', 'Bearer fake-token')
+          .send({ redirect })
 
-          // Arrange: Create User
-          const payload1 = generateTestUserData()
-          const user = await createTestUser({ user: payload1 })
+        expect(response.status).toBe(409)
+        expect(sendDeleteUserMail).not.toHaveBeenCalled()
+        expect((await getUser(user.id)).toObject().deactivator).toBeNull()
+      })
 
-          const payload2 = generateTestUserData()
-          await createTestUser({ user: payload2 })
+      it('When sending the mail fails, then it fails without saving the token', async () => {
+        const user = await createTestUser({ user: generateTestUserData() })
+        jest.spyOn(engine.mailService, 'sendDeleteUserMail').mockRejectedValueOnce(new Error('sendgrid down'))
 
-          // Act: Request Deactivation
-          const deactivatorHash = dataGenerator.hash()
-          const response = await testServer
-            .delete(`/users/${payload2.email}?deactivator=${deactivatorHash}&redirect=/`)
-            .set('Authorization', getAuth(payload1))
+        const response = await testServer
+          .post(`/v2/gateway/users/${user.uuid}/deactivation`)
+          .set('Authorization', 'Bearer fake-token')
+          .send({ redirect })
 
-          // Assert
-          expect(response.status).toBe(401)
-          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUser).not.toBeNull()
+        expect(response.status).toBe(500)
+        expect((await getUser(user.id)).toObject().deactivator).toBeNull()
+      })
 
-          const token = dbUser.toObject().deactivator
-          expect(token).toBeNull()
+      it.each([
+        ['legacy', (email: string) => `/users/${email}?deactivator=${dataGenerator.hash()}&redirect=/`],
+        ['v2', () => `/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`],
+      ])('When requesting the deactivation with the user credentials on the %s route, then it is not found', async (_, getPath) => {
+        const payload = generateTestUserData()
+        const user = await createTestUser({ user: payload })
 
-        })
+        const response = await testServer
+          .delete(getPath(user.email))
+          .set('Authorization', getAuth(payload))
 
-        it('When confirming user deactivation, it should work with the correct deactivator', async () => {
-
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-
-          // Arrange: Request Deactivation
-          const token = dataGenerator.hash()
-          await testServer
-            .delete(`/users/${user.email}?deactivator=${token}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-            .expect(200)
-
-          // Act: Confirm Deactivation
-          const response = await testServer.get(`/deactivations/${token}`)
-
-          // Assert
-          expect(response.status).toBe(200)
-          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUserAfterDeactivation).toBeNull()
-        })
-
-        it('When confirming user deactivation, it should fail with an incorrect deactivator', async () => {
-
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-
-          // Arrange: Request Deactivation
-          const token = dataGenerator.hash()
-          await testServer
-            .delete(`/users/${user.email}?deactivator=${token}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-            .expect(200)
-
-          // Act: Confirm Deactivation
-          const response = await testServer.get(`/deactivations/${dataGenerator.hash()}`)
-
-          // Assert
-          expect(response.status).toBe(404)
-          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUserAfterDeactivation).not.toBeNull()
-        })
+        expect(response.status).toBe(404)
+        expect((await getUser(user.id)).toObject().deactivator).toBeNull()
       })
     })
 
+    describe('Confirming a user deactivation', () => {
 
-    describe('User Management v2', () => {
+      it.each([
+        ['/deactivations', 'get'],
+        ['/v2/users/confirm-deactivate', 'delete'],
+      ] as const)('When confirming on %s with the correct token, then the user is deleted', async (path, method) => {
+        const { user, token } = await createUserPendingDeactivation()
 
-      describe('Deleting an existing user', () => {
+        const response = await testServer[method](`${path}/${token}`)
 
-        it('When requesting user deactivation, it should work for authorized user', async () => {
-
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-
-          const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
-          const redirect = 'https://drive.internxt.com/deactivations/token'
-
-          // Act: Request Deactivation
-          const deactivatorHash = dataGenerator.hash()
-          const response = await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${deactivatorHash}&redirect=${redirect}`)
-            .set('Authorization', getAuth(payload))
-
-          // Assert
-          expect(response.status).toBe(200);
-
-          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUser).not.toBeNull()
-
-          const token = dbUser.toObject().deactivator
-          expect(token).toBe(deactivatorHash)
-
-          expect(sendDeleteUserMail).toHaveBeenCalledWith(user.email, redirect)
-
-        })
-
-        it('When requesting user deactivation, then it success', async () => {
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-          const response = await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-
-          expect(response.status).toBe(200)
-          expect(response.body).toStrictEqual({ email: user.email, uuid: user.uuid })
-        })
-
-        it('When the user has the deactivation disabled, then it fails without sending the email', async () => {
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-          await engine.storage.models.User.collection.updateOne({ _id: user.id }, { $set: { 'configuration.disableDeactivation': true } })
-          const sendDeleteUserMail = jest.spyOn(engine.mailService, 'sendDeleteUserMail')
-
-          const response = await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-
-          expect(response.status).toBe(409)
-          expect(sendDeleteUserMail).not.toHaveBeenCalled()
-          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUser.toObject().deactivator).toBeNull()
-        })
-
-        it('When sending the email fails, then it fails without saving the deactivator', async () => {
-          jest.spyOn(engine.mailService, 'sendDeleteUserMail').mockRejectedValueOnce(new Error('sendgrid down'))
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-          const response = await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${dataGenerator.hash()}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-
-          expect(response.status).toBe(500)
-          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUser.toObject().deactivator).toBeNull()
-        })
-
-        it('When confirming user deactivation, it should work with the correct deactivator', async () => {
-
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-
-          // Arrange: Request Deactivation
-          const token = dataGenerator.hash()
-          await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${token}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-            .expect(200)
-
-
-          // Act: Confirm Deactivation
-          const response = await testServer.delete(`/v2/users/confirm-deactivate/${token}`)
-
-          // Assert
-          expect(response.status).toBe(200);
-          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUserAfterDeactivation).toBeNull()
-
-        })
-        it('When confirming user deactivation, it should fail with an incorrect deactivator', async () => {
-
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-
-          // Arrange: Request Deactivation
-          const token = dataGenerator.hash()
-          await testServer
-            .delete(`/v2/users/request-deactivate?deactivator=${token}&redirect=/`)
-            .set('Authorization', getAuth(payload))
-            .expect(200)
-
-
-          // Act: Confirm Deactivation
-          const response = await testServer.delete(`/v2/users/confirm-deactivate/${dataGenerator.hash()}`)
-
-          // Assert
-          expect(response.status).toBe(404);
-          const dbUserAfterDeactivation = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUserAfterDeactivation).not.toBeNull()
-
-        })
-
+        expect(response.status).toBe(200)
+        expect(await getUser(user.id)).toBeNull()
       })
 
-      describe('User update v2', () => {
+      it.each([
+        ['/deactivations', 'get'],
+        ['/v2/users/confirm-deactivate', 'delete'],
+      ] as const)('When confirming on %s with an incorrect token, then it fails and the user is kept', async (path, method) => {
+        const { user } = await createUserPendingDeactivation()
 
-        it('should be able to update a user email via gateway', async () => {
+        const response = await testServer[method](`${path}/${dataGenerator.hash()}`)
 
-          // Arrange: Create User
-          const payload = generateTestUserData()
-          const user = await createTestUser({ user: payload })
-
-
-          // Act: Update User Email
-          const newEmail = dataGenerator.email()
-          const response = await testServer
-            .patch(`/v2/gateway/users/${user.id}`)
-            .set('Authorization', `Bearer fake-token`)
-            .send({ email: newEmail })
-
-
-          // Assert
-          expect(response.status).toBe(200);
-
-          const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
-          expect(dbUser.toObject().email).toBe(newEmail)
-
-        })
+        expect(response.status).toBe(404)
+        expect(await getUser(user.id)).not.toBeNull()
       })
 
+      it.each([
+        ['/deactivations', 'get'],
+        ['/deactivationStripe', 'get'],
+        ['/v2/users/confirm-deactivate', 'delete'],
+      ] as const)('When confirming on %s and the user has the deactivation disabled, then it fails and the user is kept', async (path, method) => {
+        const { user, token } = await createUserPendingDeactivation()
+        await setUserFields(user.id, { 'configuration.disableDeactivation': true })
+
+        const response = await testServer[method](`${path}/${token}`)
+
+        expect(response.status).toBe(409)
+        expect(await getUser(user.id)).not.toBeNull()
+      })
     })
 
+    describe('User update v2', () => {
+
+      it('should be able to update a user email via gateway', async () => {
+
+        // Arrange: Create User
+        const payload = generateTestUserData()
+        const user = await createTestUser({ user: payload })
+
+
+        // Act: Update User Email
+        const newEmail = dataGenerator.email()
+        const response = await testServer
+          .patch(`/v2/gateway/users/${user.id}`)
+          .set('Authorization', `Bearer fake-token`)
+          .send({ email: newEmail })
+
+
+        // Assert
+        expect(response.status).toBe(200);
+
+        const dbUser = await engine.storage.models.User.findOne({ _id: user.id })
+        expect(dbUser.toObject().email).toBe(newEmail)
+
+      })
+    })
 
   })
 
 })
-

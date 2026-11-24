@@ -239,40 +239,41 @@ describe('Users usecases', () => {
   });
 
   describe('Requesting user destroy', () => {
-    const redirect = 'https://drive.internxt.com/deactivations/token';
+    const redirect = 'https://drive.internxt.com/deactivations';
 
-    it('When requesting a user destroy, then it sends the mail, saves the deactivator and returns the user', async () => {
+    it('When requesting a user destroy, then it sends the mail with a generated token, saves it and returns the user', async () => {
       const user = fixtures.getUser();
-      const findUser = stub(usersRepository, 'findById').resolves(user);
+      const findUser = stub(usersRepository, 'findByUuid').resolves(user);
       const sendMail = jest.spyOn(mailService, 'sendDeleteUserMail').mockResolvedValue();
       const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
 
-      const result = await usecase.requestUserDestroy(user.id, user.deactivator as string, redirect);
+      const result = await usecase.requestUserDestroy(user.uuid, redirect);
 
-      expect(findUser.firstCall.args).toStrictEqual([user.id]);
-      expect(sendMail).toBeCalledWith(user.email, redirect);
-      expect(updateById).toBeCalledWith(user.id, { deactivator: user.deactivator });
+      expect(findUser.firstCall.args).toStrictEqual([user.uuid]);
+      const { deactivator } = updateById.mock.calls[0][1] as { deactivator: string };
+      expect(deactivator).toMatch(/^[0-9a-f]{512}$/);
+      expect(sendMail).toBeCalledWith(user.email, `https://drive.internxt.com/deactivations/${deactivator}`);
       expect(sendMail.mock.invocationCallOrder[0]).toBeLessThan(updateById.mock.invocationCallOrder[0]);
       expect(result).toStrictEqual({ email: user.email, uuid: user.uuid });
     });
 
     it('When the user does not exist, then it fails', async () => {
       const user = fixtures.getUser();
-      stub(usersRepository, 'findById').resolves(null);
+      stub(usersRepository, 'findByUuid').resolves(null);
       const sendMail = jest.spyOn(mailService, 'sendDeleteUserMail').mockResolvedValue();
 
-      await expect(usecase.requestUserDestroy(user.id, user.deactivator as string, redirect))
+      await expect(usecase.requestUserDestroy(user.uuid, redirect))
         .rejects.toBeInstanceOf(UserNotFoundError);
       expect(sendMail).not.toBeCalled();
     });
 
     it('When the user has the deactivation disabled, then it fails without sending the mail', async () => {
       const user = { ...fixtures.getUser(), configuration: { disableDeactivation: true } };
-      stub(usersRepository, 'findById').resolves(user);
+      stub(usersRepository, 'findByUuid').resolves(user);
       const sendMail = jest.spyOn(mailService, 'sendDeleteUserMail').mockResolvedValue();
       const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
 
-      await expect(usecase.requestUserDestroy(user.id, user.deactivator as string, redirect))
+      await expect(usecase.requestUserDestroy(user.uuid, redirect))
         .rejects.toBeInstanceOf(UserDeactivationDisabledError);
       expect(sendMail).not.toBeCalled();
       expect(updateById).not.toBeCalled();
@@ -280,11 +281,11 @@ describe('Users usecases', () => {
 
     it('When sending the mail fails, then it fails without saving the deactivator', async () => {
       const user = fixtures.getUser();
-      stub(usersRepository, 'findById').resolves(user);
+      stub(usersRepository, 'findByUuid').resolves(user);
       jest.spyOn(mailService, 'sendDeleteUserMail').mockRejectedValue(new Error('sendgrid down'));
       const updateById = jest.spyOn(usersRepository, 'updateById').mockImplementation();
 
-      await expect(usecase.requestUserDestroy(user.id, user.deactivator as string, redirect))
+      await expect(usecase.requestUserDestroy(user.uuid, redirect))
         .rejects.toThrow('sendgrid down');
       expect(updateById).not.toBeCalled();
     });
@@ -411,6 +412,17 @@ describe('Users usecases', () => {
         expect(findUser.calledOnce).toBeTruthy();
         expect(findUser.firstCall.args).toStrictEqual([{ deactivator: user.deactivator }]);
       }
+    });
+
+    it('When the user has the deactivation disabled, then it fails without destroying the user', async () => {
+      const user = { ...fixtures.getUser(), configuration: { disableDeactivation: true } };
+      stub(usersRepository, 'findOne').resolves(user);
+      const destroyUser = jest.spyOn(usecase, 'destroyUser').mockImplementation();
+
+      await expect(usecase.confirmDestroyUser('token')).rejects.toBeInstanceOf(UserDeactivationDisabledError);
+      expect(destroyUser).not.toBeCalled();
+
+      destroyUser.mockRestore();
     });
   });
 });
