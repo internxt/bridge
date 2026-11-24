@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 import { UsersRepository } from './Repository';
 import { BucketsRepository } from '../buckets/Repository';
@@ -160,22 +160,24 @@ export class UsersUsecase {
   }
 
   async requestUserDestroy(
-    userId: string,
-    deactivator: string,
+    uuid: User['uuid'],
     redirect: string
   ): Promise<Pick<User, 'email' | 'uuid'>> {
-    const user = await this.usersRepository.findById(userId);
+    const user = await this.usersRepository.findByUuid(uuid);
 
     if (!user) {
-      throw new UserNotFoundError(userId);
+      throw new UserNotFoundError(uuid);
     }
 
     if (user.configuration?.disableDeactivation) {
       throw new UserDeactivationDisabledError();
     }
 
-    await this.mailService.sendDeleteUserMail(user.email, redirect);
-    await this.usersRepository.updateById(user.id, { deactivator });
+    // The token is generated here so only the mail receiver knows it
+    const token = randomBytes(256).toString('hex');
+
+    await this.mailService.sendDeleteUserMail(user.email, `${redirect}/${token}`);
+    await this.usersRepository.updateById(user.id, { deactivator: token });
 
     return { email: user.email, uuid: user.uuid };
   }
@@ -185,6 +187,10 @@ export class UsersUsecase {
 
     if (!user) {
       throw new UserNotFoundError();
+    }
+
+    if (user.configuration?.disableDeactivation) {
+      throw new UserDeactivationDisabledError();
     }
 
     await this.destroyUser(user.id);

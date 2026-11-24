@@ -95,6 +95,11 @@ const UserSchema = new Schema<IUser>(
         preferences: {
             dnt: { type: Boolean, default: false, required: true },
         },
+        configuration: {
+            disableDeactivation: { type: Boolean, default: false, required: false },
+            disableResetPassword: { type: Boolean, default: false, required: false },
+            disableBucketDeletion: { type: Boolean, default: false, required: false },
+        },
         totalUsedSpaceBytes: { type: Number, default: 0 },
         maxSpaceBytes: { type: Number, default: 0 },
     },
